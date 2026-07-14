@@ -11,6 +11,14 @@ locale:
   languages: [de]
   region: null
 
+# Google Search Console — SA-Zugriff eingerichtet (read-only).
+# Achtung: als URL-Prefix-Property angebunden, nicht als Domain-Property.
+# Alle Varianten (non-www, http) leiten auf https://www.openstream.ch/ → volle Abdeckung.
+gsc:
+  property_type: url_prefix
+  site_url: "https://www.openstream.ch/"
+  verified: true
+
 report:
   recipient: nick@openstream.ch
 

@@ -423,8 +423,14 @@ Immer zwei Perspektiven pro Kennzahl: **Momentaufnahme** (aktueller Stand) und
 - [x] Kern-Entscheidungen geklärt: keine Suites, kein eigener Crawler (nur APIs),
       wöchentlich crawlen/monatlich auswerten, Diagramme Pflicht, Onboarding mit
       Kundenfreigabe, plain PHP + Composer, YAML pro Kunde + DB, Gerüst zuerst.
-- [ ] DataForSEO-Account + API-Key anlegen (Sandbox: $1 gratis zum Testen) — **du**
-- [ ] **DataForSEO-Länder/Sprach-Check** für CH+Deutsch je LLM-Engine (s.o. TODO)
+- [x] DataForSEO-Account angelegt, verifiziert, API funktioniert (echter CH-SERP-Test).
+- [x] **DataForSEO-Länder/Sprach-Check** erledigt (s.o.: Mentions=nur `google` für CH;
+      GEO via LLM-Responses ChatGPT+Gemini auf Deutsch).
+- [x] **GSC-Zugriff für openstream.ch eingerichtet** (Service-Account
+      gsc-reader@openstream-apis, read-only, via Skill gsc-api-access). Verifiziert:
+      136 Klicks / 47'312 Impr. / Ø-Pos 22.5 (28 T). URL-Prefix-Property, deckt alles ab.
+      Key liegt ausserhalb des Repos; Token-Helper `gsc_token.sh`. **hepro.ch ebenfalls
+      schon am selben SA angebunden.**
 - [ ] Bing Webmaster Tools: Ziel-Domains verifizieren, API-Key holen,
       AI-Performance-Report für die 4 Domains sichten (was liefert er real?)
 - [ ] Ziel-Kunden + Keywords + GEO-Prompts pro Kunde grob festlegen
