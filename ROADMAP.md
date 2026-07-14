@@ -268,10 +268,13 @@ Alles Schweizer Domains, deutschsprachig, lokaler Fokus. Konsequenzen:
 > Kosten der LLM-Responses-Calls gegen OpenAI-direkt vergleichen und den günstigeren
 > Weg wählen. Perplexity via Sonar-API als eigener Kanal bleibt Option.
 
-**⏳ Offen (Konto-Freischaltung):** Kostenpflichtige POST/live-Endpoints geben noch
-`40104 "verify your account"` (nur GET-Metadaten gehen). Wahrscheinlich fehlt
-Zahlungsmethode/Einzahlung im Panel (app.dataforseo.com/api-access). Danach:
-echten LLM-Responses-Call auf Deutsch + SERP/OnPage/Backlinks für openstream.ch testen.
+**✅ Konto freigeschaltet & End-to-End getestet (14.07.2026):** SERP `task_post`
+(Standard-Queue) für Google CH/de lief durch — echte CH-Rankings abgerufen
+(z.B. „webentwicklung zürich": ebro.ch #4, s-pro.io #5, webagentur.ch #6),
+Kosten $0.0006/Query wie kalkuliert. Auth → task_post → task_get bestätigt.
+(Die 40104-Meldung war zeitverzögerte Verifizierung, jetzt erledigt.)
+**Nächster Test nach Bedarf:** LLM-Responses-Call auf Deutsch (ChatGPT/Gemini) +
+OnPage/Backlinks für openstream.ch.
 
 ---
 
