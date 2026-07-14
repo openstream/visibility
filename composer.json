@@ -2,7 +2,7 @@
     "name": "openstream/visibility-dashboard",
     "description": "SEO + GEO Visibility Dashboard (Google, Bing, ChatGPT, Perplexity) für openstream.ch — nur für Nick, monatliche Reports auf Deutsch.",
     "type": "project",
-    "license": "proprietary",
+    "license": "MIT",
     "require": {
         "php": ">=8.3",
         "ext-json": "*",
