@@ -17,7 +17,7 @@ Siehe `CLAUDE.md` für Rahmenbedingungen und Stack.
 |---|---|---|---|---|
 | **Google Search Console API** | offiziell, OAuth/Service-Account | **kostenlos** | Echte Klicks, Impressions, CTR, Position pro Query & Seite — nur für *eigene* verifizierte Properties | **Erste Wahl**, wo GSC-Zugriff besteht. Skill `gsc-api-access` existiert bereits. |
 | **GSC — Search Generative AI Report** | offiziell | **kostenlos** | Impressions/Pages/Countries/Devices in **AI Overviews & AI Mode** (Daten ab 18.05.2026, **keine Queries/Klicks/CTR**) | ⚠️ **Angekündigt 3. Juni 2026, Rollout nur an UK-Teilmenge, keine API.** Bei unseren CH-Domains (z.B. hepro.ch) **noch nicht sichtbar.** → Als „kommt später" einplanen, nicht darauf warten; sobald verfügbar für AIO-Seiten-Signale nutzen. |
-| **Bing Webmaster Tools** | offiziell | **kostenlos** | Bing-Rankings/Impressions/Klicks **und** der neue **AI Performance (Beta)** Report: Citations in Microsoft Copilot & Bing-AI-Summaries, „Grounding Queries", Citation-Share, Seiten-Level. Nur für *eigene* verifizierte Properties. | **Einbauen.** Klassische WMT-Daten haben eine API. **Achtung AI-Report: aktuell NUR Dashboard-UI, noch KEINE API** — Microsoft hat API-Zugang „im Laufe 2026" versprochen (Stand Juli 2026 noch nicht live). Bis dahin AI-Zahlen manuell/halbautomatisch (Scraping der eingeloggten UI) übernehmen. Daten sind ausserdem eine **Stichprobe**, keine Vollerhebung. |
+| **Bing Webmaster Tools** | offiziell | **kostenlos** | Bing-Rankings/Impressions/Klicks (API ✅, umgesetzt) **und** der **AI Performance (Beta)** Report: Citations in Microsoft Copilot & Bing-AI-Summaries, „Grounding Queries", Intents/Topics/Citation-Share/Compare (seit Juni 2026). Nur für *eigene* verifizierte Properties. | Klassische WMT-Daten ✅ via API (`BingWmtClient`/`BingSerpProvider`). **AI-Report: weiterhin KEINE API** (Microsoft: „im Laufe 2026", Juli 2026 noch nicht live). **Aber CSV-Export über die UI** (bing.com/webmasters/aiperformance) → sauberer Datenpfad: manueller CSV-Import statt Scrape. **90-Tage-Fenster** → regelmässig exportieren & selbst archivieren. Daten sind eine **Stichprobe**. |
 | **DataForSEO — SERP API** | pay-per-task | ~$0.0006/Query (Standard-Queue, ~5 Min) bis $0.002 (Live, ~6 Sek) | Google-Rankings für beliebige Keywords/Domains *ohne* GSC-Zugriff; Wettbewerber-Rankings. **Unterstützt Schweiz + Deutsch** (`location="Switzerland"`, `gl=ch`, `hl=de`; Labs deckt DE/FR/IT für CH ab). PHP-Beispiele in Doku. | **Zweite Wahl / Ergänzung** für SEO. Günstigster Anbieter bei Volumen, transparentes Pay-per-Query. |
 | SerpApi | Abo | ab $25/Mt (1'000 Suchen), $75 (5'000) | SERP-Scraping, >100 Engines, `gl=ch`/`hl=de`/`location` | Backup zu DataForSEO. Teurer bei Volumen, aber sauberes JSON & breite Abdeckung. |
 | ValueSERP / ScaleSERP, Scrapingdog, Bright Data, Oxylabs SERP | pay-per-1K | ~$0.30–1.60 / 1'000 | Reine Google-SERP-Scraper mit CH-Targeting (UULE/`gl=ch`) | Günstige SERP-only-Alternativen. Kein Keyword-/Backlink-/GEO-Mehrwert. Nur falls DataForSEO nicht reicht. |
@@ -208,8 +208,8 @@ ist die zentrale bezahlte Quelle über vier Rollen hinweg; alles andere ist grat
 
 - **Google-SEO (Rankings):** GSC API (gratis) wo Property verifiziert, sonst
   DataForSEO SERP (`gl=ch, hl=de`).
-- **Bing-SEO + Bing-AI:** Bing Webmaster Tools — klassische Daten via API,
-  **AI-Performance-Report vorerst manuell/UI-Scrape** (noch keine API).
+- **Bing-SEO + Bing-AI:** Bing Webmaster Tools — klassische Rankings via API (✅),
+  **AI-Performance-Report via CSV-Import** (noch keine API; UI-Export, 90-Tage-Fenster).
 - **Onsite/technisch:** DataForSEO OnPage (Crawl-Backbone via API) + PageSpeed/CrUX/
   GSC + Mozilla Observatory (alle gratis). **Kein eigener Crawler.**
 - **Offsite/Backlinks:** DataForSEO Backlinks (einzige bezahlte Quelle) + gratis
@@ -321,7 +321,7 @@ Weitere abgeleitet wird.
 | Quelle | Liefert | Für | Status |
 |---|---|---|---|
 | **Google Search Console** (eigene Property) | echte Suchanfragen (Query, Klicks, Impressions, Position) | **beste Keyword-Quelle**; auch Prompt-Saatgut | ✅ via API verfügbar |
-| **Bing Webmaster Tools** | Suchanfragen **+ AI Performance „Grounding Queries"** (welche Fragen KI-Antworten mit Zitat der Seite auslösten) | **Prompt-Saatgut aus echten KI-Anfragen** | Klassik via API; **AI-Report nur UI** → manuell/Scrape übernehmen |
+| **Bing Webmaster Tools** | Suchanfragen (API) **+ AI Performance „Grounding Queries"** (welche Fragen KI-Antworten mit Zitat der Seite auslösten) | **Prompt-Saatgut aus echten KI-Anfragen** | Klassik via API (✅); **AI-Report via CSV-Export** (keine API) → Grounding-Queries aus CSV einlesen |
 | **Google Search Console — Search Generative AI Report** | Impressions/Pages/Countries/Devices in AI Overviews & AI Mode (**keine Queries!**) | zeigt, *welche Seiten* in AIO auftauchen → daraus Themen ableiten | ⚠️ **angekündigt 3. Juni 2026, Rollout nur an UK-Teilmenge, Daten ab 18.05.2026, keine API.** Bei hepro.ch & Co. **noch nicht sichtbar** → als „kommt später" einplanen, nicht darauf warten. |
 | **DataForSEO** (Keyword-Ideen, „people also ask", verwandte Suchen, AI-Keyword-Data) | Keyword-Vorschläge & Volumen für CH, Frageformulierungen | Keyword- **und** Prompt-Ideen für Domains ohne/mit wenig GSC-Daten | ✅ via API |
 | **Website-Inhalt → Website-Profil** (via DataForSEO OnPage / Firecrawl API + LLM) | Was die Seite IST, Absicht/Ziel, Angebot, Zielgruppe, Positionierung, Marke | **Grundlage (Schritt 0)** für Kategorie- & Marken-Prompts — Innensicht | ✅ API + LLM |
@@ -526,8 +526,18 @@ Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openst
       (GetQueryStats, pro Query aggregiert, engine=bing/source=bing_wmt). In collect
       eingebunden (`bing.site_url`). Getestet auf openstream: 9 Messwerte inkl.
       Plattform-Kombos. Key hat 14 verifizierte Properties (u.a. openstream/foppa/hepro;
-      schwarzenbach.ch fehlt noch). **AI-Performance-Report weiterhin ohne API** →
-      separat/manuell (später), noch nicht implementiert.
+      schwarzenbach.ch fehlt noch).
+- [ ] **Bing AI Performance Report (CSV-Import)** — eigener Datenpfad, da KEINE API:
+      - Report exportieren: bing.com/webmasters/aiperformance → CSV (Citations,
+        Grounding Queries, seit Juni 2026 Intents/Topics/Citation-Share).
+      - **90-Tage-Fenster** → regelmässig (monatlich) exportieren, damit Historie
+        erhalten bleibt. CSV nach `storage/raw/<kunde>/bing_ai/<YYYY-MM>.csv` ablegen.
+      - `BingAiImporter`: CSV parsen → `ai_mentions` (engine=`bing_ai`, source=`bing_ui`,
+        mentioned/cited/Citations). Als **Stichprobe** im Report kennzeichnen.
+      - **Grounding Queries zusätzlich als GEO-Prompt-Saatgut** ans Onboarding geben.
+      - Kommando: `bin/console import-bing-ai --client=<slug> --file=<csv>`.
+      - Sobald Microsoft die API liefert (angekündigt „im Laufe 2026"): auf API umstellen,
+        Importer als Fallback behalten.
 - [ ] `OnsiteProvider`-Interface + Implementierungen (**rein API-basiert**):
       - DataForSEO OnPage (Crawl-Backbone via API, 60+ technische Checks inkl.
         hreflang de/fr/it-CH, Alt-Texte, strukturierte Daten, Broken Links)
