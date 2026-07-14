@@ -6,6 +6,8 @@ namespace Openstream\Visibility\Command;
 
 use Openstream\Visibility\App;
 use Openstream\Visibility\Database\ClientRepository;
+use Openstream\Visibility\Provider\BingSerpProvider;
+use Openstream\Visibility\Provider\BingWmtClient;
 use Openstream\Visibility\Provider\DataForSeoClient;
 use Openstream\Visibility\Provider\DataForSeoSerpProvider;
 use Openstream\Visibility\Provider\GscClient;
@@ -85,6 +87,22 @@ final class CollectCommand extends Command
             }
         } else {
             $io->text('Keine GSC-Property — überspringe GSC.');
+        }
+
+        // --- Bing Webmaster Tools (gratis, eigene Property) ---
+        $bingSite = $cfg['bing']['site_url'] ?? null;
+        if ($bingSite) {
+            try {
+                $provider = new BingSerpProvider(BingWmtClient::fromEnv(), $bingSite);
+                $measurements = $provider->collect($keywords);
+                $n = $repo->saveMeasurements($clientId, $measurements, $measuredAt);
+                $io->success("Bing: {$n} Messwerte erhoben und gespeichert.");
+                $total += $n;
+            } catch (\Throwable $e) {
+                $io->warning('Bing-Erhebung fehlgeschlagen: ' . $e->getMessage());
+            }
+        } else {
+            $io->text('Keine Bing-Property — überspringe Bing.');
         }
 
         // --- DataForSEO SERP (optional, kostet) ---

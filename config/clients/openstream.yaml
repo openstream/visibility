@@ -19,6 +19,12 @@ gsc:
   site_url: "https://www.openstream.ch/"
   verified: true
 
+# Bing Webmaster Tools — Property verifiziert (klassische Rankings via API).
+# Der Bing "AI Performance"-Report hat noch keine API → separat/manuell (später).
+bing:
+  site_url: "https://www.openstream.ch/"
+  verified: true
+
 report:
   recipient: nick@openstream.ch
 
