@@ -22,6 +22,18 @@ gsc:
 report:
   recipient: nick@openstream.ch
 
+# Wichtige Seiten fürs Website-Verständnis (Onboarding Schritt 0). Ergänzen die
+# Startseite, damit das Profil auch die Kernbereiche erfasst — nicht nur die Homepage.
+# Die Plattform-Seiten sollen openstream als Experten für diese Systeme etablieren.
+key_pages:
+  - "https://www.openstream.ch/"
+  - "https://www.openstream.ch/wordpress"
+  - "https://www.openstream.ch/woocommerce"
+  - "https://www.openstream.ch/shopify"
+  - "https://www.openstream.ch/magento/"
+  - "https://www.openstream.ch/blog/"
+  - "https://www.openstream.ch/vlog/"      # neuer Kurzvideo-Kanal zu den Blog-Themen
+
 competitors: []          # beim Onboarding aus SERP/Wissen ergänzen
 
 keywords:

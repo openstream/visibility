@@ -51,10 +51,15 @@ final class OnboardCommand extends Command
         $cfg = Yaml::parseFile($cfgFile);
         $domain = $cfg['domain'] ?? $slug;
 
-        // Zu analysierende URLs bestimmen (Default: Startseite https).
-        $urls = $input->getOption('urls')
-            ? array_map('trim', explode(',', (string) $input->getOption('urls')))
-            : ["https://www.{$domain}/", "https://{$domain}/"];
+        // Zu analysierende URLs bestimmen. Priorität:
+        // 1) --urls Override, 2) key_pages aus der Config, 3) Startseite als Fallback.
+        if ($input->getOption('urls')) {
+            $urls = array_map('trim', explode(',', (string) $input->getOption('urls')));
+        } elseif (!empty($cfg['key_pages'])) {
+            $urls = $cfg['key_pages'];
+        } else {
+            $urls = ["https://www.{$domain}/", "https://{$domain}/"];
+        }
         $urls = array_values(array_unique($urls));
 
         $dfs = new DataForSeoClient();
