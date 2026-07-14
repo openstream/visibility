@@ -1,0 +1,28 @@
+# hepro.ch — Keywords & GEO-Prompts werden beim Onboarding (Phase 1.5) generiert.
+# Hinweis: bei hepro.ch ist der GSC "Search Generative AI Report" noch NICHT sichtbar
+# (UK-Teilrollout) — GEO-Prompts daher aus GSC-Queries/Bing/DataForSEO generieren.
+
+slug: hepro
+name: Hepro
+domain: hepro.ch
+
+locale:
+  country: Switzerland
+  gl: ch
+  languages: [de]
+  region: null
+
+report:
+  recipient: null          # Empfänger vor erstem Versand eintragen
+
+competitors: []
+
+keywords:
+  approved: false
+  approved_at: null
+  list: []
+
+geo_prompts:
+  approved: false
+  approved_at: null
+  list: []

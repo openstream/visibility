@@ -1,0 +1,26 @@
+# schwarzenbach.ch — Keywords & GEO-Prompts werden beim Onboarding (Phase 1.5) generiert.
+
+slug: schwarzenbach
+name: Schwarzenbach
+domain: schwarzenbach.ch
+
+locale:
+  country: Switzerland
+  gl: ch
+  languages: [de]
+  region: null
+
+report:
+  recipient: null          # Empfänger vor erstem Versand eintragen
+
+competitors: []
+
+keywords:
+  approved: false
+  approved_at: null
+  list: []
+
+geo_prompts:
+  approved: false
+  approved_at: null
+  list: []
