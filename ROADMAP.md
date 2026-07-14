@@ -522,9 +522,12 @@ Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openst
       ~5 Min). Schreibt Zeitreihe → `measurements` (idempotent pro Tag/Quelle).
 - [x] **Plattform-Keyword-Kombinationen** (`KeywordCombiner`): WordPress/WooCommerce/
       Shopify/Magento × Rolle × Region deterministisch → 104 approved Keywords openstream.
-- [ ] `BingProvider`: WMT-API für klassische Bing-Daten. **AI-Performance-Report
-      separat** — bis Bing-API kommt: UI-Scrape (eingeloggt) oder manueller
-      CSV/Screenshot-Import; als eigener, klar markierter Datenpfad kapseln.
+- [x] **`BingSerpProvider` + `BingWmtClient`**: klassische Bing-Rankings via WMT-API
+      (GetQueryStats, pro Query aggregiert, engine=bing/source=bing_wmt). In collect
+      eingebunden (`bing.site_url`). Getestet auf openstream: 9 Messwerte inkl.
+      Plattform-Kombos. Key hat 14 verifizierte Properties (u.a. openstream/foppa/hepro;
+      schwarzenbach.ch fehlt noch). **AI-Performance-Report weiterhin ohne API** →
+      separat/manuell (später), noch nicht implementiert.
 - [ ] `OnsiteProvider`-Interface + Implementierungen (**rein API-basiert**):
       - DataForSEO OnPage (Crawl-Backbone via API, 60+ technische Checks inkl.
         hreflang de/fr/it-CH, Alt-Texte, strukturierte Daten, Broken Links)
