@@ -1,0 +1,7 @@
+# Mountet das GSC-Key-Verzeichnis (Service-Account-Key + Token-Helper) read-only
+# in den Web-Container, damit der GscClient im Container Tokens minten kann.
+# Die Keys bleiben ausserhalb des Repos (Host: ~/.config/gcloud-keys).
+services:
+  web:
+    volumes:
+      - "${HOME}/.config/gcloud-keys:/mnt/gcloud-keys:ro"
