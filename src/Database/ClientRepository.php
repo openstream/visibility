@@ -180,12 +180,58 @@ final class ClientRepository
         ];
     }
 
-    /** @return array<int,string> approved Keywords (Text) */
+    /** @return array<int,string> approved Keywords (id => keyword) */
     public function approvedKeywords(int $clientId): array
     {
         $stmt = $this->db->prepare('SELECT id, keyword FROM keywords WHERE client_id=? AND approved=1 ORDER BY id');
         $stmt->execute([$clientId]);
         return $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+    }
+
+    /**
+     * Schreibt Ranking-Messwerte mit measured_at (Zeitreihe). Idempotent pro
+     * (client, keyword, engine, source, Tag): vorhandene Zeilen desselben Tages
+     * werden ersetzt, damit ein erneuter collect-Lauf keine Dubletten erzeugt.
+     *
+     * @param array<int,\Openstream\Visibility\Provider\Measurement> $measurements
+     * @param string $measuredAt  Y-m-d
+     * @return int Anzahl geschriebener Zeilen
+     */
+    public function saveMeasurements(int $clientId, array $measurements, string $measuredAt): int
+    {
+        $del = $this->db->prepare(
+            'DELETE FROM measurements
+             WHERE client_id=:cid AND engine=:engine AND source=:source
+               AND measured_at=:mdate AND keyword_id <=> :kid'
+        );
+        $ins = $this->db->prepare(
+            'INSERT INTO measurements
+               (client_id, keyword_id, engine, position, url, impressions, clicks, ctr, source, measured_at)
+             VALUES
+               (:client_id, :keyword_id, :engine, :position, :url, :impressions, :clicks, :ctr, :source, :measured_at)'
+        );
+
+        $n = 0;
+        foreach ($measurements as $m) {
+            $del->execute([
+                'cid' => $clientId, 'engine' => $m->engine, 'source' => $m->source,
+                'mdate' => $measuredAt, 'kid' => $m->keywordId,
+            ]);
+            $ins->execute([
+                'client_id'   => $clientId,
+                'keyword_id'  => $m->keywordId,
+                'engine'      => $m->engine,
+                'position'    => $m->position,
+                'url'         => $m->url,
+                'impressions' => $m->impressions,
+                'clicks'      => $m->clicks,
+                'ctr'         => $m->ctr,
+                'source'      => $m->source,
+                'measured_at' => $measuredAt,
+            ]);
+            $n++;
+        }
+        return $n;
     }
 
     /** @param array<mixed> $v */
