@@ -282,8 +282,39 @@ OnPage/Backlinks für openstream.ch.
 
 Beim Onboarding einer Domain müssen **Keywords** (für Rankings) und **GEO-Prompts**
 (für die KI-Sichtbarkeit) erzeugt und dem Kunden **zur Prüfung/Freigabe vorgelegt**
-werden. Qualität hier = Qualität des ganzen Reports. Ansatz: aus echten Signalen
-generieren, per LLM ausformulieren, dann Mensch (Nick + Kunde) kuratieren.
+werden. Qualität hier = Qualität des ganzen Reports. Ansatz: **erst die Website
+verstehen**, dann aus echten Signalen generieren, per LLM ausformulieren, dann
+Mensch (Nick + Kunde) kuratieren.
+
+### Schritt 0: Die Website verstehen (Innensicht — Grundlage für alles Weitere)
+
+GSC-Queries & Keyword-Tools sind **Aussensicht** (wonach schon gesucht wird). Das
+allein reicht nicht — wir müssen zuerst verstehen, **was die Website IST und was ihre
+Absicht ist**, sonst gehen Kategorie-Zuordnung und v.a. Marken-Prompts an der
+tatsächlichen Positionierung vorbei. Dieser Schritt ist die Grundlage, aus der alles
+Weitere abgeleitet wird.
+
+**Vorgehen (API-basiert, kein eigener Crawler):**
+- **Inhalt holen:** Startseite + wichtigste Unterseiten (Leistungen/Produkte, Über
+  uns, Kontakt) via **DataForSEO OnPage** (liefert Inhalt/Struktur ohnehin) bzw.
+  **Firecrawl** (sauberes LLM-ready Markdown). Sitemap/Navigation nutzen, um die
+  relevanten Seiten zu wählen (nicht die ganze Site).
+- **Verstehen (LLM/Claude):** aus dem Inhalt ein strukturiertes **Website-Profil**
+  ableiten:
+  - **Was wird angeboten?** (Leistungen/Produkte, konkret)
+  - **Absicht/Ziel der Seite?** (verkaufen, Leads, informieren, Marke aufbauen …)
+  - **Zielgruppe & Region** (B2B/B2C, Branche, CH-Fokus/Kanton, Sprache/n)
+  - **Positionierung / USP / Tonalität** (wie beschreibt sich die Marke selbst?)
+  - **Marken-/Entitätsname(n)** und wie sie genannt werden
+  - **Content-Themen & wichtige Seiten** (woraus Kategorien werden)
+- **Ergebnis:** ein `website_profile` (JSON) pro Kunde, das in die Keyword-/Prompt-
+  Generierung einfliesst und im Onboarding-Report dem Kunden **auch zur Bestätigung
+  vorgelegt wird** („Haben wir eure Seite richtig verstanden?"). Wird in der DB/Config
+  gespeichert; ist selbst **lebende Config** (bei Relaunch/Neuausrichtung aktualisieren).
+
+> Ohne dieses Verständnis sind die Prompts geraten. Mit ihm sind Kategorie-Prompts
+> („bester Anbieter für *das, was die Seite wirklich tut*") und Marken-Prompts
+> („kennt die KI *diese Marke* korrekt?") trennscharf und aussagekräftig.
 
 ### Woher die Rohsignale kommen (datenbasiert, nicht geraten)
 
@@ -293,7 +324,7 @@ generieren, per LLM ausformulieren, dann Mensch (Nick + Kunde) kuratieren.
 | **Bing Webmaster Tools** | Suchanfragen **+ AI Performance „Grounding Queries"** (welche Fragen KI-Antworten mit Zitat der Seite auslösten) | **Prompt-Saatgut aus echten KI-Anfragen** | Klassik via API; **AI-Report nur UI** → manuell/Scrape übernehmen |
 | **Google Search Console — Search Generative AI Report** | Impressions/Pages/Countries/Devices in AI Overviews & AI Mode (**keine Queries!**) | zeigt, *welche Seiten* in AIO auftauchen → daraus Themen ableiten | ⚠️ **angekündigt 3. Juni 2026, Rollout nur an UK-Teilmenge, Daten ab 18.05.2026, keine API.** Bei hepro.ch & Co. **noch nicht sichtbar** → als „kommt später" einplanen, nicht darauf warten. |
 | **DataForSEO** (Keyword-Ideen, „people also ask", verwandte Suchen, AI-Keyword-Data) | Keyword-Vorschläge & Volumen für CH, Frageformulierungen | Keyword- **und** Prompt-Ideen für Domains ohne/mit wenig GSC-Daten | ✅ via API |
-| **Website-Inhalt** (via DataForSEO OnPage / Firecrawl API) | Leistungen, Produkte, Standort, USPs des Kunden | Kontext, um relevante Kategorien & Marken-Prompts zu bilden | ✅ API |
+| **Website-Inhalt → Website-Profil** (via DataForSEO OnPage / Firecrawl API + LLM) | Was die Seite IST, Absicht/Ziel, Angebot, Zielgruppe, Positionierung, Marke | **Grundlage (Schritt 0)** für Kategorie- & Marken-Prompts — Innensicht | ✅ API + LLM |
 | **Wettbewerber** (vom Kunden genannt / aus SERP) | Konkurrenznamen | für „alternatives to X"- und Vergleichs-Prompts | ✅ |
 
 ### Methodik für realistische GEO-Prompts (Best Practice 2026)
@@ -314,16 +345,21 @@ generieren, per LLM ausformulieren, dann Mensch (Nick + Kunde) kuratieren.
 
 ### Generierungs-Pipeline (halbautomatisch, mit Kundenfreigabe)
 
-1. **Sammeln:** GSC-Queries + Bing-Grounding-Queries + DataForSEO-Keyword-Ideen +
-   Website-Crawl + genannte Wettbewerber zusammenführen.
-2. **Clustern & Vorschlagen (LLM):** Claude bündelt die Rohsignale zu Themen und
-   formuliert daraus **Keyword-Liste** + **8 GEO-Prompt-Vorschläge** (5 Kategorie/
-   3 Marke) auf Deutsch, jeweils mit Begründung und Quell-Signal.
+0. **Website verstehen (Innensicht):** relevante Seiten via API holen → per LLM ein
+   **`website_profile`** ableiten (Angebot, Absicht, Zielgruppe, Region, Positionierung,
+   Marke). Grundlage für alle folgenden Schritte.
+1. **Sammeln (Aussensicht):** GSC-Queries + Bing-Grounding-Queries +
+   DataForSEO-Keyword-Ideen + genannte Wettbewerber zusammenführen.
+2. **Clustern & Vorschlagen (LLM):** Claude kombiniert **Website-Profil (0)** mit den
+   Rohsignalen (1), bündelt zu Themen und formuliert **Keyword-Liste** + **8
+   GEO-Prompt-Vorschläge** (5 Kategorie / 3 Marke) auf Deutsch, je mit Begründung und
+   Quell-Signal. Das Profil sorgt für Trennschärfe & korrekten Marken-Bezug.
 3. **Kuratieren (Nick):** durchsehen, schärfen, CH-Bezug prüfen.
-4. **Kundenfreigabe:** als übersichtliche Liste (Onboarding-Report `.md` oder
-   Web-UI) an den Kunden → er bestätigt/ergänzt/streicht.
-5. **Festschreiben:** freigegebene Keywords/Prompts → `geo_prompts`/`keywords` in
-   der DB, Status `approved`, mit Freigabedatum. Erst dann startet `collect`.
+4. **Kundenfreigabe:** Onboarding-Report `.md` mit **(a) Website-Profil zur
+   Bestätigung** („richtig verstanden?") **+ (b) Keyword-/Prompt-Vorschlägen** →
+   Kunde bestätigt/ergänzt/streicht.
+5. **Festschreiben:** freigegebenes Profil + Keywords/Prompts → DB, Status `approved`,
+   mit Freigabedatum. Erst dann startet `collect`.
 
 > **Wichtig:** Die Prompts sind das Herz der GEO-Messung. Sie einmal sauber mit
 > echten Daten + Kundenwissen aufzusetzen, entscheidet über die Aussagekraft aller
@@ -458,14 +494,17 @@ Immer zwei Perspektiven pro Kennzahl: **Momentaufnahme** (aktueller Stand) und
 ### Phase 1.5 — Onboarding einer Domain (Keywords & GEO-Prompts)
 Eigener Schritt **vor** der ersten Datenerhebung. Siehe „Keyword- & GEO-Prompt-
 Generierung". Ziel: freigegebene, CH-lokalisierte Keyword- und Prompt-Listen.
+- [ ] **Schritt 0 — Website verstehen:** relevante Seiten via API holen
+      (DataForSEO OnPage / Firecrawl) → per Claude `website_profile` ableiten
+      (Angebot, Absicht, Zielgruppe, Region, Positionierung, Marke) → `website_profiles`.
 - [ ] `bin/console onboard --client=<slug>`: Rohsignale sammeln — GSC-Queries,
       Bing-Grounding-Queries (soweit verfügbar), DataForSEO-Keyword-Ideen,
-      Website-Crawl, genannte Wettbewerber.
-- [ ] LLM-Schritt (Claude): Rohsignale → Themen-Cluster → Vorschlag von
-      Keyword-Liste + 8 GEO-Prompts (5 Kategorie / 3 Marke) auf Deutsch, je mit
-      Begründung + Quell-Signal.
-- [ ] **Onboarding-Report `.md`** (Deutsch) mit den Vorschlägen → Nick kuratiert →
-      **Kunde bestätigt/ergänzt/streicht**.
+      genannte Wettbewerber.
+- [ ] LLM-Schritt (Claude): **Website-Profil + Rohsignale** → Themen-Cluster →
+      Vorschlag von Keyword-Liste + 8 GEO-Prompts (5 Kategorie / 3 Marke) auf
+      Deutsch, je mit Begründung + Quell-Signal.
+- [ ] **Onboarding-Report `.md`** (Deutsch): **Website-Profil zur Bestätigung** +
+      Keyword-/Prompt-Vorschläge → Nick kuratiert → **Kunde bestätigt/ergänzt/streicht**.
 - [ ] Freigegebene Listen → `keywords`/`geo_prompts` mit Status `approved` +
       Freigabedatum. Erst dann darf `collect` laufen.
 - [ ] Re-Onboarding/Review quartalsweise möglich (Prompts sind lebende Config).

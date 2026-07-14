@@ -18,6 +18,30 @@ CREATE TABLE IF NOT EXISTS clients (
     UNIQUE KEY uq_clients_slug (slug)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Website-Profil (Innensicht): was die Seite IST und will. LLM-abgeleitet aus
+-- dem Website-Inhalt, vom Kunden bestätigt. Grundlage der Keyword-/Prompt-Generierung.
+-- Versioniert (lebende Config; bei Relaunch neu ableiten).
+CREATE TABLE IF NOT EXISTS website_profiles (
+    id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id     INT UNSIGNED NOT NULL,
+    summary       TEXT         NULL,           -- Kurzbeschreibung: was die Seite ist/tut
+    intent        VARCHAR(255) NULL,           -- Absicht: verkaufen | leads | informieren | brand ...
+    offerings     JSON         NULL,           -- Leistungen/Produkte
+    audience      TEXT         NULL,           -- Zielgruppe (B2B/B2C, Branche)
+    region        VARCHAR(128) NULL,           -- geografischer Fokus (CH/Kanton/Stadt)
+    positioning   TEXT         NULL,           -- USP / Positionierung / Tonalität
+    brand_names   JSON         NULL,           -- Marken-/Entitätsnamen
+    topics        JSON         NULL,           -- Content-Themen / wichtige Seiten
+    source_urls   JSON         NULL,           -- welche Seiten analysiert wurden
+    raw           JSON         NULL,           -- vollständiges LLM-Profil
+    approved      TINYINT(1)   NOT NULL DEFAULT 0,
+    approved_at   DATETIME     NULL,
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_website_profiles_client (client_id),
+    CONSTRAINT fk_website_profiles_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS competitors (
     id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     client_id  INT UNSIGNED NOT NULL,

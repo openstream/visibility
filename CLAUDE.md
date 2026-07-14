@@ -119,12 +119,17 @@ können, ohne den Report-Code anzufassen. API-Keys nur aus `.env`.
 - **Kunden-Konfiguration** deklarativ: pro Kunde Domain, zu trackende Keywords,
   GEO-Prompts (die Fragen, mit denen wir ChatGPT/Perplexity testen),
   Wettbewerber, Empfänger-Mail. Als DB-Einträge oder YAML pro Kunde.
-- **Onboarding vor Erhebung:** Keywords & GEO-Prompts werden beim Onboarding aus
-  echten Signalen (GSC/Bing/DataForSEO/Website) generiert, per LLM vorgeschlagen,
-  von Nick kuratiert und **vom Kunden freigegeben** (Status `approved`). `collect`
-  läuft erst mit freigegebenen Listen. GEO-Prompts sind CH-lokalisiert (Region,
-  ggf. de/fr/it) und **lebende Config** (quartalsweise prüfen). Siehe ROADMAP
-  → „Keyword- & GEO-Prompt-Generierung".
+- **Onboarding vor Erhebung — beginnt mit dem Verstehen der Website:** Zuerst wird
+  der Website-Inhalt (via API, kein eigener Crawler) analysiert und per LLM ein
+  **`website_profile`** abgeleitet (was die Seite IST, ihre Absicht/Ziel, Angebot,
+  Zielgruppe, Region, Positionierung, Marke). Das ist die **Innensicht** und die
+  Grundlage für alles Weitere — ohne sie sind Kategorie-/Marken-Prompts geraten.
+  Erst darauf aufbauend werden Keywords & GEO-Prompts aus echten Signalen
+  (GSC/Bing/DataForSEO) generiert, per LLM vorgeschlagen, von Nick kuratiert und
+  **vom Kunden freigegeben** (Status `approved`) — inkl. Bestätigung des Profils
+  („richtig verstanden?"). `collect` läuft erst mit freigegebenen Listen.
+  Profil & Prompts sind CH-lokalisiert und **lebende Config** (quartalsweise/bei
+  Relaunch prüfen). Siehe ROADMAP → „Keyword- & GEO-Prompt-Generierung".
 - **Reports** landen unter `storage/reports/<kunde>/<YYYY-MM>.md`. Roh-API-Antworten
   unter `storage/raw/...` cachen (Kosten + Reproduzierbarkeit).
 - **Kein Live-API-Call in der Web-UI** ohne Not — teuer/langsam. UI liest aus DB;
