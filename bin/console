@@ -4,6 +4,7 @@
 declare(strict_types=1);
 
 use Openstream\Visibility\App;
+use Openstream\Visibility\Command\ApproveCommand;
 use Openstream\Visibility\Command\CollectCommand;
 use Openstream\Visibility\Command\MigrateCommand;
 use Openstream\Visibility\Command\OnboardCommand;
@@ -26,6 +27,7 @@ $app = new Application('Visibility Dashboard', '0.1.0-dev');
 $app->addCommands([
     new MigrateCommand(),
     new OnboardCommand(),
+    new ApproveCommand(),
     new CollectCommand(),
     new ReportCommand(),
     new SendCommand(),

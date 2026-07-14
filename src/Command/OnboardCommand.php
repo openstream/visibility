@@ -29,7 +29,8 @@ final class OnboardCommand extends Command
     protected function configure(): void
     {
         $this->addOption('client', null, InputOption::VALUE_REQUIRED, 'Kunden-Slug (config/clients/<slug>.yaml)');
-        $this->addOption('urls', null, InputOption::VALUE_REQUIRED, 'Kommagetrennte URLs (Default: Startseite)');
+        $this->addOption('urls', null, InputOption::VALUE_REQUIRED, 'Kommagetrennte URLs (Default: key_pages/Startseite)');
+        $this->addOption('save', null, InputOption::VALUE_NONE, 'Ergebnisse in die DB schreiben (Status pending → approve nötig)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -117,7 +118,24 @@ final class OnboardCommand extends Command
 
         $io->success("Onboarding-Report: {$reportPath}");
         $io->note(sprintf('DataForSEO-Kosten dieses Laufs: $%.4f', $dfs->spent()));
-        $io->text('Bitte prüfen, mit Kunde abstimmen, freigegebene Listen in die Config/DB übernehmen.');
+
+        // --- Optional: in die DB schreiben (Status pending) ---
+        if ($input->getOption('save')) {
+            try {
+                $repo = new \Openstream\Visibility\Database\ClientRepository();
+                $clientId = $repo->upsertFromConfig($cfg);
+                $repo->saveWebsiteProfile($clientId, $profile, $result['source_urls']);
+                $nk = $repo->addKeywords($clientId, $suggestions['keywords']);
+                $np = $repo->addGeoPrompts($clientId, $suggestions['geo_prompts']);
+                $io->success("In DB gespeichert (client_id={$clientId}): +{$nk} Keywords, +{$np} GEO-Prompts, 1 Profil — Status pending.");
+                $io->text("Freigeben mit:  bin/console approve --client={$slug}");
+            } catch (\Throwable $e) {
+                $io->error('DB-Speicherung fehlgeschlagen: ' . $e->getMessage());
+                return Command::FAILURE;
+            }
+        } else {
+            $io->text('Report prüfen. Mit --save in die DB schreiben, danach `approve` zur Freigabe.');
+        }
 
         return Command::SUCCESS;
     }
