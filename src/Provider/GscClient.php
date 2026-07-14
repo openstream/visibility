@@ -14,7 +14,7 @@ use Openstream\Visibility\App;
  *
  * .env: GSC_KEYFILE (Service-Account-JSON, ausserhalb Repo), GSC_TOKEN_HELPER.
  */
-final class GscClient
+class GscClient
 {
     private Client $http;
     private ?string $token = null;

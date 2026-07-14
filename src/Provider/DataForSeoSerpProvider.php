@@ -46,7 +46,7 @@ final class DataForSeoSerpProvider implements SerpProvider
         $this->dfs->post('serp/google/organic/task_post', $tasks);
 
         // 2) Warten, bis die Tasks fertig sind (tasks_ready), Ergebnisse abholen.
-        $normalized = $this->domainNeedle($this->domain);
+        $normalized = self::domainNeedle($this->domain);
         $out = [];
         $collectedIds = [];
         $deadline = time() + $this->maxWaitSeconds;
@@ -65,7 +65,7 @@ final class DataForSeoSerpProvider implements SerpProvider
                 $keywordId = isset($task['data']['tag']) ? (int) $task['data']['tag'] : null;
                 $items = $task['result'][0]['items'] ?? [];
 
-                [$position, $url] = $this->findDomain($items, $normalized);
+                [$position, $url] = self::findDomain($items, $normalized);
                 $out[] = new Measurement(
                     engine:      'google',
                     keywordId:   $keywordId,
@@ -81,8 +81,13 @@ final class DataForSeoSerpProvider implements SerpProvider
         return $out;
     }
 
-    /** Findet die erste organische Position der Domain. @return array{0:?float,1:?string} */
-    private function findDomain(array $items, string $needle): array
+    /**
+     * Findet die erste organische Position der Domain in SERP-Items.
+     * public static = ohne Instanz/API testbar. @return array{0:?float,1:?string}
+     *
+     * @param array<int,array<string,mixed>> $items
+     */
+    public static function findDomain(array $items, string $needle): array
     {
         foreach ($items as $it) {
             if (($it['type'] ?? '') !== 'organic') {
@@ -96,7 +101,8 @@ final class DataForSeoSerpProvider implements SerpProvider
         return [null, null]; // nicht in den Ergebnissen gefunden
     }
 
-    private function domainNeedle(string $domain): string
+    /** Normalisiert eine Domain zum Vergleichs-Needle (ohne Schema/www/Trailing-Slash). */
+    public static function domainNeedle(string $domain): string
     {
         $d = strtolower($domain);
         $d = preg_replace('#^https?://#', '', $d);
