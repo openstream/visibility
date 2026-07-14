@@ -25,10 +25,11 @@ final class WebsiteAnalyzer
             'audience'    => ['type' => 'string', 'description' => 'Zielgruppe (B2B/B2C, Branche).'],
             'region'      => ['type' => 'string', 'description' => 'Geografischer Fokus (CH/Kanton/Stadt), leer wenn unklar.'],
             'positioning' => ['type' => 'string', 'description' => 'USP / Positionierung / Tonalität.'],
-            'brand_names' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Marken-/Firmennamen wie genannt.'],
+            'brand_names' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'NUR die EIGENEN Marken/Firmennamen DIESES Betreibers (der Domain). KEINE besprochenen Dritt-, Produkt- oder Wettbewerbermarken.'],
+            'mentioned_third_parties' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Fremd-/Dritt-Marken, Plattformen oder Produkte, die im Inhalt nur BESPROCHEN/erwähnt werden (z.B. Tools, Anbieter, Wettbewerber) — gehören NICHT zum Betreiber.'],
             'topics'      => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Content-Themen / wichtige Bereiche.'],
         ],
-        'required'             => ['summary', 'intent', 'offerings', 'audience', 'region', 'positioning', 'brand_names', 'topics'],
+        'required'             => ['summary', 'intent', 'offerings', 'audience', 'region', 'positioning', 'brand_names', 'mentioned_third_parties', 'topics'],
         'additionalProperties' => false,
     ];
 
@@ -49,7 +50,12 @@ final class WebsiteAnalyzer
 
         $system = 'Du bist ein SEO-/Marktanalyst. Analysiere den Inhalt einer Website und '
             . 'beschreibe präzise, WAS die Seite ist und WELCHE ABSICHT sie hat. Antworte auf Deutsch. '
-            . 'Sei konkret und knapp; rate nicht, wenn etwas nicht im Inhalt steht (dann leer lassen).';
+            . 'Sei konkret und knapp; rate nicht, wenn etwas nicht im Inhalt steht (dann leer lassen). '
+            . 'WICHTIG — Marken sauber trennen: `brand_names` enthält NUR die eigenen Marken des '
+            . 'Betreibers dieser Domain. Marken, Tools, Produkte oder Anbieter, über die im Inhalt '
+            . 'nur BERICHTET/geschrieben wird (typisch in Blog-/Vlog-Artikeln), sind DRITT-Marken und '
+            . 'gehören ausschliesslich in `mentioned_third_parties` — niemals in `brand_names`. '
+            . 'Im Zweifel: eine Marke, die nur Gegenstand eines Artikels ist, ist NICHT die eigene Marke.';
 
         $prompt = "Domain: {$domain}\n\n"
             . "Nachfolgend der Inhalt der wichtigsten Seiten dieser Website. "

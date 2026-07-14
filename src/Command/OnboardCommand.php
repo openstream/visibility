@@ -142,9 +142,14 @@ final class OnboardCommand extends Command
         $md .= "- **Zielgruppe:** " . ($profile['audience'] ?? '') . "\n";
         $md .= "- **Region:** " . (($profile['region'] ?? '') ?: '—') . "\n";
         $md .= "- **Positionierung/USP:** " . ($profile['positioning'] ?? '') . "\n";
-        $md .= "- **Marke(n):** " . implode(', ', $profile['brand_names'] ?? []) . "\n";
+        $md .= "- **Eigene Marke(n):** " . implode(', ', $profile['brand_names'] ?? []) . "\n";
         $md .= "- **Leistungen:** " . implode(', ', $profile['offerings'] ?? []) . "\n";
-        $md .= "- **Themen:** " . implode(', ', $profile['topics'] ?? []) . "\n\n";
+        $md .= "- **Themen:** " . implode(', ', $profile['topics'] ?? []) . "\n";
+        if (!empty($profile['mentioned_third_parties'])) {
+            $md .= "- **Erwähnte Dritt-Marken/Plattformen** (nur besprochen, NICHT eigene): "
+                . implode(', ', $profile['mentioned_third_parties']) . "\n";
+        }
+        $md .= "\n";
         $md .= "_Analysierte Seiten:_ " . implode(', ', $sourceUrls) . "\n\n";
 
         $md .= "## 2. Keyword-Vorschläge (Google-Rankings)\n\n";
