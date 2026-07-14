@@ -74,6 +74,48 @@ Trust-Flow/Citation-Flow-Metrik (Majestic-exklusiv) — brauchen wir nicht.
 
 ---
 
+## DataForSEO — vollständiges Fähigkeits-Inventar (für Feature-Planung)
+
+DataForSEO ist deutlich vielseitiger als nur die 4 Kern-Rollen. Alles läuft über
+**einen Account (REST API, Basic Auth: Login+Passwort), pay-per-task**. Unten das
+komplette Inventar — was wir **jetzt** nutzen (Kern) und was **später** interessante
+Features ermöglicht. Damit wir beim Bauen den `DataForSeoClient` gleich so schneiden,
+dass neue Endpunkte einfach andockbar sind.
+
+**Onboarding-Auswahl (im DataForSEO-Setup ankreuzen):** SERP Tracking, Backlink
+Analysis, Keyword Research, Rank Tracking, Competitor Analysis, AI/LLM Mentions,
+Content Optimization, Building SaaS Tool (+ Local SEO). Integration: **REST API**.
+
+| API-Gruppe | Liefert | Nutzung bei uns |
+|---|---|---|
+| **SERP API** | Rankings Google/Bing/YouTube/Yahoo u.a.; organic, maps, news, images, features | ✅ **Kern** — Google/Bing-Rankings |
+| **OnPage API** | Crawl + technisches Audit: Meta, Headings, Canonicals, hreflang, Broken Links, Duplicate Content, Lighthouse/CWV | ✅ **Kern** — Onsite |
+| **Backlinks API** | referring domains/networks, Anchor-Texte, neu/verloren, Domain-Rank, Spam-Score, Wettbewerbsvergleich | ✅ **Kern** — Offsite |
+| **AI Optimization API** | LLM-Mentions & Citations (ChatGPT*/Perplexity/Gemini/AIO), LLM-Responses je Modell, AI-Keyword-Data | ✅ **Kern** — GEO (*ChatGPT nur US/EN → via OpenAI) |
+| **Keywords Data API** | Suchvolumen (Google/Bing Ads), Google Trends, Clickstream-Nachfrage | 🔜 **Onboarding** — Keyword-Ideen & Volumen für CH; „people also ask" als Prompt-Saat |
+| **DataForSEO Labs API** | Wettbewerber-Research, Keyword-Ideen, Ranked-Keywords, Domain-Vergleich, Kategorie-Analyse | 🔜 **Onboarding + Wettbewerb** — Konkurrenten & deren Keywords finden |
+| **Domain Analytics API** | Tech-Stack-Erkennung, WHOIS, Domain-Infos | 💡 **Später** — Tech-Kontext im Onsite-Report (z.B. CMS erkannt) |
+| **Content Analysis API** | Sentiment, Rating-Verteilung, Phrase-Trends über Web-Erwähnungen | 💡 **Später** — Marken-/Reputations-Signal (Brand-Mentions, Sentiment) neben GEO |
+| **Business Data API** | Google Business Profile, Bewertungen (Trustpilot/Tripadvisor), Local-Pack, Social-Mentions | 💡 **Später (relevant für CH-KMU!)** — Local SEO: GBP-Sichtbarkeit, Sterne, lokale Rankings |
+| **Merchant API** | Amazon / Google Shopping: Produkte, Preise, Reviews | ➖ nur falls ein Kunde E-Commerce/Shopping trackt |
+| **App Data API** | Google Play / App Store: Rankings, Reviews | ➖ nur falls ein Kunde eine App hat |
+
+**Priorisierung fürs spätere Backlog:**
+1. **Keywords Data + Labs** — direkt fürs Onboarding (Keyword-/Prompt-Generierung,
+   Wettbewerber-Findung). Kommen früh dran.
+2. **Business Data (Local SEO)** — für lokale CH-Kunden oft wertvoller als reine
+   Web-Rankings: Google-Business-Profile-Sichtbarkeit, Sterne-Bewertungen, Local Pack.
+   Guter Kandidat für einen eigenen Report-Abschnitt „Lokale Sichtbarkeit".
+3. **Content Analysis** — Brand-Mentions/Sentiment als Ergänzung zur GEO-Sektion.
+4. **Domain Analytics** — kleiner Tech-Kontext-Block im Onsite-Teil.
+
+> **Architektur-Konsequenz:** `DataForSeoClient` generisch bauen (Endpoint-Pfad +
+> Payload als Parameter, gemeinsames Auth/Retry/Cost-Logging), damit neue Gruppen
+> ohne Umbau andockbar sind. Provider (`SerpProvider`, `OnsiteProvider`, …) nutzen
+> denselben Client, nur mit anderem Endpoint.
+
+---
+
 ## Kostenübersicht — pro Domain / Monat (wöchentliche Erhebung)
 
 **Rhythmus:** 4 Läufe/Monat (wöchentlich). Alle Preise verifiziert (Juli 2026).

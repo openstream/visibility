@@ -90,7 +90,14 @@ Der Report kann **automatisch (monatlich) oder manuell** per Mail versendet werd
   **noch KEINE API** (Microsoft plant sie „im Laufe 2026") → vorerst über die
   eingeloggte UI (Scrape) oder manuellen Import; als eigener Datenpfad kapseln.
   Bing-AI-Daten sind laut Microsoft nur eine **Stichprobe**.
-- **DataForSEO** — pay-per-task:
+- **DataForSEO** — pay-per-task, **zentrale Datenquelle & sehr vielseitig** (REST,
+  Basic Auth Login+Passwort). Kern-Nutzung: SERP (Rankings), OnPage (Onsite),
+  Backlinks (Offsite), AI Optimization (GEO). Weitere Gruppen für spätere Features:
+  Keywords Data & Labs (Onboarding/Keyword-Ideen/Wettbewerber), Business Data
+  (Local SEO — für CH-KMU relevant), Content Analysis (Sentiment/Brand-Mentions),
+  Domain Analytics. **Vollständiges Inventar + Priorisierung in ROADMAP.**
+  → **`DataForSeoClient` generisch bauen** (Endpoint + Payload als Parameter,
+  gemeinsames Auth/Retry/Cost-Logging), damit neue Gruppen ohne Umbau andockbar sind.
   - SERP API: Google-Rankings für Keywords ohne GSC (CH+Deutsch unterstützt).
   - AI Optimization API: LLM-Mentions/Citations. **Aber: `chat_gpt` nur
     US/Englisch!** → für unsere CH-Domains **nur Perplexity/Gemini/AI-Overview**
