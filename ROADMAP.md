@@ -511,12 +511,20 @@ Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openst
       read-only in den Container gemountet (`/mnt/gcloud-keys`); `.env` zeigt dorthin.
 - [ ] Re-Onboarding/Review quartalsweise möglich (Prompts sind lebende Config).
 
-### Phase 2 — Datenerhebung (das Herzstück)
-- [ ] `SerpProvider`-Interface + GSC-Implementierung (via `gsc-api-access`)
+### Phase 2 — Datenerhebung (das Herzstück)  🟡 (Rankings fertig)
+- [x] `SerpProvider`-Interface + `Measurement`-DTO.
+- [x] **GSC-Implementierung** (`GscSerpProvider`): echte Position/Klicks/Impressionen/
+      CTR pro Query, Zuordnung zu approved Keywords. Auf openstream getestet (10 Messwerte).
+- [x] **DataForSEO-SERP-Implementierung** (`DataForSeoSerpProvider`): organische Position
+      der Kundendomain je Keyword via task_post→tasks_ready→task_get (Tag-Zuordnung).
+      Getestet: openstream Pos 4 für „ki anbieter schweiz", $0.0024/2 Keywords.
+- [x] `collect`-Kommando: GSC (gratis) immer, DataForSEO-SERP hinter `--serp` (kostet,
+      ~5 Min). Schreibt Zeitreihe → `measurements` (idempotent pro Tag/Quelle).
+- [x] **Plattform-Keyword-Kombinationen** (`KeywordCombiner`): WordPress/WooCommerce/
+      Shopify/Magento × Rolle × Region deterministisch → 104 approved Keywords openstream.
 - [ ] `BingProvider`: WMT-API für klassische Bing-Daten. **AI-Performance-Report
       separat** — bis Bing-API kommt: UI-Scrape (eingeloggt) oder manueller
       CSV/Screenshot-Import; als eigener, klar markierter Datenpfad kapseln.
-- [ ] DataForSEO-SERP-Implementierung (Keywords ohne GSC)
 - [ ] `OnsiteProvider`-Interface + Implementierungen (**rein API-basiert**):
       - DataForSEO OnPage (Crawl-Backbone via API, 60+ technische Checks inkl.
         hreflang de/fr/it-CH, Alt-Texte, strukturierte Daten, Broken Links)
