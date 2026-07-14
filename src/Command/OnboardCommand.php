@@ -108,6 +108,24 @@ final class OnboardCommand extends Command
             return Command::FAILURE;
         }
 
+        // Deterministische Plattform-Keyword-Kombinationen ergänzen (keyword_combinations
+        // in der Config). Etabliert Plattform-Expertise systematisch, unabhängig vom LLM.
+        $combos = (new \Openstream\Visibility\Onboarding\KeywordCombiner())->fromConfig($cfg);
+        if ($combos) {
+            $existing = [];
+            foreach ($suggestions['keywords'] as $k) {
+                $existing[mb_strtolower($k['keyword'])] = true;
+            }
+            $added = 0;
+            foreach ($combos as $kw) {
+                if (!isset($existing[$kw])) {
+                    $suggestions['keywords'][] = ['keyword' => $kw, 'reason' => 'Plattform-Kombination (Config keyword_combinations)'];
+                    $added++;
+                }
+            }
+            $io->text("Plattform-Kombinationen ergänzt: +{$added} Keywords.");
+        }
+
         // --- Onboarding-Report schreiben ---
         $dir = $app->storagePath("reports/{$slug}");
         if (!is_dir($dir)) {

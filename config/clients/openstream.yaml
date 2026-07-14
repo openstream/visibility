@@ -34,6 +34,26 @@ key_pages:
   - "https://www.openstream.ch/blog/"
   - "https://www.openstream.ch/vlog/"      # neuer Kurzvideo-Kanal zu den Blog-Themen
 
+# Plattform-Keyword-Kombinationen (deterministisch generiert beim Onboarding).
+# Etabliert openstream als Experten für diese Plattformen — einzeln UND in
+# Kombination mit Rolle (Agentur/Dienstleister/…) und Region (Schweiz/Zürich).
+# Muster: Plattform pur, +Rolle, +Rolle+Region, +Region.
+keyword_combinations:
+  platforms:
+    - wordpress
+    - woocommerce
+    - shopify
+    - magento
+  roles:
+    - agentur
+    - dienstleister
+    - entwicklung
+    - erstellen lassen
+    - migration
+  regions:
+    - schweiz
+    - zürich
+
 competitors: []          # beim Onboarding aus SERP/Wissen ergänzen
 
 keywords:
