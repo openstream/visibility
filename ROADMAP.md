@@ -247,14 +247,31 @@ Alles Schweizer Domains, deutschsprachig, lokaler Fokus. Konsequenzen:
 | Bing AI (Copilot/Bing-Summaries) | ✅ Daten da, ⚠️ **nur UI** | Dashboard/UI-Scrape bis Bing-API 2026 kommt |
 | Onsite/technisch | ✅ | DataForSEO OnPage (API) + PageSpeed/CrUX/GSC (gratis); hreflang de/fr/it-CH kommt aus OnPage |
 | Offsite/Backlinks | ✅ | DataForSEO Backlinks (.ch normal abgedeckt) + gratis eigene Domains via GSC/Bing |
-| Perplexity | ✅ | DataForSEO AI Opt. **oder** Perplexity Sonar direkt |
-| Gemini / Google AI Overview | ✅ (breitere Abdeckung) | DataForSEO AI Optimization |
-| **ChatGPT** | ❌ via DataForSEO (**US/EN only**) | **OpenAI web-search selbst grounden** (deutsche Prompts) |
+| ChatGPT (GEO) | ✅ | **DataForSEO LLM Responses** (`chat_gpt`, web_search, deutsche Prompts) — umgeht das US/EN-Limit; alternativ OpenAI direkt |
+| Gemini (GEO) | ✅ | DataForSEO LLM Responses (`gemini`, web_search) |
+| Perplexity (GEO) | ⚠️ | DataForSEO (Freischaltung offen) **oder** Perplexity Sonar direkt |
+| Google AI Overview (GEO) | ✅ | DataForSEO LLM Mentions (`google` für CH+de bestätigt) |
 
-**Offener TODO vor Phase 2:** Mit echtem DataForSEO-Key
-`/v3/ai_optimization/llm_mentions/locations_and_languages` aufrufen und pro Engine
-prüfen, ob `location=Switzerland` + `language=German` in `available_platforms`
-steht. Danach je Domain festlegen, welcher Kanal über welche Quelle läuft.
+**✅ Abdeckung verifiziert (echter API-Test, 14.07.2026):** DataForSEO-Auth OK.
+- **LLM Mentions (fertig geparste Panels):** Für `Switzerland` (code 2756) gibt es
+  Daten für **de/fr/it**, aber `available_platforms` = **nur `google`** (= AI Overview).
+  → Perplexity/Gemini/ChatGPT-**Mentions**-Panels für CH gibt es NICHT.
+- **LLM Responses (wir schicken eigene Prompts):** Modelle verfügbar für **ChatGPT**
+  (GPT-5.x/4o, `web_search_supported`) und **Gemini** (3.5-flash etc.). Da wir die
+  Prompts selbst auf **Deutsch** stellen, **keine Länderbeschränkung** → das ist
+  unser Weg für ChatGPT- & Gemini-GEO. Perplexity/Claude-Modelle gaben noch 40104
+  (Konto-Freischaltung, s.u.).
+
+> **Strategie-Update:** GEO läuft primär über **DataForSEO LLM Responses** (ChatGPT +
+> Gemini, deutsche Prompts) + **LLM Mentions `google`** (AI Overview für CH). Das
+> **spart evtl. die separate OpenAI-Integration** ($0.90/Domain) — nach Freischaltung
+> Kosten der LLM-Responses-Calls gegen OpenAI-direkt vergleichen und den günstigeren
+> Weg wählen. Perplexity via Sonar-API als eigener Kanal bleibt Option.
+
+**⏳ Offen (Konto-Freischaltung):** Kostenpflichtige POST/live-Endpoints geben noch
+`40104 "verify your account"` (nur GET-Metadaten gehen). Wahrscheinlich fehlt
+Zahlungsmethode/Einzahlung im Panel (app.dataforseo.com/api-access). Danach:
+echten LLM-Responses-Call auf Deutsch + SERP/OnPage/Backlinks für openstream.ch testen.
 
 ---
 
