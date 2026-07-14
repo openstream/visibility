@@ -491,22 +491,24 @@ Immer zwei Perspektiven pro Kennzahl: **Momentaufnahme** (aktueller Stand) und
 - [ ] **Offen (du):** DataForSEO-Account anlegen, Key in `.env` eintragen.
 - [ ] git-Repo initialisieren + erster Commit (auf Wunsch).
 
-### Phase 1.5 — Onboarding einer Domain (Keywords & GEO-Prompts)
-Eigener Schritt **vor** der ersten Datenerhebung. Siehe „Keyword- & GEO-Prompt-
-Generierung". Ziel: freigegebene, CH-lokalisierte Keyword- und Prompt-Listen.
-- [ ] **Schritt 0 — Website verstehen:** relevante Seiten via API holen
-      (DataForSEO OnPage / Firecrawl) → per Claude `website_profile` ableiten
-      (Angebot, Absicht, Zielgruppe, Region, Positionierung, Marke) → `website_profiles`.
-- [ ] `bin/console onboard --client=<slug>`: Rohsignale sammeln — GSC-Queries,
-      Bing-Grounding-Queries (soweit verfügbar), DataForSEO-Keyword-Ideen,
-      genannte Wettbewerber.
-- [ ] LLM-Schritt (Claude): **Website-Profil + Rohsignale** → Themen-Cluster →
-      Vorschlag von Keyword-Liste + 8 GEO-Prompts (5 Kategorie / 3 Marke) auf
-      Deutsch, je mit Begründung + Quell-Signal.
-- [ ] **Onboarding-Report `.md`** (Deutsch): **Website-Profil zur Bestätigung** +
-      Keyword-/Prompt-Vorschläge → Nick kuratiert → **Kunde bestätigt/ergänzt/streicht**.
-- [ ] Freigegebene Listen → `keywords`/`geo_prompts` mit Status `approved` +
-      Freigabedatum. Erst dann darf `collect` laufen.
+### Phase 1.5 — Onboarding einer Domain (Keywords & GEO-Prompts)  ✅ (Grundfunktion)
+Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openstream.ch.
+- [x] **Schritt 0 — Website verstehen:** `WebsiteAnalyzer` holt Seiten via DataForSEO
+      OnPage (`ContentFetcher`) → `ClaudeClient.structuredJson()` leitet `website_profile`
+      ab (Angebot, Absicht, Zielgruppe, Region, Positionierung, Marke). Auf openstream.ch
+      korrekt erkannt (Analyse-Plattform, B2B-DACH, Zürich, „Orientierung statt Hype").
+- [x] `bin/console onboard --client=<slug>`: sammelt GSC-Queries (80 für openstream) +
+      Wettbewerber aus Config. (Bing-Grounding/DataForSEO-Keyword-Ideen: später ergänzbar.)
+- [x] LLM-Schritt (`PromptGenerator`): **Website-Profil + GSC-Queries** → ~18 Keywords +
+      8 GEO-Prompts (5 Kategorie / 3 Marke), Deutsch, CH-lokalisiert, je mit Begründung +
+      Quell-Signal. GSC-Signale heben die Qualität sichtbar (echte Nachfrage statt geraten).
+- [x] **Onboarding-Report `.md`** (Deutsch): Website-Profil zur Bestätigung +
+      Keyword-/Prompt-Tabellen → `storage/reports/<slug>/onboarding.md`. Kosten ~$0.0003/Lauf.
+- [ ] **Offen:** freigegebene Listen → DB (`keywords`/`geo_prompts`/`website_profiles`,
+      Status `approved`) schreiben — aktuell nur als Report. Danach darf `collect` laufen.
+- [ ] **Offen:** Bing-Grounding-Queries + DataForSEO-Keyword-Ideen als weitere Signale.
+- **Setup-Notiz:** GSC-Key-Verzeichnis wird via `.ddev/docker-compose.gsc-keys.yaml`
+      read-only in den Container gemountet (`/mnt/gcloud-keys`); `.env` zeigt dorthin.
 - [ ] Re-Onboarding/Review quartalsweise möglich (Prompts sind lebende Config).
 
 ### Phase 2 — Datenerhebung (das Herzstück)
