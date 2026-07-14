@@ -1,0 +1,21 @@
+# Secrets
+.env
+
+# Dependencies
+/vendor/
+
+# Erhobene Daten & generierte Reports (können gross werden / enthalten Kundendaten)
+/storage/raw/*
+/storage/reports/*
+!/storage/raw/.gitkeep
+!/storage/reports/.gitkeep
+
+# DDEV
+/.ddev/.dbimageBuild/
+/.ddev/db_snapshots/
+
+# IDE / OS
+.DS_Store
+.idea/
+.vscode/
+*.log

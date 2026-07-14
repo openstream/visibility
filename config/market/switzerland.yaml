@@ -1,0 +1,24 @@
+# Marktverteilung Schweiz — Kontext für Dashboard & Report.
+# Quelle: StatCounter Global Stats. Stand: Juni 2026. Quartalsweise aktualisieren.
+# https://gs.statcounter.com/search-engine-market-share/all/switzerland
+# https://gs.statcounter.com/ai-chatbot-market-share/all/switzerland
+
+source: StatCounter Global Stats
+as_of: 2026-06
+
+search_engines:
+  - { name: Google,     share: 81.60 }
+  - { name: Bing,       share: 10.17 }
+  - { name: DuckDuckGo, share: 2.31 }
+  - { name: Yahoo!,     share: 2.27 }
+  - { name: Yandex,     share: 1.79 }
+  - { name: Ecosia,     share: 1.39 }
+
+ai_assistants:
+  # CH-Besonderheit: Claude liegt in der Schweiz vor Perplexity (anders als weltweit).
+  - { name: ChatGPT,            share: 71.88, worldwide: 76.87 }
+  - { name: Google Gemini,      share: 8.04,  worldwide: 7.94 }
+  - { name: Claude,             share: 7.11,  worldwide: 3.74 }
+  - { name: Microsoft Copilot,  share: 6.38,  worldwide: 3.49 }
+  - { name: Perplexity,         share: 6.21,  worldwide: 7.91 }
+  - { name: Phind,              share: 0.26,  worldwide: null }

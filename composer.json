@@ -1,0 +1,38 @@
+{
+    "name": "openstream/visibility-dashboard",
+    "description": "SEO + GEO Visibility Dashboard (Google, Bing, ChatGPT, Perplexity) für openstream.ch — nur für Nick, monatliche Reports auf Deutsch.",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.3",
+        "ext-json": "*",
+        "ext-pdo": "*",
+        "guzzlehttp/guzzle": "^7.9",
+        "vlucas/phpdotenv": "^5.6",
+        "twig/twig": "^3.14",
+        "league/commonmark": "^2.5",
+        "symfony/console": "^7.1",
+        "symfony/yaml": "^7.1",
+        "symfony/mailer": "^7.1"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Openstream\\Visibility\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Openstream\\Visibility\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "scripts": {
+        "test": "phpunit"
+    }
+}

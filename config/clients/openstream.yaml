@@ -1,0 +1,27 @@
+# Erste echte Domain — openstream.ch (Nicks eigene Domain, GSC-Zugriff vorhanden).
+# Keywords & GEO-Prompts werden beim Onboarding (Phase 1.5) generiert und hier befüllt.
+
+slug: openstream
+name: Openstream
+domain: openstream.ch
+
+locale:
+  country: Switzerland
+  gl: ch
+  languages: [de]
+  region: null
+
+report:
+  recipient: nick@openstream.ch
+
+competitors: []          # beim Onboarding aus SERP/Wissen ergänzen
+
+keywords:
+  approved: false
+  approved_at: null
+  list: []
+
+geo_prompts:
+  approved: false
+  approved_at: null
+  list: []

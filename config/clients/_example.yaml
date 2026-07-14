@@ -1,0 +1,37 @@
+# Vorlage für eine Kunden-Konfiguration. Pro Kunde eine Datei: <slug>.yaml
+# Keywords & GEO-Prompts werden beim Onboarding generiert und vom Kunden freigegeben
+# (siehe ROADMAP → "Keyword- & GEO-Prompt-Generierung"). status: approved erst nach Freigabe.
+
+slug: musterkunde
+name: Muster AG
+domain: musterkunde.ch
+
+# Sprach-/Regionskontext für lokalisierte Rankings & GEO-Prompts (CH!)
+locale:
+  country: Switzerland
+  gl: ch
+  languages: [de]        # ggf. [de, fr, it] bei mehrsprachigen Seiten
+  region: null           # z.B. "Zürich" / Kanton, wenn lokaler Fokus
+
+report:
+  recipient: kunde@musterkunde.ch
+  # Empfänger der monatlichen Mail (Draft geht an Nick zur Freigabe).
+
+competitors:
+  - konkurrent-eins.ch
+  - konkurrent-zwei.ch
+
+# --- Wird beim Onboarding befüllt; hier nur die Struktur ---
+keywords:
+  approved: false        # true erst nach Kundenfreigabe
+  approved_at: null
+  list: []
+  # - "beispiel dienstleistung zürich"
+
+geo_prompts:
+  approved: false
+  approved_at: null
+  # type: category (Wettbewerb) | brand (Marken-Wissen)
+  list: []
+  # - { type: category, text: "Bester Anbieter für <Leistung> in der Region Zürich?" }
+  # - { type: brand,    text: "Was ist die Muster AG und was bietet sie an?" }

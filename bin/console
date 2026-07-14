@@ -1,0 +1,33 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Openstream\Visibility\App;
+use Openstream\Visibility\Command\CollectCommand;
+use Openstream\Visibility\Command\MigrateCommand;
+use Openstream\Visibility\Command\OnboardCommand;
+use Openstream\Visibility\Command\ReportCommand;
+use Openstream\Visibility\Command\SendCommand;
+use Symfony\Component\Console\Application;
+
+$root = dirname(__DIR__);
+
+if (!is_file($root . '/vendor/autoload.php')) {
+    fwrite(STDERR, "Dependencies fehlen. Bitte zuerst: ddev composer install\n");
+    exit(1);
+}
+
+require $root . '/vendor/autoload.php';
+
+App::boot($root);
+
+$app = new Application('Visibility Dashboard', '0.1.0-dev');
+$app->addCommands([
+    new MigrateCommand(),
+    new OnboardCommand(),
+    new CollectCommand(),
+    new ReportCommand(),
+    new SendCommand(),
+]);
+$app->run();
