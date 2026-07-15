@@ -31,6 +31,7 @@ final class OnboardCommand extends Command
         $this->addOption('client', null, InputOption::VALUE_REQUIRED, 'Kunden-Slug (config/clients/<slug>.yaml)');
         $this->addOption('urls', null, InputOption::VALUE_REQUIRED, 'Kommagetrennte URLs (Default: key_pages/Startseite)');
         $this->addOption('save', null, InputOption::VALUE_NONE, 'Ergebnisse in die DB schreiben (Status pending → approve nötig)');
+        $this->addOption('bing-ai', null, InputOption::VALUE_REQUIRED, 'Pfad zur Bing-AI-Report-CSV (Grounding Queries als GEO-Prompt-Saatgut)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -97,12 +98,23 @@ final class OnboardCommand extends Command
             $io->text('Keine GSC-Property in der Config — überspringe GSC-Signale.');
         }
 
+        // --- Optional: Bing-AI Grounding Queries (CSV) als GEO-Prompt-Saatgut ---
+        $groundingQueries = [];
+        if ($bingCsv = $input->getOption('bing-ai')) {
+            try {
+                $groundingQueries = (new \Openstream\Visibility\Onboarding\BingAiImporter())->groundingQueries($bingCsv);
+                $io->text('Bing-AI Grounding Queries geladen: ' . count($groundingQueries));
+            } catch (\Throwable $e) {
+                $io->warning('Bing-AI-CSV nicht verwertbar: ' . $e->getMessage());
+            }
+        }
+
         // --- Vorschläge generieren ---
         $io->section('Keyword- & GEO-Prompt-Vorschläge');
         $competitors = $cfg['competitors'] ?? [];
         try {
             $gen = new PromptGenerator($claude);
-            $suggestions = $gen->generate($profile, $gscQueries, $competitors);
+            $suggestions = $gen->generate($profile, $gscQueries, $competitors, $groundingQueries);
         } catch (\Throwable $e) {
             $io->error('Generierung fehlgeschlagen: ' . $e->getMessage());
             return Command::FAILURE;

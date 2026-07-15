@@ -51,10 +51,13 @@ final class PromptGenerator
     /**
      * @param array<string,mixed>       $profile     website_profile (aus WebsiteAnalyzer)
      * @param array<int,string>         $gscQueries  echte Suchanfragen aus GSC
-     * @param array<int,string>         $competitors bekannte Wettbewerber-Domains
+     * @param array<int,string>         $competitors    bekannte Wettbewerber-Domains
+     * @param array<int,string>         $groundingQueries echte KI-Fragen aus dem Bing-AI-Report
+     *                                                   (Fragen, bei denen die Seite in Copilot/Bing-AI
+     *                                                   zitiert wurde) — starkes GEO-Prompt-Saatgut
      * @return array{keywords:array<int,array<string,string>>,geo_prompts:array<int,array<string,string>>}
      */
-    public function generate(array $profile, array $gscQueries, array $competitors = []): array
+    public function generate(array $profile, array $gscQueries, array $competitors = [], array $groundingQueries = []): array
     {
         $system = 'Du bist SEO-/GEO-Stratege für den Schweizer Markt. Erzeuge Keywords (für '
             . 'Google-Rankings) und GEO-Prompts (natürliche Fragen, mit denen wir prüfen, ob die '
@@ -63,13 +66,21 @@ final class PromptGenerator
             . 'nutzernah (keine Marketing-Templates). Buckets: category = Kategorie-/Kaufabsicht '
             . '("bester Anbieter für X in Region", "X für Zielgruppe", "Alternativen zu Wettbewerber"); '
             . 'brand = Marken-Wissen ("Was ist <Marke>?"). Liefere ca. 15-20 Keywords und genau '
-            . '8 GEO-Prompts (5 category, 3 brand). Jede Zeile mit kurzer Begründung + Quell-Signal.';
+            . '8 GEO-Prompts (5 category, 3 brand). Jede Zeile mit kurzer Begründung + Quell-Signal. '
+            . 'Wenn Bing-AI-Grounding-Queries vorliegen: das sind ECHTE KI-Fragen, bei denen die Seite '
+            . 'bereits zitiert wurde — nutze sie bevorzugt als Vorlage für realistische GEO-Prompts.';
 
         $prompt = "=== WEBSITE-PROFIL (Innensicht) ===\n"
             . json_encode($profile, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n\n"
             . "=== ECHTE SUCHANFRAGEN aus Google Search Console (Aussensicht) ===\n"
-            . ($gscQueries ? '- ' . implode("\n- ", array_slice($gscQueries, 0, 60)) : '(keine GSC-Daten verfügbar)') . "\n\n"
-            . "=== WETTBEWERBER ===\n"
+            . ($gscQueries ? '- ' . implode("\n- ", array_slice($gscQueries, 0, 60)) : '(keine GSC-Daten verfügbar)') . "\n\n";
+
+        if ($groundingQueries) {
+            $prompt .= "=== BING-AI GROUNDING QUERIES (echte KI-Fragen mit Zitat der Seite) ===\n"
+                . '- ' . implode("\n- ", array_slice($groundingQueries, 0, 40)) . "\n\n";
+        }
+
+        $prompt .= "=== WETTBEWERBER ===\n"
             . ($competitors ? '- ' . implode("\n- ", $competitors) : '(keine genannt — ggf. aus Kontext ableiten)') . "\n\n"
             . "Erzeuge daraus Keyword- und GEO-Prompt-Vorschläge.";
 
