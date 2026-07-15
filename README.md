@@ -176,6 +176,48 @@ Secrets aus dem Repo bleiben und pro Kunde getrennte Accounts möglich sind.
   Zeitreihe (Öffnungs-/Klickrate über die Ausgaben, Listen-Wachstum). Kunden ohne
   Newsletter: Abschnitt sauber ausblenden.
 
+### Openstream Visibility Score (OVS) — eine plattformübergreifende Zahl
+
+Ziel: **eine** monatliche Kennzahl, die auf einen Blick vermittelt, wie sichtbar das
+Unternehmen online war — über Website, KI-Antworten, Social und Newsletter hinweg.
+
+**Das methodische Problem (bewusst gelöst):** GSC-Impressions, YouTube-Views und Klicks
+sind NICHT dasselbe. Eine Impression (Seite erschien irgendwo im Suchergebnis, oft
+ungesehen) mit einem Video-View (jemand hat aktiv gestartet) zu addieren, erzeugt eine
+Scheinzahl, die von den riesigen Impression-Zahlen dominiert wird und „flüchtig erschienen"
+mit „aktiv konsumiert" vermischt. Willkürliche Gewichte (Impression = 0.1 o.ä.) wären
+Marketing-Theater.
+
+**Lösung — OVS misst „aktive Sichtkontakte" (angelehnt an die ETV-Logik):** jeder Kanal
+wird auf dieselbe ehrliche Einheit reduziert — *ein Mensch hat den Content aktiv
+konsumiert*. Keine erfundenen Gewichte; jede Komponente ist entweder eine **echte Aktion**
+oder eine **CTR-fundierte Schätzung** (nicht 0.1, sondern die reale Klickrate):
+
+```
+OVS (Monat) = Google-Klicks + Bing-Klicks               (echte Besuche)
+            + (Google-Impressions × Google-CTR)          (erwartete Besuche, CTR-fundiert)
+            + GEO-Nennungen/Zitate (ChatGPT/Perplexity/AIO)  (aktiver KI-Sichtkontakt)
+            + YouTube-Views + TikTok-Views + Instagram-Views (aktiv konsumiert)
+            + Newsletter-Opens                            (aktiv geöffnet)
+```
+
+- **Warum das ehrlich ist:** Impressions werden mit der *tatsächlichen* CTR gewichtet
+  (dieselbe Grösse, die ETV nutzt), nicht mit einem gegriffenen Faktor. Damit fliesst eine
+  Impression exakt mit ihrem realen Erwartungswert ein (~0,003 Besuche bei 0,3 % CTR), statt
+  33× überbewertet. Social-Views/Klicks/Opens sind bereits echte Aktionen (Faktor 1).
+- **Report-Darstellung (transparent):** Der Report zeigt den OVS als eine Zahl PLUS die
+  **offene Zusammensetzung** — welcher Kanal wie viele Kontakte beitrug + die verwendete
+  Formel/CTR. Kein Blackbox-Score; der Kunde kann es nachvollziehen.
+- **Bezug zu ETV:** ETV bleibt die kanalspezifische Google-Trend-Kennzahl (in „Traffic-Wert").
+  OVS ist die kanalübergreifende Dach-Kennzahl (in „Kontakten"). ETV speist die
+  Google-Komponente konzeptionell, ersetzt sie aber nicht.
+- **Zeitreihe:** OVS je Monat → eigener Trend-Chart (steigt die Gesamt-Sichtbarkeit?).
+
+> **Offen (beim Bau zu entscheiden):** Behandlung von GEO-Nennungen (1 Kontakt je Nennung?
+> ohne Reichweitenschätzung), Newsletter-Opens vs. -Klicks, und ob Bing-Impressions
+> mangels CTR-Daten mitzählen. Formel im Code zentral + dokumentiert, damit sie
+> nachvollziehbar bleibt und angepasst werden kann.
+
 ---
 
 ## DataForSEO — vollständiges Fähigkeits-Inventar (für Feature-Planung)
@@ -614,6 +656,9 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       openstream durchlaufen: 104 Keywords + 20 GEO-Prompts + Profil approved.
 - [x] 🟡 Bing-Grounding-Queries als GEO-Prompt-Saatgut: umgesetzt (`onboard --bing-ai=<csv>`
       → `BingAiImporter`). **Offen:** DataForSEO-Keyword-Ideen als weiteres Signal.
+- [ ] **Social-Profile abfragen (neu):** Onboarding erfasst je Kunde die Profil-URLs/Handles
+      für **YouTube, TikTok, Instagram** (+ Newsletter-Tool + Key-Suffix) → in die
+      Kunden-Config/DB. Optional: leer lassen, wenn ein Kunde einen Kanal nicht hat.
 - **Setup-Notiz:** GSC-Key-Verzeichnis wird via `.ddev/docker-compose.gsc-keys.yaml`
       read-only in den Container gemountet (`/mnt/gcloud-keys`); `.env` zeigt dorthin.
 - [ ] Re-Onboarding/Review quartalsweise möglich (Prompts sind lebende Config).
@@ -720,6 +765,13 @@ Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
   - [ ] **`MailchimpProvider`** via offizielle Marketing API (`/reports`, `/lists`).
   - [ ] **`SendyProvider`** via Sendy-API bzw. read-only aus Sendys MySQL-DB (beim Bau
         prüfen, was die installierte Version hergibt). openstream nutzt Sendy.
+- [ ] **Monats-Views je Kanal ableiten:** aus den wöchentlichen `views_total`-Ständen
+      (Lifetime) den **Monatswert = Differenz Monatsende/Vormonatsende** berechnen und je
+      Kanal/Monat speichern (`social_metrics_monthly` o.ä.). Robust gegen fehlende Wochen
+      + gegen rückläufige Zähler (YouTube bereinigt Views rückwirkend → clamp auf ≥0).
+- [ ] **Openstream Visibility Score (OVS):** monatliche „aktive Sichtkontakte"
+      plattformübergreifend berechnen (Formel s. „Openstream Visibility Score") → als
+      Zeitreihe speichern. Formel zentral im Code + dokumentiert.
 - [ ] **Grundsatz:** nur aggregierte Account-/Kampagnen-Stats des **eigenen** Kunden-Kanals,
       keine Personen-/Follower-/Empfänger-Listen, kein Wettbewerber-Tracking (DSG/DSGVO).
       YouTube/Newsletter offiziell; TikTok/IG-Scraping nur für eigene öffentliche Accounts.
@@ -736,24 +788,27 @@ Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
       Ausgabe → `storage/reports/<kunde>/charts/*.svg`, relativ im `.md` eingebettet.
       Text-Sparkline bleibt als Fallback, wenn ohne Charts gebaut wird. Web-Dashboard-
       JSON (Chart.js) folgt bei der UI.
+- [ ] **„Worum es geht" um Social/Newsletter erweitern:** die Einleitung des Reports
+      (aktuell nur SEO + GEO) so ergänzen, dass sie die **Unternehmens-Sichtbarkeit**
+      über Website, KI-Antworten, Social Media und Newsletter beschreibt.
 - [ ] **Ausführlicher `.md`-Report (Deutsch)** mit klaren Abschnitten:
-      0. **Markt-Kontext CH** (Donut Suchmaschinen + AI-Assistenten) — kurzer
-         Einordnungs-Block, warum welche Kanäle zählen.
-      1. **Suchmaschinen-Rankings** (Google + Bing): Änderungen, Sichtbarkeitsindex.
-      2. **Onsite/technisch:** Core Web Vitals, technische Fehler, hreflang, Broken
-         Links — mit Delta zum Vormonat und priorisierten Fixes.
-      3. **Offsite/Backlinks:** referring domains, neue/verlorene Links, Spam-Score,
-         Autoritäts-Trend, Wettbewerbsvergleich.
-      4. **GEO:** Bing-AI-Citations + Mentions je LLM (ChatGPT/Perplexity/Gemini/
-         AI-Overview), Citations, Wettbewerber.
-      5. **Handlungsempfehlungen** über alle Bereiche.
-      Jeder Abschnitt (1–4) enthält **Momentaufnahme + Verlaufs-Diagramm** (Bilder
-      aus `charts/` eingebettet). Twig-/PHP-Template → Markdown. Datenlücken
-      transparent kennzeichnen („Bing-AI nur Stichprobe", „ChatGPT via
-      OpenAI-Grounding, kein Live-Panel").
-- [ ] **Executive Summary (Deutsch, kurz):** 3–6 Sätze/Bullets, das Wichtigste
-      + Trend + eine Empfehlung. Für Mail-Body. (Ggf. per Claude/LLM aus den
-      Rohdaten generiert — Entscheidung offen.)
+      0. **Openstream Visibility Score (OVS)** — die eine Dach-Zahl (aktive Sichtkontakte,
+         Monatswert + Trend) mit **offener Zusammensetzung** (Beitrag je Kanal + Formel).
+      1. **Markt-Kontext CH** (Donut Suchmaschinen + AI-Assistenten).
+      2. **Suchmaschinen-Rankings** (Google + Bing): Änderungen, Sichtbarkeitsindex.
+      3. **Onsite/technisch:** Core Web Vitals, technische Fehler, hreflang, Broken Links.
+      4. **Offsite/Backlinks:** referring domains, neue/verlorene Links, Spam-Score.
+      5. **GEO:** Mentions/Citations je LLM (ChatGPT/Perplexity/Gemini/AI-Overview) + Bing-AI.
+      6. **Social Media (neu):** je Plattform (YouTube/TikTok/Instagram) eine Zeile mit
+         **monatlichen Views** + Follower + Trend; darunter das **Views-Gesamt-Total** über
+         alle Plattformen. Kunden ohne Kanal: Abschnitt ausblenden.
+      7. **Newsletter (neu):** Öffnungs-/Klickrate, Listen-Wachstum je Ausgabe + Trend.
+      8. **Handlungsempfehlungen** über alle Bereiche.
+      Jeder Datenabschnitt enthält **Momentaufnahme + Verlaufs-Diagramm** (Bilder aus
+      `charts/`). Twig-/PHP-Template → Markdown. Datenlücken transparent kennzeichnen.
+- [ ] **Executive Summary (Deutsch, kurz):** das Wichtigste + Trend + eine Empfehlung.
+      **Um Social/Newsletter + OVS erweitern** (nicht nur SEO/GEO): den OVS-Monatswert +
+      Trend und die stärksten Social-/Newsletter-Signale einbeziehen. Für Mail-Body.
 - [ ] `bin/console report --client=<slug> --month=YYYY-MM` → schreibt beide.
 
 ### Phase 4 — Versand
