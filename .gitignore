@@ -10,6 +10,15 @@
 !/storage/raw/.gitkeep
 !/storage/reports/.gitkeep
 
+# Ausnahme: openstream (Nicks eigene Domain) als ÖFFENTLICHES BEISPIEL im Repo —
+# nur der Monatsreport + Charts, NICHT onboarding.md (interne Strategie). Andere
+# Kunden bleiben durch /storage/reports/* oben komplett ignoriert.
+!/storage/reports/openstream/
+/storage/reports/openstream/*
+!/storage/reports/openstream/2026-07.md
+!/storage/reports/openstream/charts/
+!/storage/reports/openstream/charts/*.svg
+
 # DDEV
 /.ddev/.dbimageBuild/
 /.ddev/db_snapshots/
