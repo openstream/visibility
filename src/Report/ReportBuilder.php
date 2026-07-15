@@ -52,6 +52,7 @@ final class ReportBuilder
         $sections .= $this->searchRankings($clientId, $period, $prevPeriod, $gscTotals);
         $sections .= $this->onsiteOffsite($clientId, $period);
         $sections .= $this->geoSection($clientId, $period);
+        $sections .= $this->socialSection($clientId, $period);
 
         $md  = "# Visibility-Report: {$name}\n\n";
         $md .= "**Domain:** {$domain}  \n";
@@ -59,7 +60,8 @@ final class ReportBuilder
         $md .= "**Erstellt:** " . date('d.m.Y') . "\n\n";
         $md .= "---\n\n";
 
-        $md .= $this->intro($name);
+        $hasSocial = $this->repo->socialMonthly($clientId, $period) !== [];
+        $md .= $this->intro($name, $hasSocial);
         $md .= $this->executiveSummary($clientId, $period, $name, $domain, $gscTotals);
         $md .= $sections;
 
@@ -91,18 +93,23 @@ final class ReportBuilder
     }
 
     /** Kurze „Was ist das?"-Einordnung für den Kunden. */
-    private function intro(string $name): string
+    private function intro(string $name, bool $hasSocial): string
     {
         $md  = "## Worum es geht\n\n";
-        $md .= "Dieser Report zeigt monatlich, wie sichtbar {$name} online ist, in "
-            . "beiden Welten der Websuche:\n\n";
+        $md .= "Dieser Report zeigt monatlich, wie sichtbar {$name} online ist "
+            . ($hasSocial ? "- über Website, KI-Antworten und Social Media hinweg:\n\n" : "in "
+            . "beiden Welten der Websuche:\n\n");
         $md .= "- **Klassische Suche (SEO):** Auf welchen Positionen erscheint die Website bei "
             . "Google und Bing? Wie entwickelt sich die Sichtbarkeit über die Zeit, wie steht es "
             . "um das technische Fundament (Onsite) und die Verlinkung von aussen (Offsite)?\n";
         $md .= "- **KI-Suche (GEO):** Wird die Marke in den Antworten von KI-Assistenten wie "
             . "ChatGPT, Perplexity, Google AI Overviews oder Microsoft Copilot erwähnt und zitiert? "
-            . "Immer mehr Menschen suchen so, und dort sichtbar zu sein wird zunehmend entscheidend.\n\n";
-        $md .= "Ziel: auf einen Blick sehen, wo {$name} gut sichtbar ist und wo Potenzial liegt.\n\n";
+            . "Immer mehr Menschen suchen so, und dort sichtbar zu sein wird zunehmend entscheidend.\n";
+        if ($hasSocial) {
+            $md .= "- **Social Media:** Wie entwickeln sich die eigenen Kanäle (YouTube, TikTok, "
+                . "Instagram) - Views und Follower über die Zeit?\n";
+        }
+        $md .= "\nZiel: auf einen Blick sehen, wo {$name} gut sichtbar ist und wo Potenzial liegt.\n\n";
         return $md;
     }
 
@@ -125,6 +132,9 @@ final class ReportBuilder
             . 'ohne Erklärung). 4-6 kurze Bullet-Punkte. Fasse das Wichtigste zusammen: '
             . 'Google/Bing-Sichtbarkeit inkl. Trend, KI-Sichtbarkeit, und nenne EINE konkrete '
             . 'Chance/Empfehlung. '
+            . 'Falls Social-Media-Daten geliefert werden (social_media/social_views_gesamt): '
+            . 'erwähne die Social-Sichtbarkeit kurz (monatliche Views je Kanal bzw. gesamt) als '
+            . 'eigenen Aspekt der Unternehmens-Sichtbarkeit. Wenn keine Social-Daten da sind, lass es weg. '
             . 'WICHTIG zum Sichtbarkeits-Trend: Wenn die klassische Google-Sichtbarkeit sinkt, während '
             . 'die KI-Sichtbarkeit gut ist, ORDNE das ein: Ein Teil des Rückgangs kann daran liegen, '
             . 'dass sich die Nutzung von der klassischen Suche hin zu KI-Assistenten und Google '
@@ -207,6 +217,24 @@ final class ReportBuilder
                 'erwähnt' => $s['mentioned'],
                 'erwähnungsrate_prozent' => $s['prompts'] > 0 ? round($s['mentioned'] / $s['prompts'] * 100) : 0,
             ];
+        }
+
+        // Social Media (eigene Kanäle) — monatliche Views je Plattform + Total.
+        $social = $this->repo->socialMonthly($clientId, $period);
+        if ($social) {
+            $totalViews = 0;
+            foreach ($social as $r) {
+                if ($r['monthly_views'] !== null) {
+                    $facts['social_media'][$r['platform']] = [
+                        'views_monat' => $r['monthly_views'],
+                        'follower' => $r['followers'],
+                    ];
+                    $totalViews += $r['monthly_views'];
+                }
+            }
+            if ($totalViews > 0) {
+                $facts['social_views_gesamt'] = $totalViews;
+            }
         }
 
         return $facts;
@@ -549,6 +577,53 @@ final class ReportBuilder
             $md .= $this->gray('Copilot / Bing-AI (Microsoft) wird über den Bing-AI-Performance-Export '
                 . 'erfasst und ist hier noch nicht enthalten.') . "\n\n";
         }
+
+        return $md;
+    }
+
+    /**
+     * Social Media — Views/Follower der eigenen Kanäle (YouTube/TikTok/Instagram).
+     * Blendet sich aus, wenn keine Social-Daten erhoben wurden (Kunde ohne Kanal).
+     */
+    private function socialSection(int $clientId, string $period): string
+    {
+        $rows = $this->repo->socialMonthly($clientId, $period);
+        if (!$rows) {
+            return ''; // keine Kanäle / noch nicht erhoben → Abschnitt weglassen
+        }
+
+        $labels = ['youtube' => 'YouTube', 'tiktok' => 'TikTok', 'instagram' => 'Instagram'];
+        $md = "## 5. Social Media\n\n";
+        $md .= "_Sichtbarkeit der eigenen Social-Media-Kanäle: monatliche Views und "
+            . "Follower je Plattform._\n\n";
+        $md .= "| Plattform | Kanal | Views (Monat) | Follower |\n|---|---|---:|---:|\n";
+
+        $totalViews = 0;
+        $haveViews = false;
+        foreach ($rows as $r) {
+            $label = $labels[$r['platform']] ?? ucfirst($r['platform']);
+            $mv = $r['monthly_views'];
+            if ($mv !== null) {
+                $totalViews += $mv;
+                $haveViews = true;
+            }
+            $md .= '| ' . $label
+                . ' | ' . $this->cell((string) $r['account'])
+                . ' | ' . ($mv !== null ? number_format($mv, 0, ',', '\'') : '—')
+                . ' | ' . ($r['followers'] !== null ? number_format($r['followers'], 0, ',', '\'') : '—')
+                . " |\n";
+        }
+        $md .= "\n";
+
+        if ($haveViews) {
+            $md .= "**Views gesamt (alle Plattformen):** "
+                . number_format($totalViews, 0, ',', '\'') . "\n\n";
+        }
+
+        $md .= $this->gray('Monatliche Views = Zuwachs der Gesamt-Views im Berichtsmonat '
+            . '(aus den wöchentlichen Messwerten). „—" bedeutet: für diesen Monat liegt noch '
+            . 'kein Vergleichswert des Vormonats vor. Instagram liefert öffentlich keine '
+            . 'aggregierten Account-Views (nur Follower).') . "\n\n";
 
         return $md;
     }

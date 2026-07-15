@@ -17,6 +17,21 @@ report:
   recipient: kunde@musterkunde.ch
   # Empfänger der monatlichen Mail (Draft geht an Nick zur Freigabe).
 
+# Social-Media-Kanäle (EIGENE Accounts des Kunden). `collect --social`.
+# YouTube: Kanal-ID (UC...), URL oder @handle. TikTok/Instagram: @handle oder URL.
+# Leer lassen, wenn nicht vorhanden → Report blendet den Kanal aus.
+social:
+  youtube: []
+  tiktok: []
+  instagram: []
+
+# Newsletter (Owned Media). provider: sendy | mailchimp. env_suffix = Slug GROSSBUCHSTABEN
+# → SENDY_API_KEY_<SUFFIX>/SENDY_URL_<SUFFIX> bzw. MAILCHIMP_API_KEY_<SUFFIX> aus .env.
+# Weglassen, wenn der Kunde keinen Newsletter hat.
+# newsletter:
+#   provider: mailchimp
+#   env_suffix: MUSTERKUNDE
+
 competitors:
   - konkurrent-eins.ch
   - konkurrent-zwei.ch

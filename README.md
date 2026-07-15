@@ -656,9 +656,10 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       openstream durchlaufen: 104 Keywords + 20 GEO-Prompts + Profil approved.
 - [x] 🟡 Bing-Grounding-Queries als GEO-Prompt-Saatgut: umgesetzt (`onboard --bing-ai=<csv>`
       → `BingAiImporter`). **Offen:** DataForSEO-Keyword-Ideen als weiteres Signal.
-- [ ] **Social-Profile abfragen (neu):** Onboarding erfasst je Kunde die Profil-URLs/Handles
-      für **YouTube, TikTok, Instagram** (+ Newsletter-Tool + Key-Suffix) → in die
-      Kunden-Config/DB. Optional: leer lassen, wenn ein Kunde einen Kanal nicht hat.
+- [x] **Social-Profile in der Config (neu):** `social:` Block (youtube/tiktok/instagram)
+      + `newsletter:` (provider + env_suffix) je Kunde in der YAML (`_example.yaml` +
+      openstream). Optional; leer = Kanal wird im Report ausgeblendet. *(Interaktive
+      Abfrage im `onboard`-Flow später; Struktur steht.)*
 - **Setup-Notiz:** GSC-Key-Verzeichnis wird via `.ddev/docker-compose.gsc-keys.yaml`
       read-only in den Container gemountet (`/mnt/gcloud-keys`); `.env` zeigt dorthin.
 - [ ] Re-Onboarding/Review quartalsweise möglich (Prompts sind lebende Config).
@@ -745,18 +746,22 @@ Details + Anbieter-Bewertung s. „Social-Media-Sichtbarkeit" und „Newsletter"
 **Grundsatz (entschieden):** nur **eigene Kanäle**, Fokus auf **öffentliche Views**.
 YouTube offiziell (API-Key); TikTok/IG nur eigene Accounts via Apify. Kein
 Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
-- [ ] **`SocialProvider`-Interface** + DB-Tabelle `social_metrics` (Zeitreihe:
-      client, plattform, account, followers, views_total, measured_at).
-      Config je Kunde: eigene Kanal-IDs/Handles je Plattform (Social ist optional —
-      Kunden ohne Kanal bekommen den Abschnitt sauber ausgeblendet).
-- [ ] **YouTube** (`YouTubeProvider`) via **Data API v3** (`channels.list?part=statistics`,
-      nur API-Key) — `viewCount` (Lifetime inkl. Shorts), Subscriber, Video-Anzahl.
-      Monats-Views = Differenz Monat/Vormonat. **Erster/sauberster Kanal, kein OAuth.**
-      Setup analog `gsc-api-access`. *(Optional später: Analytics API mit OAuth für echte
-      Monats-Views + Shorts-Split — gekapselter Zusatzpfad.)*
-- [ ] **TikTok + Instagram** (`ApifySocialProvider`): Gesamt-Views/Follower nur des
-      **eigenen** Kunden-Accounts via Apify (`run-sync-get-dataset-items`). Kein OAuth,
-      nur aggregierte öffentliche Zahlen. Generischer `ApifyClient` analog `DataForSeoClient`.
+- [x] **`SocialProvider`-Interface** + `SocialMetric`-DTO + DB-Tabelle `social_metrics`
+      (Zeitreihe: client, platform, account, followers, views_total, posts_total,
+      measured_at). Config je Kunde (`social:` Block, optional — Kunden ohne Kanal:
+      Abschnitt ausgeblendet). In `collect --social` eingebunden.
+- [x] **YouTube** (`YouTubeProvider`) via **Data API v3** (`channels.list?part=statistics`,
+      nur API-Key, kein OAuth) — `viewCount` (Lifetime inkl. Shorts), Subscriber,
+      Video-Anzahl. Löst Kanal-ID/URL/@handle auf (`resolve()`, getestet). **Live-Test
+      offen bis YOUTUBE_API_KEY gesetzt.** *(Optional später: Analytics API mit OAuth für
+      echte Monats-Views + Shorts-Split.)*
+- [x] **TikTok + Instagram** (`TikTokProvider`/`InstagramProvider`) via generischen
+      **`ApifyClient`** (`run-sync-get-dataset-items`) — nur eigene Kunden-Accounts, kein
+      OAuth. **Live-Test offen bis APIFY_API_TOKEN gesetzt; Actor-Feldnamen dann am
+      Gratis-Kontingent verifizieren.** *(Einschränkung: IG liefert öffentlich keine
+      aggregierten Account-Views → nur Follower; TikTok-Gesamt-Views je nach Actor.)*
+- [x] **Monats-Views je Kanal** aus wöchentlichen `views_total`-Ständen (Differenz,
+      clamp ≥0) — `ClientRepository::socialMonthly()`. Report-getestet.
 - [ ] LinkedIn: **vorerst weggelassen** (kein öffentlicher View-Zugang ohne Admin-OAuth).
 - [ ] **`NewsletterProvider`-Interface** + `newsletter_stats` (Zeitreihe): je Ausgabe
       Öffnungs-/Klickrate, Bounces, Abmeldungen, Listen-Wachstum. Tool je Kunde in der
@@ -788,9 +793,12 @@ Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
       Ausgabe → `storage/reports/<kunde>/charts/*.svg`, relativ im `.md` eingebettet.
       Text-Sparkline bleibt als Fallback, wenn ohne Charts gebaut wird. Web-Dashboard-
       JSON (Chart.js) folgt bei der UI.
-- [ ] **„Worum es geht" um Social/Newsletter erweitern:** die Einleitung des Reports
-      (aktuell nur SEO + GEO) so ergänzen, dass sie die **Unternehmens-Sichtbarkeit**
-      über Website, KI-Antworten, Social Media und Newsletter beschreibt.
+- [x] **„Worum es geht" + Executive Summary um Social erweitert:** Einleitung nennt Social
+      Media, wenn Kanäle vorhanden (datenabhängig); Summary-Fakten + System-Prompt beziehen
+      die monatlichen Social-Views ein. Report-getestet (Summary griff Social eigenständig auf).
+      *(Newsletter analog, sobald `NewsletterProvider` gebaut.)*
+- [x] **Report-Abschnitt „5. Social Media"** (`socialSection`): je Plattform Views (Monat) +
+      Follower, plus **Views-Gesamt-Total** über alle Plattformen. Blendet sich ohne Daten aus.
 - [ ] **Ausführlicher `.md`-Report (Deutsch)** mit klaren Abschnitten:
       0. **Openstream Visibility Score (OVS)** — die eine Dach-Zahl (aktive Sichtkontakte,
          Monatswert + Trend) mit **offener Zusammensetzung** (Beitrag je Kanal + Formel).

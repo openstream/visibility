@@ -37,6 +37,20 @@ geo:
     claude:      false
     ai_overview: true   # Google AI Overviews (via DataForSEO SERP, prüft die Keywords)
 
+# Social-Media-Kanäle (EIGENE Accounts des Kunden). Werden bei `collect --social` erhoben.
+# YouTube: Kanal-ID (UC...), Kanal-URL oder @handle. TikTok/Instagram: @handle oder Profil-URL.
+# Leer lassen, wenn ein Kunde einen Kanal nicht hat — der Report blendet ihn dann aus.
+social:
+  youtube: []      # z.B. ["@openstream"] oder ["UCxxxxxxxxxxxxxxxxxxxxxx"]
+  tiktok: []
+  instagram: []
+
+# Newsletter (Owned Media). provider: sendy | mailchimp. env_suffix = Slug in GROSSBUCHSTABEN
+# → Keys SENDY_API_KEY_<SUFFIX>/SENDY_URL_<SUFFIX> bzw. MAILCHIMP_API_KEY_<SUFFIX> aus .env.
+newsletter:
+  provider: sendy
+  env_suffix: OPENSTREAM
+
 report:
   recipient: nick@openstream.ch
 

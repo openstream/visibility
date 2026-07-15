@@ -35,6 +35,7 @@ final class CollectCommand extends Command
         $this->addOption('geo', null, InputOption::VALUE_NONE, 'GEO-Sichtbarkeit erheben (ChatGPT/Gemini/Claude, kostet pro Prompt)');
         $this->addOption('onsite', null, InputOption::VALUE_NONE, 'Onsite-Audit der wichtigsten Seiten (DataForSEO OnPage)');
         $this->addOption('offsite', null, InputOption::VALUE_NONE, 'Offsite/Backlinks-Snapshot (DataForSEO)');
+        $this->addOption('social', null, InputOption::VALUE_NONE, 'Social-Kennzahlen der eigenen Kanäle (YouTube offiziell, TikTok/IG via Apify)');
         $this->addOption('date', null, InputOption::VALUE_REQUIRED, 'measured_at überschreiben (Y-m-d, Default heute)');
     }
 
@@ -225,8 +226,72 @@ final class CollectCommand extends Command
             }
         }
 
+        // --- Social Media (eigene Kanäle: YouTube offiziell, TikTok/IG via Apify) ---
+        if ($input->getOption('social')) {
+            $total += $this->collectSocial($io, $repo, $clientId, $cfg, $measuredAt);
+        }
+
         $io->success("Fertig. {$total} Messwerte für {$measuredAt} in der DB.");
         return Command::SUCCESS;
+    }
+
+    /**
+     * Erhebt Social-Kennzahlen der EIGENEN Kunden-Kanäle. YouTube via offizielle Data API
+     * (API-Key), TikTok/Instagram via Apify (nur wenn Token gesetzt). Nur eigene Accounts.
+     *
+     * @param array<string,mixed> $cfg
+     * @return int Anzahl geschriebener Zeilen
+     */
+    private function collectSocial(SymfonyStyle $io, ClientRepository $repo, int $clientId, array $cfg, string $measuredAt): int
+    {
+        $social = $cfg['social'] ?? [];
+        $yt = array_values(array_filter((array) ($social['youtube'] ?? [])));
+        $tt = array_values(array_filter((array) ($social['tiktok'] ?? [])));
+        $ig = array_values(array_filter((array) ($social['instagram'] ?? [])));
+
+        if (!$yt && !$tt && !$ig) {
+            $io->text('Keine Social-Kanäle in der Config — überspringe Social.');
+            return 0;
+        }
+
+        $io->section('Social Media (eigene Kanäle)');
+        $written = 0;
+
+        // YouTube — offiziell, gratis, kein OAuth.
+        if ($yt) {
+            try {
+                $provider = \Openstream\Visibility\Provider\YouTubeProvider::fromEnv();
+                $metrics = $provider->collect($yt);
+                $n = $repo->saveSocialMetrics($clientId, $metrics, $measuredAt);
+                $io->success("YouTube: {$n} Kanal/Kanäle erhoben.");
+                $written += $n;
+            } catch (\Throwable $e) {
+                $io->warning('YouTube fehlgeschlagen: ' . $e->getMessage());
+            }
+        }
+
+        // TikTok/Instagram — via Apify (nur eigene Accounts). Nur wenn Token gesetzt.
+        if ($tt || $ig) {
+            try {
+                $apify = new \Openstream\Visibility\Provider\ApifyClient();
+                if ($tt) {
+                    $metrics = (new \Openstream\Visibility\Provider\TikTokProvider($apify))->collect($tt);
+                    $n = $repo->saveSocialMetrics($clientId, $metrics, $measuredAt);
+                    $io->success("TikTok: {$n} Account(s) erhoben.");
+                    $written += $n;
+                }
+                if ($ig) {
+                    $metrics = (new \Openstream\Visibility\Provider\InstagramProvider($apify))->collect($ig);
+                    $n = $repo->saveSocialMetrics($clientId, $metrics, $measuredAt);
+                    $io->success("Instagram: {$n} Account(s) erhoben.");
+                    $written += $n;
+                }
+            } catch (\Throwable $e) {
+                $io->warning('TikTok/Instagram (Apify) übersprungen: ' . $e->getMessage());
+            }
+        }
+
+        return $written;
     }
 
     /**

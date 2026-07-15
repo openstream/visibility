@@ -175,6 +175,26 @@ CREATE TABLE IF NOT EXISTS visibility_history (
     CONSTRAINT fk_vishist_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Social-Media-Kennzahlen der EIGENEN Kunden-Kanäle, wöchentlich (Zeitreihe).
+-- views_total ist der kumulierte Lifetime-Zähler der Plattform (YouTube: channel viewCount
+-- inkl. Shorts; TikTok/Instagram: Gesamt-Views des Accounts). Monats-Views werden im
+-- Report aus der Differenz zweier Stände abgeleitet (nicht hier gespeichert).
+CREATE TABLE IF NOT EXISTS social_metrics (
+    id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id    INT UNSIGNED NOT NULL,
+    platform     ENUM('youtube','tiktok','instagram') NOT NULL,
+    account      VARCHAR(255) NOT NULL,           -- Kanal-ID/Handle/URL (Anzeige + Zuordnung)
+    followers    BIGINT UNSIGNED NULL,            -- Subscriber/Follower
+    views_total  BIGINT UNSIGNED NULL,            -- kumulierte Lifetime-Views (Basis für Monats-Delta)
+    posts_total  INT UNSIGNED NULL,               -- Anzahl Videos/Posts (falls verfügbar)
+    source       VARCHAR(64)  NOT NULL,           -- youtube_data_api | apify
+    measured_at  DATE         NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_social (client_id, platform, account, measured_at),
+    KEY idx_social_client_date (client_id, measured_at),
+    CONSTRAINT fk_social_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Erzeugte Monatsberichte (Metadaten; die .md/Charts liegen im Dateisystem).
 CREATE TABLE IF NOT EXISTS reports (
     id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

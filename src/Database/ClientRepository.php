@@ -541,6 +541,97 @@ final class ClientRepository
         return $row ?: null;
     }
 
+    /**
+     * Speichert Social-Media-Messwerte (idempotent pro Tag/Plattform/Account).
+     * @param array<int,\Openstream\Visibility\Provider\SocialMetric> $metrics
+     * @return int Anzahl geschriebener Zeilen
+     */
+    public function saveSocialMetrics(int $clientId, array $metrics, string $measuredAt): int
+    {
+        $stmt = $this->db->prepare(
+            'INSERT INTO social_metrics
+               (client_id, platform, account, followers, views_total, posts_total, source, measured_at)
+             VALUES (:cid, :platform, :account, :followers, :views, :posts, :source, :mdate)
+             ON DUPLICATE KEY UPDATE
+               followers=VALUES(followers), views_total=VALUES(views_total),
+               posts_total=VALUES(posts_total), source=VALUES(source)'
+        );
+        $n = 0;
+        foreach ($metrics as $m) {
+            $stmt->execute([
+                'cid' => $clientId, 'platform' => $m->platform, 'account' => $m->account,
+                'followers' => $m->followers, 'views' => $m->viewsTotal, 'posts' => $m->postsTotal,
+                'source' => $m->source, 'mdate' => $measuredAt,
+            ]);
+            $n++;
+        }
+        return $n;
+    }
+
+    /**
+     * Social-Kennzahlen je Kanal für einen Monat (für den Report). Monats-Views =
+     * jüngster views_total-Stand im Monat minus jüngster Stand im Vormonat (Lifetime-Delta,
+     * geclampt auf ≥0 gegen rückwirkende Zähler-Korrekturen). Ohne Vormonatswert: null.
+     *
+     * @return array<int,array{platform:string,account:string,followers:?int,views_total:?int,
+     *         monthly_views:?int,posts_total:?int}>
+     */
+    public function socialMonthly(int $clientId, string $period): array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $prevPeriod = date('Y-m', strtotime($start . ' -1 month'));
+        [$pStart, $pEnd] = $this->monthRange($prevPeriod);
+
+        // Jüngster Stand je (platform, account) im Zielmonat.
+        $latest = $this->latestSocialInRange($clientId, $start, $end);
+        // Jüngster Stand je (platform, account) im Vormonat (für das Delta).
+        $prev = $this->latestSocialInRange($clientId, $pStart, $pEnd);
+
+        $out = [];
+        foreach ($latest as $key => $row) {
+            $mv = null;
+            if ($row['views_total'] !== null && isset($prev[$key]) && $prev[$key]['views_total'] !== null) {
+                $mv = max(0, (int) $row['views_total'] - (int) $prev[$key]['views_total']);
+            }
+            $out[] = [
+                'platform'      => $row['platform'],
+                'account'       => $row['account'],
+                'followers'     => $row['followers'] !== null ? (int) $row['followers'] : null,
+                'views_total'   => $row['views_total'] !== null ? (int) $row['views_total'] : null,
+                'monthly_views' => $mv,
+                'posts_total'   => $row['posts_total'] !== null ? (int) $row['posts_total'] : null,
+            ];
+        }
+        return $out;
+    }
+
+    /**
+     * Jüngster social_metrics-Stand je (platform, account) in einem Datumsbereich.
+     * @return array<string,array<string,mixed>> key = "platform|account"
+     */
+    private function latestSocialInRange(int $clientId, string $start, string $end): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT s.platform, s.account, s.followers, s.views_total, s.posts_total, s.measured_at
+             FROM social_metrics s
+             WHERE s.client_id = :cid AND s.measured_at BETWEEN :start AND :end
+               AND s.measured_at = (
+                   SELECT MAX(measured_at) FROM social_metrics
+                   WHERE client_id = :cid2 AND platform = s.platform AND account = s.account
+                     AND measured_at BETWEEN :start2 AND :end2
+               )'
+        );
+        $stmt->execute([
+            'cid' => $clientId, 'cid2' => $clientId,
+            'start' => $start, 'end' => $end, 'start2' => $start, 'end2' => $end,
+        ]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $out[$r['platform'] . '|' . $r['account']] = $r;
+        }
+        return $out;
+    }
+
     /** Erster/letzter Tag eines Monats (YYYY-MM). @return array{0:string,1:string} */
     private function monthRange(string $period): array
     {
