@@ -22,8 +22,9 @@ und misst zusätzlich den **Zustand der Website selbst**:
 
 **Social Media** (Roadmap, s. README): TikTok, Instagram, YouTube, LinkedIn —
 Follower, Engagement, Post-Frequenz, Wachstum; eigene *und* Wettbewerber-Accounts.
-YouTube offiziell/gratis, der Rest teils nur via Scraping (Apify) → als Roh-Daten-API
-einordnen, ToS/Datenschutz mit Nick abklären. Kein Suite-Produkt.
+YouTube offiziell/gratis, der Rest teils nur via Scraping-Anbieter (ScrapeCreators o.ä.,
+NICHT Apify) → als Roh-Daten-API einordnen, ToS/Datenschutz mit Nick abklären. Kein
+Suite-Produkt.
 
 **Newsletter** (Roadmap, s. README, Owned Media): Öffnungs-/Klickraten, Bounces,
 Abmeldungen, Listen-Wachstum aus **Sendy** (eigene, private Daten; nur aggregierte
@@ -66,7 +67,8 @@ Der Report kann **automatisch (monatlich) oder manuell** per Mail versendet werd
   nicht eigenmächtig einen Crawler bauen.
   - **Social-Media-Daten (Ausnahme):** Für TikTok/Instagram/LinkedIn gibt es für
     *fremde* Accounts keine offizielle API → dort nutzen wir eine **fremde
-    Scraping-API** (Apify o.ä.) als Roh-Daten-Quelle. Wir bauen also weiterhin
+    Scraping-API** (ScrapeCreators o.ä., bewusst NICHT Apify) als Roh-Daten-Quelle.
+    Wir bauen also weiterhin
     **keinen eigenen Scraper**, sondern rufen eine fremde Daten-API (wie DataForSEO).
     Das ist eine bewusste **ToS-/Datenschutz-Abwägung** (v.a. Instagram/LinkedIn) und
     mit Nick abzusegnen. YouTube läuft über die offizielle Data API (kein Scraping).
