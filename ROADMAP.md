@@ -29,6 +29,14 @@ DataForSEO und bringen für unseren Fall keinen Mehrwert. Einzige Ausnahme, die 
 später abwägen könnte: Sistrix-**OVI** als Kennzahl, falls ein Kunde ihn explizit
 im Report erwartet — dann nur diese eine Zahl, nicht die Suite.
 
+> **SE Ranking geprüft & verworfen (Juli 2026):** Beide (SE Ranking + DataForSEO)
+> haben MCP-Server, aber MCP ist für ein LLM-Client-Szenario (Claude Desktop), nicht
+> für unser PHP-Tool, das die REST-API direkt anspricht — kein Mehrwert. Einziger
+> echter Unterschied: SE Ranking hat via Planable **Social-Media-Tracking** (9
+> Plattformen, inkl. Social-Zitate in ChatGPT/Perplexity), DataForSEO nicht. Für uns
+> aktuell nicht nötig → **bei DataForSEO bleiben.** Falls Social-Sichtbarkeit später
+> zum Ziel wird (z.B. Vlog-Zitate in KI-Antworten), SE Ranking/Planable neu abwägen.
+
 ### Onsite / technisches SEO (Website-Audit)
 
 Bisher via Xovi gemacht → jetzt selbst gebaut, aber **das Crawlen läuft über APIs,
