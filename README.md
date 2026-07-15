@@ -533,6 +533,17 @@ Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openst
 - **Setup-Notiz:** GSC-Key-Verzeichnis wird via `.ddev/docker-compose.gsc-keys.yaml`
       read-only in den Container gemountet (`/mnt/gcloud-keys`); `.env` zeigt dorthin.
 - [ ] Re-Onboarding/Review quartalsweise möglich (Prompts sind lebende Config).
+- [ ] **Historie-Backfill (Entscheidung: ja):** Beim Onboarding ~12 Monate
+      Google-Ranking-Historie rückwirkend laden, damit der erste Report sofort eine
+      Verlaufsgrafik zeigt statt bei null zu starten.
+      - `dataforseo_labs/google/historical_rank_overview/live` — aggregierte
+        monatliche Sichtbarkeit (ab Okt 2020, CH+de), ~$0.0001/Monat.
+      - `dataforseo_labs/google/historical_serps/live` — echte monatliche
+        Keyword-Positionen (ab Aug 2021) für approved Keywords. ~$0.50 einmalig/Domain
+        für 12–36 Monate × ~100 Keywords.
+      - → `measurements` mit `source=dataforseo_historical`, engine=google.
+      - **Grenze:** Bing hat KEINE historischen Rankings (nur live). GSC liefert
+        zusätzlich 16 Monate echte eigene Daten (falls Property alt genug).
 
 ### Phase 2 — Datenerhebung (das Herzstück)  🟡 (Rankings fertig)
 - [x] `SerpProvider`-Interface + `Measurement`-DTO.
@@ -562,11 +573,15 @@ Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openst
       - Sobald Microsoft die API liefert (angekündigt „im Laufe 2026"): auf API umstellen,
         Importer als Fallback behalten.
 - [ ] `OnsiteProvider`-Interface + Implementierungen (**rein API-basiert**):
-      - DataForSEO OnPage (Crawl-Backbone via API, 60+ technische Checks inkl.
-        hreflang de/fr/it-CH, Alt-Texte, strukturierte Daten, Broken Links)
+      - DataForSEO OnPage (technische Checks: Meta/Title/Description, Headings,
+        Canonicals, hreflang de/fr/it-CH, Alt-Texte, strukturierte Daten, Broken Links)
       - PageSpeed Insights + CrUX (Core Web Vitals, gratis)
       - Mozilla Observatory (Security-Header, gratis)
       Ergebnisse normalisiert → `onsite_audits`. **Kein eigener Crawler.**
+      **Seitenauswahl (Entscheidung):** `key_pages` aus der Config **+ Top-Seiten
+      aus GSC** (z.B. Top 20 nach Impressionen) — deckt strategische *und* real
+      wichtige Seiten ab, ohne die ganze Sitemap zu crawlen (Kosten ~$0.01–0.02/Lauf).
+      Für openstream: Startseite + WordPress/WooCommerce/Shopify/Magento/Blog/Vlog + GSC-Top.
 - [ ] `OffsiteProvider`-Interface + DataForSEO-Backlinks-Implementierung
       (referring domains, ranks, spam-score, neu/verloren, Anchor-Texte,
       Wettbewerbsvergleich) → `backlinks`.
