@@ -93,15 +93,16 @@ final class SvgChartTest extends TestCase
         $this->assertStringContainsString('71,9 %', $svg);
     }
 
-    public function testChartsAreThemeAdaptive(): void
+    public function testChartsWorkInLightAndDarkWithoutDynamicCss(): void
     {
-        // Dark-Mode-Fähigkeit: <style> mit prefers-color-scheme, Variablen-Fallback,
-        // Hintergrund über --bg statt fest weiss.
+        // EIN statisches Schema für beide Modi: transparenter Hintergrund (kein
+        // <rect> mit Fill), KEIN dynamisches CSS (prefers-color-scheme flackerte
+        // auf GitHub). Vordergrundfarben sind beidseitig lesbar.
         $svg = $this->chart->line(['A', 'B'], [1.0, 2.0], 'T');
-        $this->assertStringContainsString('@media (prefers-color-scheme:dark)', $svg);
-        $this->assertStringContainsString('var(--ink,#1f2937)', $svg, 'Variable mit Light-Fallback');
-        $this->assertStringContainsString('fill="var(--bg,#ffffff)"', $svg, 'Hintergrund adaptiv, nicht fest weiss');
-        $this->assertStringNotContainsString('fill="#ffffff"', $svg, 'kein fest weisser Hintergrund mehr');
+        $this->assertStringNotContainsString('prefers-color-scheme', $svg, 'kein dynamisches Theme-CSS');
+        $this->assertStringNotContainsString('<style', $svg, 'kein <style>-Block');
+        $this->assertStringNotContainsString('fill="#ffffff"', $svg, 'kein fest weisser Hintergrund');
+        $this->assertStringNotContainsString('<rect width="720"', $svg, 'kein deckender Hintergrund-Rect');
     }
 
     public function testEscapesLabels(): void

@@ -15,33 +15,37 @@ namespace Openstream\Visibility\Chart;
  * Deutsche Zahlenformatierung (Tausender ' , Dezimal ,). Farben zurückhaltend,
  * ein Akzent-Blau plus Grautöne, passend zum sachlichen Report.
  *
- * Theme-adaptiv: Farben laufen über CSS-Variablen mit `@media (prefers-color-scheme:
- * dark)`-Overrides (im `<style>`-Block je SVG). Dieselbe Datei sieht in Light- UND
- * Dark-Mode-Viewern gut aus (z. B. Markdown-Renderer im Dark Mode). Jede Variable hat
- * einen Light-Fallback (`var(--x, #hex)`), damit Viewer ohne `<style>`-Support korrekt
- * rendern. In beiden Modi im Browser verifiziert.
+ * EIN statisches Farbschema für Light UND Dark — kein dynamisches CSS.
+ * Bewusst KEINE `@media (prefers-color-scheme)`-Query: GitHub rendert eingebettete
+ * SVGs in einem Sandbox-Frame und wertet die Query unzuverlässig aus (Hintergrund
+ * flackerte beim Reload zwischen hell/dunkel). Stattdessen:
+ *  - transparenter Hintergrund → die Seitenfarbe scheint durch, passt sich immer an;
+ *  - mittleres Grau für Text/Achsen (auf Weiss UND Dunkelgrau lesbar);
+ *  - halbtransparente Grautöne (rgba) für Gitter/Track/Donut → dezent auf beiden.
+ * In beiden Modi auf GitHub verifiziert.
  */
 final class SvgChart
 {
-    // Farben als CSS-Variablen mit Light-Fallback, damit dieselbe SVG-Datei in
-    // Light- UND Dark-Mode funktioniert (via @media prefers-color-scheme, s. open()).
-    // Der Fallback nach dem Komma greift in Viewern, die <style> in SVG ignorieren.
-    private const ACCENT   = 'var(--accent,#2563eb)';  // Blau (Kernserie)
-    private const ACCENT_2 = 'var(--accent2,#60a5fa)'; // helleres Blau (zweite Serie)
-    private const INK      = 'var(--ink,#1f2937)';     // Text
-    private const MUTED    = 'var(--muted,#6b7280)';   // Achsen/Sekundärtext
-    private const GRID     = 'var(--grid,#e5e7eb)';    // Gitterlinien
-    private const TRACK    = 'var(--track,#eef2f7)';   // Balken-Hintergrund
+    // Statische Palette, in Light UND Dark tragfähig. Akzent-Blau #3b82f6 hat auf
+    // Weiss und auf Dunkelgrau je genug Kontrast. Text/Achsen mittelgrau. Flächen
+    // (Gitter, Track, Donut-Grautöne) halbtransparent, damit sie sich dem Untergrund
+    // anpassen statt fest hell/dunkel zu sein.
+    private const ACCENT   = '#3b82f6';                 // Blau (Kernserie)
+    private const ACCENT_2 = '#93c5fd';                 // helleres Blau (zweite Serie)
+    private const INK      = '#7d8794';                 // Text (mittelgrau, beidseitig lesbar)
+    private const MUTED    = '#7d8794';                 // Achsen/Sekundärtext
+    private const GRID      = 'rgba(128,140,160,0.30)'; // Gitterlinien
+    private const TRACK     = 'rgba(128,140,160,0.18)'; // Balken-Hintergrund
 
-    // Donut-Segmentfarben (erste = Akzent, Rest abgestufte Grautöne).
-    // Als CSS-Variablen, damit die Grautöne im Dark Mode aufgehellt werden.
+    // Donut-Segmentfarben: erste = Akzent, Rest halbtransparente Grautöne
+    // (unterscheidbar auf hellem wie dunklem Hintergrund).
     private const DONUT = [
-        'var(--accent,#2563eb)',
-        'var(--d1,#64748b)',
-        'var(--d2,#94a3b8)',
-        'var(--d3,#cbd5e1)',
-        'var(--d4,#e2e8f0)',
-        'var(--d5,#f1f5f9)',
+        '#3b82f6',
+        'rgba(128,140,160,0.85)',
+        'rgba(128,140,160,0.62)',
+        'rgba(128,140,160,0.44)',
+        'rgba(128,140,160,0.30)',
+        'rgba(128,140,160,0.20)',
     ];
 
     /**
@@ -260,25 +264,13 @@ final class SvgChart
 
     private function open(int $w, int $h): string
     {
-        // CSS-Variablen: Light-Defaults im :root, Dark-Overrides via prefers-color-scheme.
-        // Dieselbe Datei passt sich so dem Modus des Betrachters an (Report-Viewer, Browser).
-        // Dark-Palette: dunkler, aber nicht schwarzer Hintergrund; Text/Achsen aufgehellt;
-        // Akzent-Blau heller (besserer Kontrast auf Dunkel); Track/Grautöne angehoben.
-        $style = '<style>'
-            . ':root{--bg:#ffffff;--ink:#1f2937;--muted:#6b7280;--grid:#e5e7eb;--track:#eef2f7;'
-            . '--accent:#2563eb;--accent2:#60a5fa;'
-            . '--d1:#64748b;--d2:#94a3b8;--d3:#cbd5e1;--d4:#e2e8f0;--d5:#f1f5f9;}'
-            . '@media (prefers-color-scheme:dark){:root{'
-            . '--bg:#1e2129;--ink:#e5e7eb;--muted:#9aa4b2;--grid:#3a404b;--track:#2b303a;'
-            . '--accent:#5b9bff;--accent2:#93c5fd;'
-            . '--d1:#94a3b8;--d2:#7c8aa0;--d3:#647184;--d4:#4b5563;--d5:#3a404b;}}'
-            . '</style>';
-
+        // Transparenter Hintergrund (kein <rect fill>): die Seitenfarbe des Viewers
+        // scheint durch, dadurch passt sich der Chart automatisch an Light/Dark an,
+        // ohne dynamisches CSS. Alle Vordergrundfarben sind beidseitig lesbar (s. o.).
         return sprintf(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" '
-            . 'font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">'
-            . '%s<rect width="%d" height="%d" fill="var(--bg,#ffffff)"/>',
-            $w, $h, $w, $h, $style, $w, $h
+            . 'font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">',
+            $w, $h, $w, $h
         );
     }
 
