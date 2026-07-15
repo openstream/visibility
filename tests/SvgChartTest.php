@@ -102,7 +102,17 @@ final class SvgChartTest extends TestCase
         $this->assertStringNotContainsString('prefers-color-scheme', $svg, 'kein dynamisches Theme-CSS');
         $this->assertStringNotContainsString('<style', $svg, 'kein <style>-Block');
         $this->assertStringNotContainsString('fill="#ffffff"', $svg, 'kein fest weisser Hintergrund');
-        $this->assertStringNotContainsString('<rect width="720"', $svg, 'kein deckender Hintergrund-Rect');
+    }
+
+    public function testChartsScaleToFullWidth(): void
+    {
+        // Keine festen width/height-Pixelattribute (die begrenzten die Grösse auf
+        // 720px und liessen die Grafik winzig wirken); stattdessen viewBox +
+        // style:width:100% → skaliert auf die volle Report-Spaltenbreite.
+        $svg = $this->chart->donut([['label' => 'A', 'value' => 60.0], ['label' => 'B', 'value' => 40.0]], 'T');
+        $this->assertStringContainsString('viewBox="0 0', $svg);
+        $this->assertStringContainsString('width:100%', $svg);
+        $this->assertDoesNotMatchRegularExpression('/<svg[^>]*\swidth="\d/', $svg, 'kein festes Pixel-width am <svg>');
     }
 
     public function testEscapesLabels(): void

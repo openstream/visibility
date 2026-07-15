@@ -216,22 +216,28 @@ final class SvgChart
             $big[] = ['label' => 'Übrige', 'value' => $rest];
         }
 
-        $w = 720;
-        $h = 260;
+        // Kompakte viewBox ohne toten Raum rechts: grosser Donut links, Legende
+        // rechts daneben. Bei voller Report-Breite wirkt der Donut dadurch deutlich
+        // grösser als vorher (720px-Box mit halber Leerfläche).
+        $w = 560;
+        $h = 280;
         $padT = $title !== '' ? 44 : 16;
-        $cx = 130;
-        $cy = $padT + (($h - $padT) / 2) - 8;
-        $rOuter = 90;
-        $rInner = 54;
+        $cx = 150;
+        $cy = $padT + (($h - $padT) / 2);
+        $rOuter = 108;
+        $rInner = 64;
 
         $svg = $this->open($w, $h);
         if ($title !== '') {
             $svg .= $this->titleEl($title, 16);
         }
 
+        // Legende vertikal in der Donut-Höhe zentrieren.
+        $rowH = 26;
+        $legendX = 300;
+        $legendBlockH = count($big) * $rowH;
+        $legendY = $cy - $legendBlockH / 2 + 4;
         $angle = -90.0; // Start oben
-        $legendX = 260;
-        $legendY = $padT + 6;
         $i = 0;
         foreach ($big as $s) {
             $frac = (float) $s['value'] / $total;
@@ -244,16 +250,16 @@ final class SvgChart
 
             // Legende: Farbkästchen + Label + Prozent.
             $pct = $this->num(round($frac * 100, 1));
-            $svg .= sprintf('<rect x="%d" y="%.1f" width="12" height="12" rx="2" fill="%s"/>', $legendX, $legendY, $color);
+            $svg .= sprintf('<rect x="%d" y="%.1f" width="14" height="14" rx="3" fill="%s"/>', $legendX, $legendY, $color);
             $svg .= $this->text(
                 "{$s['label']}  {$pct} %",
-                $legendX + 20,
-                $legendY + 11,
+                $legendX + 22,
+                $legendY + 12,
                 self::INK,
-                13,
+                14,
                 'start'
             );
-            $legendY += 24;
+            $legendY += $rowH;
             $i++;
         }
 
@@ -267,10 +273,17 @@ final class SvgChart
         // Transparenter Hintergrund (kein <rect fill>): die Seitenfarbe des Viewers
         // scheint durch, dadurch passt sich der Chart automatisch an Light/Dark an,
         // ohne dynamisches CSS. Alle Vordergrundfarben sind beidseitig lesbar (s. o.).
+        //
+        // KEINE festen width/height-Attribute: nur die viewBox setzt das
+        // Seitenverhältnis. So skaliert der Renderer das SVG auf die volle
+        // Breite der Textspalte (statt es auf 720px zu begrenzen und winzig
+        // wirken zu lassen). style="width:100%;height:auto" erzwingt das auch
+        // in Viewern, die sonst die intrinsische Grösse verwenden.
         return sprintf(
-            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" width="%d" height="%d" '
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" '
+            . 'style="width:100%%;height:auto" '
             . 'font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">',
-            $w, $h, $w, $h
+            $w, $h
         );
     }
 
