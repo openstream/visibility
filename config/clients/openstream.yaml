@@ -31,10 +31,11 @@ bing:
 # Rhythmus: GEO monatlich (KI-Antworten ändern sich langsam); Rankings bleiben wöchentlich.
 geo:
   channels:
-    chatgpt:    true
-    perplexity: true
-    gemini:     false
-    claude:     false
+    chatgpt:     true
+    perplexity:  true
+    gemini:      false
+    claude:      false
+    ai_overview: true   # Google AI Overviews (via DataForSEO SERP, prüft die Keywords)
 
 report:
   recipient: nick@openstream.ch

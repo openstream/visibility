@@ -493,12 +493,12 @@ final class ReportBuilder
             return $md;
         }
 
-        $md .= "_Wird die Marke in KI-Antworten auf die definierten Prompts erwähnt/zitiert? "
-            . "Pro Kanal: Anteil der Prompts mit Erwähnung._\n\n";
-        $md .= "| KI-Kanal | Prompts | Erwähnt | Zitiert | Sichtbarkeit |\n|---|---:|---:|---:|---:|\n";
+        $md .= "_Wird die Marke in KI-Antworten erwähnt oder als Quelle zitiert? "
+            . "Pro Kanal: Anteil der Anfragen mit Erwähnung._\n\n";
+        $md .= "| KI-Kanal | Anfragen | Erwähnt | Zitiert | Sichtbarkeit |\n|---|---:|---:|---:|---:|\n";
 
         $labels = ['chatgpt' => 'ChatGPT', 'gemini' => 'Gemini', 'claude' => 'Claude',
-            'perplexity' => 'Perplexity', 'bing_ai' => 'Copilot / Bing-AI', 'ai_overview' => 'Google AI Overview / AI Mode'];
+            'perplexity' => 'Perplexity', 'ai_overview' => 'Google AI Overview', 'bing_ai' => 'Copilot / Bing-AI'];
         foreach ($labels as $engine => $label) {
             if (!isset($summary[$engine])) {
                 continue;
@@ -509,11 +509,15 @@ final class ReportBuilder
         }
         $md .= "\n";
 
-        // Noch nicht erhobene GEO-Kanäle transparent nennen (Herkunft der Daten).
-        $md .= $this->gray('Noch nicht im Report: **Copilot / Bing-AI** (Datenquelle: Bing '
-            . 'AI-Performance-CSV) und **Google AI Overview / AI Mode** (Datenquelle: GSC '
-            . 'Search-Generative-AI-Report, bei CH-Domains noch nicht ausgerollt). Beide zählen '
-            . 'zu GEO, nicht zu klassischem SEO.') . "\n\n";
+        $md .= $this->gray('Hinweis: Bei Google AI Overview zählt eine Zitierung als Quelle in der '
+            . 'KI-Zusammenfassung (geprüft je Keyword). Bei den Chat-Assistenten zählt die Erwähnung '
+            . 'der Marke in der Antwort auf die definierten Prompts.') . "\n\n";
+
+        // Copilot / Bing-AI: kommt aus dem separaten Bing-CSV-Import (falls noch nicht erhoben).
+        if (!isset($summary['bing_ai'])) {
+            $md .= $this->gray('Copilot / Bing-AI (Microsoft) wird über den Bing-AI-Performance-Export '
+                . 'erfasst und ist hier noch nicht enthalten.') . "\n\n";
+        }
 
         return $md;
     }

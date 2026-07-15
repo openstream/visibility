@@ -160,19 +160,27 @@ Mengen sind pro Domain anpassbare Annahmen für ein typisches CH-KMU.
 2'000 Backlinks/Snapshot · 8 GEO-Prompts (5 Kategorie + 3 Marke), davon
 ChatGPT via OpenAI + 3 Kanäle (Perplexity/Gemini/AI-Overview) via DataForSEO.
 
-| Posten | Menge/Woche | ×4 Wo. | Stückpreis | **$/Monat** |
-|---|---|---|---|---|
-| SERP-Rankings (DataForSEO SERP, Standard-Queue) | 20 | 80 Queries | $0.60 / 1'000 | **$0.05** |
-| Onsite-Crawl (DataForSEO OnPage) | 50 | 200 Seiten | $0.000125 / Seite | **$0.03** |
-| Backlinks (DataForSEO Backlinks) | 1 Req à 2'000 | 4 Req + 8'000 Zeilen | $0.02/Req + $0.00003/Zeile | **$0.32** |
-| GEO Perplexity+Gemini+AI-Overview (DataForSEO AI Opt.) | 8×3 = 24 | 96 Abfragen | ~$0.002 / Abfrage | **$0.19** |
-| GEO ChatGPT (OpenAI web-search: $25/1'000 Calls + Token) | 8 | 32 Calls | ~$0.028 / Call (inkl. Token) | **$0.90** |
-| Gratis: GSC, Bing WMT, PageSpeed, CrUX, Mozilla Observatory | — | — | $0 | **$0.00** |
-| **Summe API-Kosten pro Domain / Monat** | | | | **≈ $1.50** |
+**Echte gemessene Kosten (Juli 2026, openstream):** Rankings wöchentlich, GEO/Onsite/
+Offsite/Historie monatlich. GEO-Kanäle: ChatGPT + Perplexity (Gemini/Claude deaktiviert,
+teurer) + AI Overview.
 
-**→ Pro Domain rund $1.50/Monat.** Der mit Abstand grösste Posten ist die
-ChatGPT-Sichtbarkeit über OpenAI ($0.90) — wegen der $25/1'000-Tool-Gebühr für
-Web-Suche. Alles andere zusammen kostet ~$0.60.
+| Posten | Menge | Rhythmus | Gemessene Kosten |
+|---|---|---|---|
+| SERP-Rankings (GSC gratis, DataForSEO nur Zusatz) | ~20 Keywords | wöchentlich | ~$0.05/Monat |
+| GEO ChatGPT (DataForSEO LLM-Responses) | 20 Prompts | monatlich | ~$0.55 (~$0.027/Call) |
+| GEO Perplexity (Sonar API) | 20 Prompts | monatlich | ~$0.10 (günstig) |
+| GEO AI Overview (DataForSEO SERP) | ~104 Keywords | monatlich | ~$0.40 ($0.004/Query) |
+| Onsite-Audit (DataForSEO OnPage) | 25 Seiten | monatlich | ~$0.004 |
+| Offsite/Backlinks (DataForSEO) | 1 Snapshot | monatlich | ~$0.024 |
+| Historie-Backfill (DataForSEO Labs) | einmalig/Domain | einmalig | ~$0.13 |
+| Gratis: GSC, Bing WMT, Bing-AI-CSV | — | — | $0 |
+| **Laufende Summe pro Domain / Monat** | | | **≈ $1.20** |
+
+**→ Pro Domain rund $1.20/Monat** mit ChatGPT+Perplexity+AI-Overview. GEO ist der grösste
+Block; wenn Gemini/Claude aktiviert würden, käme je ~$0.55–1.30 hinzu (daher deaktiviert).
+Wichtigste Stellschraube: GEO monatlich (nicht wöchentlich) und Kanäle bewusst wählen.
+Die alte Schätzung ($25/1'000 OpenAI-Tool-Gebühr) ist überholt — wir nutzen kein OpenAI
+direkt, alle Chat-Kanäle laufen über DataForSEO.
 
 ### Hochrechnung & Fixkosten
 

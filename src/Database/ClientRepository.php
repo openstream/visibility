@@ -188,6 +188,25 @@ final class ClientRepository
         return $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     }
 
+    /**
+     * Keywords mit tatsächlichen Impressionen im jüngsten Erhebungslauf (= echtes
+     * Suchvolumen). Für AI-Overview-Checks, damit nicht alle Keywords (langsam/teuer)
+     * geprüft werden, sondern nur die relevanten. @return array<int,string> id => keyword
+     */
+    public function keywordsWithImpressions(int $clientId, int $limit = 30): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT DISTINCT k.id, k.keyword
+             FROM keywords k
+             JOIN measurements m ON m.keyword_id = k.id
+             WHERE k.client_id = ? AND k.approved = 1 AND m.impressions > 0
+             ORDER BY m.impressions DESC
+             LIMIT {$limit}"
+        );
+        $stmt->execute([$clientId]);
+        return $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+    }
+
     /** @return array<int,string> approved GEO-Prompts (id => prompt) */
     public function approvedGeoPrompts(int $clientId): array
     {

@@ -163,6 +163,30 @@ final class CollectCommand extends Command
                         $io->warning($p->name() . ' fehlgeschlagen: ' . $e->getMessage());
                     }
                 }
+
+                // Google AI Overview: arbeitet mit KEYWORDS (nicht Prompts) — prüft, ob die
+                // Domain in der AI-Zusammenfassung oben in den Google-Ergebnissen zitiert wird.
+                if (!empty($channels['ai_overview'])) {
+                    // Nur Keywords mit echtem Suchvolumen prüfen (Impressionen) — sonst zu
+                    // langsam/teuer bei vielen Keywords. Fallback: alle approved Keywords.
+                    $kw = $repo->keywordsWithImpressions($clientId, 30);
+                    if (!$kw) {
+                        $kw = $repo->approvedKeywords($clientId);
+                    }
+                    if ($kw) {
+                        try {
+                            $aio = new \Openstream\Visibility\Provider\AiOverviewProvider($dfsGeo, $domain);
+                            $mentions = $aio->collect($kw);
+                            $n = $repo->saveGeoMentions($clientId, $mentions, $measuredAt);
+                            $citedCount = count(array_filter($mentions, static fn($m) => $m->cited));
+                            $io->success(sprintf('ai_overview: %d Keywords mit AI Overview, Domain in %d zitiert.', $n, $citedCount));
+                            $total += $n;
+                        } catch (\Throwable $e) {
+                            $io->warning('ai_overview fehlgeschlagen: ' . $e->getMessage());
+                        }
+                    }
+                }
+
                 if ($dfsGeo->spent() > 0) {
                     $io->note(sprintf('DataForSEO-GEO-Kosten: $%.4f (Perplexity separat via Sonar)', $dfsGeo->spent()));
                 }
