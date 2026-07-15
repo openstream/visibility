@@ -180,10 +180,30 @@ final class OnboardCommand extends Command
     {
         $name = $cfg['name'] ?? $cfg['slug'] ?? '';
         $domain = $cfg['domain'] ?? '';
-        $md = "# Onboarding-Report — {$name} ({$domain})\n\n";
-        $md .= "> Bitte prüfen und mit dem Kunden abstimmen. Nach Freigabe werden Keywords & "
-            . "GEO-Prompts als `approved` übernommen; erst dann startet die Erhebung.\n\n";
+        $md = "# Onboarding — {$name} ({$domain})\n\n";
 
+        $md .= "## Worum es hier geht\n\n";
+        $md .= "Bevor wir mit der laufenden Beobachtung Ihrer Sichtbarkeit starten, legen wir "
+            . "gemeinsam fest, **was genau beobachtet werden soll**. Dieses Dokument enthält zwei "
+            . "Vorschlagslisten, die wir aus Ihrer Website und echten Suchdaten abgeleitet haben. "
+            . "Bitte prüfen Sie diese und geben Sie uns Rückmeldung, was passt, fehlt oder weg kann.\n\n";
+
+        $md .= "**Zwei Arten von Suche, die wir beobachten:**\n\n";
+        $md .= "- **Keywords** — Suchbegriffe, die Menschen bei **Google und Bing** eingeben. "
+            . "Wir prüfen monatlich, auf welcher Position Ihre Website dafür erscheint.\n";
+        $md .= "- **KI-Prompts** — typische Fragen, die Menschen **KI-Assistenten** (ChatGPT, "
+            . "Perplexity, Google KI, Copilot) stellen. Wir prüfen, ob Ihre Marke in deren "
+            . "Antworten **erwähnt und als Quelle genannt** wird.\n\n";
+
+        $md .= "> **Legende zu den Quellen** (Spalte Grundlage):\n";
+        $md .= "> - **Suchanfrage (Google):** ein Begriff, mit dem Nutzer Ihre Seite bei Google "
+            . "bereits gefunden haben (aus der Google Search Console — Googles offiziellen Daten "
+            . "zu Ihrer Website).\n";
+        $md .= "> - **KI-Anfrage (Bing/Copilot):** eine echte Frage, bei der Microsofts KI "
+            . "(Copilot) Ihre Website bereits als Quelle zitiert hat (aus den Bing Webmaster Tools).\n";
+        $md .= "> - **Website-Inhalt:** aus dem abgeleitet, was auf Ihrer Website steht.\n\n";
+
+        $md .= "---\n\n";
         $md .= "## 1. Haben wir die Website richtig verstanden?\n\n";
         $md .= "**Kurzbeschreibung:** " . ($profile['summary'] ?? '') . "\n\n";
         $md .= "- **Absicht:** " . ($profile['intent'] ?? '') . "\n";
@@ -200,20 +220,26 @@ final class OnboardCommand extends Command
         $md .= "\n";
         $md .= "_Analysierte Seiten:_ " . implode(', ', $sourceUrls) . "\n\n";
 
-        $md .= "## 2. Keyword-Vorschläge (Google-Rankings)\n\n";
-        $md .= "| Keyword | Begründung / Quelle |\n|---|---|\n";
+        $md .= "## 2. Vorgeschlagene Keywords (für Google & Bing)\n\n";
+        $md .= "_Suchbegriffe, deren Ranking-Position wir monatlich verfolgen._\n\n";
+        $md .= "| Keyword | Warum dieser Begriff (Grundlage) |\n|---|---|\n";
         foreach ($s['keywords'] as $k) {
-            $md .= '| ' . $this->cell($k['keyword']) . ' | ' . $this->cell($k['reason']) . " |\n";
+            $md .= '| ' . $this->cell($k['keyword']) . ' | ' . $this->cell($this->plain($k['reason'])) . " |\n";
         }
         $md .= "\n";
 
-        $md .= "## 3. GEO-Prompt-Vorschläge (KI-Sichtbarkeit)\n\n";
-        $md .= "| Typ | Prompt | Begründung |\n|---|---|---|\n";
+        $md .= "## 3. Vorgeschlagene KI-Prompts (für die KI-Sichtbarkeit)\n\n";
+        $md .= "_Fragen, mit denen wir prüfen, ob KI-Assistenten Ihre Marke nennen._\n\n";
+        $md .= "**Zwei Arten von Prompts:** _Kategorie_ = allgemeine Frage aus Ihrem Themenfeld "
+            . "(prüft, ob Sie gegenüber Wettbewerbern auftauchen). _Marke_ = Frage direkt nach "
+            . "Ihnen (prüft, ob die KI Sie korrekt kennt).\n\n";
+        $md .= "| Art | Prompt (Frage an die KI) | Warum dieser Prompt (Grundlage) |\n|---|---|---|\n";
         foreach ($s['geo_prompts'] as $p) {
-            $md .= '| ' . $this->cell($p['type']) . ' | ' . $this->cell($p['prompt']) . ' | ' . $this->cell($p['reason']) . " |\n";
+            $art = ($p['type'] ?? '') === 'brand' ? 'Marke' : 'Kategorie';
+            $md .= '| ' . $art . ' | ' . $this->cell($p['prompt']) . ' | ' . $this->cell($this->plain($p['reason'])) . " |\n";
         }
-        $md .= "\n---\n_Vorschläge automatisch generiert aus Website-Profil + echten GSC-Signalen. "
-            . "Kuratieren erwünscht._\n";
+        $md .= "\n---\n_Diese Vorschläge wurden automatisch aus Ihrer Website und echten Suchdaten "
+            . "erstellt und sind als Ausgangspunkt gedacht — Ihre Rückmeldung ist ausdrücklich erwünscht._\n";
 
         return $md;
     }
@@ -221,5 +247,26 @@ final class OnboardCommand extends Command
     private function cell(string $v): string
     {
         return str_replace(['|', "\n"], ['\\|', ' '], $v);
+    }
+
+    /**
+     * Übersetzt technische Begriffe in den LLM-Begründungen in kundenverständliche
+     * Sprache (der Onboarding-Report geht an den Kunden).
+     */
+    private function plain(string $v): string
+    {
+        $map = [
+            'Bing-AI-Grounding-Query'         => 'echte KI-Anfrage (Copilot), bei der Ihre Seite zitiert wurde',
+            'Bing-AI Grounding-Query'         => 'echte KI-Anfrage (Copilot), bei der Ihre Seite zitiert wurde',
+            'Grounding-Query'                 => 'echte KI-Anfrage (Copilot)',
+            'Grounding Query'                 => 'echte KI-Anfrage (Copilot)',
+            'GSC-Query'                       => 'Suchanfrage bei Google',
+            'GSC-Anfrage'                     => 'Suchanfrage bei Google',
+            'GSC-Signal'                      => 'Google-Suchdaten',
+            'GSC-Häufung'                     => 'häufige Google-Suchanfrage',
+            'GSC '                            => 'Google-Suchanfrage ',
+            "GSC '"                           => "Google-Suchanfrage '",
+        ];
+        return strtr($v, $map);
     }
 }
