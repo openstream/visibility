@@ -4,8 +4,8 @@
 Sichtbarkeit von Websites in **Google & Bing** (klassisches SEO: Rankings, Onsite,
 Backlinks) und in **ChatGPT, Perplexity, Gemini & AI Overviews** (GEO: wird die
 Marke in KI-Antworten erwähnt/zitiert?). Erzeugt pro Kunde einen monatlichen,
-ausführlichen Report auf Deutsch inkl. Diagrammen + eine Executive Summary als
-Mail-Body.
+ausführlichen Report auf Deutsch inkl. Diagrammen und einer Executive Summary;
+der automatische Mail-Versand (Summary als Mail-Body) ist geplant.
 
 Eigenes Tool (kein Kundenzugang), lokal mit **DDEV** entwickelt, später evtl.
 produktiv auf `visibility.openstream.ch`. PHP 8.3, MariaDB, **DataForSEO** als
