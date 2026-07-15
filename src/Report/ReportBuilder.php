@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Openstream\Visibility\Report;
 
 use Openstream\Visibility\App;
+use Openstream\Visibility\Chart\ReportCharts;
 use Openstream\Visibility\Database\ClientRepository;
 use Openstream\Visibility\Provider\ClaudeClient;
 use Symfony\Component\Yaml\Yaml;
@@ -18,10 +19,14 @@ final class ReportBuilder
 {
     private const ENGINE_LABEL = ['google' => 'Google', 'bing' => 'Bing'];
 
-    /** @param ?ClaudeClient $claude für die Executive Summary (optional — ohne: Report ohne Summary) */
+    /**
+     * @param ?ClaudeClient $claude für die Executive Summary (optional — ohne: Report ohne Summary)
+     * @param ?ReportCharts $charts erzeugt SVG-Diagramme neben dem Report (optional — ohne: Text-Report)
+     */
     public function __construct(
         private readonly ClientRepository $repo,
         private readonly ?ClaudeClient $claude = null,
+        private readonly ?ReportCharts $charts = null,
     ) {}
 
     /**
@@ -144,7 +149,6 @@ final class ReportBuilder
         }
 
         $md  = "## Zusammenfassung\n\n";
-        $md .= $this->gray('Kurzfassung zum Weiterleiten (z. B. per Mail). Details in den Abschnitten darunter.') . "\n\n";
         $md .= trim($text) . "\n\n---\n\n";
         return $md;
     }
@@ -261,6 +265,12 @@ final class ReportBuilder
         }
         $md .= "\n\n";
 
+        // Donut-Diagramme der Marktanteile (Momentaufnahme).
+        if ($this->charts !== null) {
+            $md .= $this->charts->marketSearchEngines($file);
+            $md .= $this->charts->marketAiAssistants($file);
+        }
+
         return $md;
     }
 
@@ -300,7 +310,13 @@ final class ReportBuilder
             . 'Ein höherer Wert = mehr Sichtbarkeit. Ideal als einzelne Trend-Kennzahl.') . "\n\n";
 
         $etv = array_map(static fn($r) => (float) $r['etv'], $hist);
-        $md .= "**Sichtbarkeit:** " . $this->sparkline($etv) . "  \n";
+        // Echtes Liniendiagramm, wenn Charts aktiv sind; sonst Text-Sparkline als Fallback.
+        $chart = $this->charts?->visibilityTrend($hist) ?? '';
+        if ($chart !== '') {
+            $md .= $chart;
+        } else {
+            $md .= "**Sichtbarkeit:** " . $this->sparkline($etv) . "  \n";
+        }
         $md .= "**Verlauf:**\n\n";
         $md .= "| Monat | Sichtbarkeit (ETV) | Keywords | Top-3 | Top-10 |\n|---|---:|---:|---:|---:|\n";
         foreach ($hist as $r) {
@@ -363,6 +379,13 @@ final class ReportBuilder
             $md .= '- Impressionen: ' . number_format($gscTotals['impressions'], 0, ',', '\'') . "\n";
             $md .= '- Ø-Position: ' . $this->fmtPos($gscTotals['position'])
                 . ' · Klickrate: ' . number_format($gscTotals['ctr'], 1, ',', '') . " %\n\n";
+        }
+
+        // Verteilungs-Chart (Momentaufnahme) aus der jüngsten Historie-Zeile des Monats.
+        if ($this->charts !== null) {
+            $hist = $this->repo->visibilityHistory($clientId, 'google', $period);
+            $latest = $hist ? end($hist) : null;
+            $md .= $this->charts->rankingDistribution($latest ?: null);
         }
 
         if (!$summary) {
@@ -508,6 +531,11 @@ final class ReportBuilder
             $md .= "| {$label} | {$s['prompts']} | {$s['mentioned']} | {$s['cited']} | {$rate} % |\n";
         }
         $md .= "\n";
+
+        // Balkendiagramm der Erwähnungsrate je Kanal (Momentaufnahme).
+        if ($this->charts !== null) {
+            $md .= $this->charts->geoVisibility($summary);
+        }
 
         $md .= $this->gray('Hinweis: Bei Google AI Overview zählt eine Zitierung als Quelle in der '
             . 'KI-Zusammenfassung (geprüft je Keyword). Bei den Chat-Assistenten zählt die Erwähnung '

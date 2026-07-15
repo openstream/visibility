@@ -64,16 +64,20 @@ final class ReportCommand extends Command
             $io->warning('Ohne Executive Summary (Anthropic nicht verfügbar): ' . $e->getMessage());
         }
 
-        $md = (new ReportBuilder($repo, $claude))->build($clientId, $period, $cfg);
-
         $dir = $app->storagePath("reports/{$slug}");
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
+
+        // Charts landen als SVG unter <dir>/charts/ und werden relativ eingebettet.
+        $charts = new \Openstream\Visibility\Chart\ReportCharts($dir);
+        $md = (new ReportBuilder($repo, $claude, $charts))->build($clientId, $period, $cfg);
+
         $path = "{$dir}/{$period}.md";
         file_put_contents($path, $md);
 
         $io->success("Report erstellt: {$path}");
+        $io->text("Diagramme: {$dir}/charts/");
         return Command::SUCCESS;
     }
 }
