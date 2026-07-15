@@ -56,7 +56,15 @@ final class ReportCommand extends Command
             return Command::FAILURE;
         }
 
-        $md = (new ReportBuilder($repo))->build($clientId, $period, $cfg);
+        // ClaudeClient für die Executive Summary (optional — ohne Key: Report ohne Summary).
+        $claude = null;
+        try {
+            $claude = new \Openstream\Visibility\Provider\ClaudeClient();
+        } catch (\Throwable $e) {
+            $io->warning('Ohne Executive Summary (Anthropic nicht verfügbar): ' . $e->getMessage());
+        }
+
+        $md = (new ReportBuilder($repo, $claude))->build($clientId, $period, $cfg);
 
         $dir = $app->storagePath("reports/{$slug}");
         if (!is_dir($dir)) {

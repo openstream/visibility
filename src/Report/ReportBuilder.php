@@ -6,19 +6,23 @@ namespace Openstream\Visibility\Report;
 
 use Openstream\Visibility\App;
 use Openstream\Visibility\Database\ClientRepository;
+use Openstream\Visibility\Provider\ClaudeClient;
 use Symfony\Component\Yaml\Yaml;
 
 /**
  * Erzeugt den ausführlichen Visibility-Report (`.md`, Deutsch) aus den erhobenen
- * Daten. Aktuell umgesetzt: Markt-Kontext CH + Suchmaschinen-Rankings (Google/Bing)
- * mit Momentaufnahme und Delta zum Vormonat. Onsite/Offsite/GEO werden transparent
- * als „noch nicht erhoben" ausgewiesen (kommen, sobald die Provider gebaut sind).
+ * Daten: Intro + Executive Summary (LLM) + Markt-Kontext + Sichtbarkeits-Verlauf +
+ * Rankings (Google/Bing) + GEO (KI-Sichtbarkeit). Onsite/Offsite folgen.
  */
 final class ReportBuilder
 {
     private const ENGINE_LABEL = ['google' => 'Google', 'bing' => 'Bing'];
 
-    public function __construct(private readonly ClientRepository $repo) {}
+    /** @param ?ClaudeClient $claude für die Executive Summary (optional — ohne: Report ohne Summary) */
+    public function __construct(
+        private readonly ClientRepository $repo,
+        private readonly ?ClaudeClient $claude = null,
+    ) {}
 
     /**
      * Baut den Markdown-Report für einen Kunden und Berichtsmonat (YYYY-MM).
@@ -31,26 +35,127 @@ final class ReportBuilder
         $domain = $cfg['domain'] ?? ($client['domain'] ?? '');
         $prevPeriod = date('Y-m', strtotime($period . '-01 -1 month'));
 
+        // Aktive GEO-Kanäle aus der Config (für die Grau-Darstellung im Markt-Kontext).
+        $activeGeo = array_keys(array_filter($cfg['geo']['channels'] ?? ['chatgpt' => true, 'perplexity' => true]));
+
+        // Detail-Abschnitte zuerst bauen (die Summary fasst deren Zahlen zusammen).
+        $sections  = $this->marketContext($activeGeo);
+        $sections .= $this->visibilityTrend($clientId, $period);
+        $sections .= $this->searchRankings($clientId, $period, $prevPeriod);
+        $sections .= $this->onsiteOffsitePending();
+        $sections .= $this->geoSection($clientId, $period);
+
         $md  = "# Visibility-Report — {$name}\n\n";
         $md .= "**Domain:** {$domain}  \n";
         $md .= "**Berichtsmonat:** " . $this->monthLabel($period) . "  \n";
         $md .= "**Erstellt:** " . date('d.m.Y') . "\n\n";
         $md .= "---\n\n";
 
-        // Aktive GEO-Kanäle aus der Config (für die Grau-Darstellung im Markt-Kontext).
-        $activeGeo = array_keys(array_filter($cfg['geo']['channels'] ?? ['chatgpt' => true, 'perplexity' => true]));
-
-        $md .= $this->marketContext($activeGeo);
-        $md .= $this->visibilityTrend($clientId, $period);
-        $md .= $this->searchRankings($clientId, $period, $prevPeriod);
-        $md .= $this->onsiteOffsitePending();
-        $md .= $this->geoSection($clientId, $period);
+        $md .= $this->intro($name);
+        $md .= $this->executiveSummary($clientId, $period, $name, $domain);
+        $md .= $sections;
 
         $md .= "\n---\n";
         $md .= "_Automatisch erstellt vom Visibility Dashboard. Datenquellen: Google Search "
             . "Console, Bing Webmaster Tools, DataForSEO._\n";
 
         return $md;
+    }
+
+    /** Kurze „Was ist das?"-Einordnung für den Kunden. */
+    private function intro(string $name): string
+    {
+        $md  = "## Worum es geht\n\n";
+        $md .= "Dieser Report zeigt monatlich, **wie sichtbar {$name} online ist** — und zwar "
+            . "in beiden Welten der Websuche:\n\n";
+        $md .= "- **Klassische Suche (SEO):** Auf welchen Positionen erscheint die Website bei "
+            . "**Google** und **Bing**? Wie entwickelt sich die Sichtbarkeit über die Zeit, wie "
+            . "steht es um das technische Fundament (Onsite) und die Verlinkung von aussen (Offsite)?\n";
+        $md .= "- **KI-Suche (GEO):** Wird die Marke in den Antworten von **KI-Assistenten** wie "
+            . "ChatGPT, Perplexity, Google AI Overviews oder Microsoft Copilot **erwähnt und zitiert**? "
+            . "Immer mehr Menschen suchen so — hier sichtbar zu sein wird zunehmend entscheidend.\n\n";
+        $md .= "Ziel: auf einen Blick sehen, wo {$name} gut sichtbar ist und wo Potenzial liegt.\n\n";
+        return $md;
+    }
+
+    /**
+     * Executive Summary am Anfang — per LLM aus den Kern-Kennzahlen formuliert (Deutsch,
+     * mit Einordnung). Zum Kopieren als Mail-Text. Ohne Claude/bei Fehler: entfällt.
+     */
+    private function executiveSummary(int $clientId, string $period, string $name, string $domain): string
+    {
+        if ($this->claude === null) {
+            return '';
+        }
+        $facts = $this->summaryFacts($clientId, $period);
+        if (!$facts) {
+            return '';
+        }
+
+        $system = 'Du schreibst die Executive Summary eines monatlichen Sichtbarkeits-Reports für '
+            . 'einen Schweizer Kunden. Deutsch, professionell, aber verständlich (kein Fachjargon '
+            . 'ohne Erklärung). 4–6 Sätze bzw. kurze Bullet-Punkte. Fasse das Wichtigste zusammen: '
+            . 'Google/Bing-Sichtbarkeit inkl. Trend, KI-Sichtbarkeit, und nenne EINE konkrete '
+            . 'Chance/Empfehlung. Keine erfundenen Zahlen — nur die gelieferten Fakten. Beginne '
+            . 'direkt mit der Aussage, keine Anrede.';
+        $prompt = "Kunde: {$name} ({$domain}), Monat: " . $this->monthLabel($period) . "\n\n"
+            . "Fakten:\n" . json_encode($facts, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        try {
+            $text = $this->claude->text($prompt, $system, 800);
+        } catch (\Throwable $e) {
+            return ''; // Report bleibt vollständig, nur ohne Summary
+        }
+
+        $md  = "## Zusammenfassung\n\n";
+        $md .= $this->gray('Kurzfassung zum Weiterleiten (z. B. per Mail). Details in den Abschnitten darunter.') . "\n\n";
+        $md .= trim($text) . "\n\n---\n\n";
+        return $md;
+    }
+
+    /**
+     * Kern-Kennzahlen für die Summary. @return array<string,mixed>
+     */
+    private function summaryFacts(int $clientId, string $period): array
+    {
+        $facts = [];
+
+        // Sichtbarkeits-Trend
+        $hist = $this->repo->visibilityHistory($clientId, 'google', $period);
+        if (count($hist) >= 2) {
+            $first = (float) $hist[0]['etv'];
+            $last = (float) end($hist)['etv'];
+            $facts['google_sichtbarkeit_trend'] = [
+                'von_etv' => round($first), 'auf_etv' => round($last),
+                'veränderung_prozent' => $first > 0 ? round(($last - $first) / $first * 100) : null,
+                'zeitraum_monate' => count($hist),
+            ];
+        }
+
+        // Rankings
+        $rank = $this->repo->rankingSummary($clientId, $period);
+        foreach (['google', 'bing'] as $e) {
+            if (isset($rank[$e])) {
+                $facts["rankings_{$e}"] = [
+                    'sichtbare_keywords' => $rank[$e]['count'],
+                    'durchschnittsposition' => $rank[$e]['avg_position'],
+                    'impressionen' => $rank[$e]['impressions'],
+                    'klicks' => $rank[$e]['clicks'],
+                ];
+            }
+        }
+
+        // GEO
+        $geo = $this->repo->geoSummary($clientId, $period);
+        foreach ($geo as $engine => $s) {
+            $facts['ki_sichtbarkeit'][$engine] = [
+                'prompts' => $s['prompts'],
+                'erwähnt' => $s['mentioned'],
+                'erwähnungsrate_prozent' => $s['prompts'] > 0 ? round($s['mentioned'] / $s['prompts'] * 100) : 0,
+            ];
+        }
+
+        return $facts;
     }
 
     /** Markt-Kontext CH aus config/market/switzerland.yaml (Donut-Kandidat). */
@@ -142,6 +247,10 @@ final class ReportBuilder
         $md = "## Sichtbarkeits-Verlauf (Google)\n\n";
         $md .= "_Geschätzte Sichtbarkeit (ETV) und Anzahl rankender Keywords je Monat "
             . "— rückwirkend aus DataForSEO. Zeigt den Trend, nicht nur die Momentaufnahme._\n\n";
+        $md .= $this->gray('**ETV** (Estimated Traffic Value) = geschätzter monatlicher '
+            . 'organischer Traffic der Domain. Berechnet aus allen rankenden Keywords: '
+            . 'Suchvolumen × erwartete Klickrate für die jeweilige Position, aufsummiert. '
+            . 'Ein höherer Wert = mehr Sichtbarkeit. Ideal als einzelne Trend-Kennzahl.') . "\n\n";
 
         $etv = array_map(static fn($r) => (float) $r['etv'], $hist);
         $md .= "**Sichtbarkeit:** " . $this->sparkline($etv) . "  \n";
