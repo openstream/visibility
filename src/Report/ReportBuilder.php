@@ -37,7 +37,10 @@ final class ReportBuilder
         $md .= "**Erstellt:** " . date('d.m.Y') . "\n\n";
         $md .= "---\n\n";
 
-        $md .= $this->marketContext();
+        // Aktive GEO-Kanäle aus der Config (für die Grau-Darstellung im Markt-Kontext).
+        $activeGeo = array_keys(array_filter($cfg['geo']['channels'] ?? ['chatgpt' => true, 'perplexity' => true]));
+
+        $md .= $this->marketContext($activeGeo);
         $md .= $this->visibilityTrend($clientId, $period);
         $md .= $this->searchRankings($clientId, $period, $prevPeriod);
         $md .= $this->onsiteOffsitePending();
@@ -51,7 +54,10 @@ final class ReportBuilder
     }
 
     /** Markt-Kontext CH aus config/market/switzerland.yaml (Donut-Kandidat). */
-    private function marketContext(): string
+    /**
+     * @param array<int,string> $activeGeo aktive GEO-Kanäle (engine-slugs), Rest wird grau dargestellt
+     */
+    private function marketContext(array $activeGeo): string
     {
         $file = App::get()->configPath('market/switzerland.yaml');
         if (!is_file($file)) {
@@ -62,25 +68,67 @@ final class ReportBuilder
         $md .= "_Warum welche Kanäle zählen — Marktanteile (Quelle: {$m['source']}, Stand "
             . "{$m['as_of']})._\n\n";
 
-        // Nur die getrackten Suchmaschinen (Google + Bing) zeigen — nicht DuckDuckGo/Yahoo,
-        // die decken zusammen <5 % ab und werden bewusst nicht getrackt.
-        $tracked = array_values(array_filter(
-            $m['search_engines'] ?? [],
-            static fn($s) => in_array($s['name'], ['Google', 'Bing'], true),
-        ));
+        // Suchmaschinen: getrackte (Google + Bing) mit % und Summe; übrige grau ohne %.
+        $trackedNames = ['Google', 'Bing'];
+        $tracked = [];
+        $untracked = [];
+        foreach ($m['search_engines'] ?? [] as $s) {
+            if (in_array($s['name'], $trackedNames, true)) {
+                $tracked[] = $s;
+            } else {
+                $untracked[] = $s['name'];
+            }
+        }
+        $trackedSum = array_sum(array_map(static fn($s) => (float) $s['share'], $tracked));
         $md .= "**Suchmaschinen (getrackt):** ";
-        $md .= implode(' · ', array_map(
-            fn($s) => "{$s['name']} {$s['share']} %",
-            $tracked,
-        )) . "\n\n";
+        $md .= implode(' · ', array_map(fn($s) => "{$s['name']} {$s['share']} %", $tracked));
+        $md .= ' — zusammen ' . number_format($trackedSum, 1, ',', '') . ' %';
+        if ($untracked) {
+            $md .= "  \n" . $this->gray('nicht getrackt: ' . implode(', ', $untracked));
+        }
+        $md .= "\n\n";
 
-        $md .= "**KI-Assistenten:** ";
-        $md .= implode(' · ', array_map(
-            fn($s) => "{$s['name']} {$s['share']} %",
-            array_slice($m['ai_assistants'] ?? [], 0, 5),
-        )) . "\n\n";
+        // KI-Assistenten: aktive (getrackte GEO-Kanäle) normal mit %, inaktive grau mit %.
+        $md .= "**KI-Assistenten:**  \n";
+        $active = [];
+        $inactive = [];
+        foreach ($m['ai_assistants'] ?? [] as $a) {
+            $slug = $this->assistantSlug($a['name']);
+            $entry = "{$a['name']} {$a['share']} %";
+            if (in_array($slug, $activeGeo, true)) {
+                $active[] = $entry;
+            } else {
+                $inactive[] = $entry;
+            }
+        }
+        if ($active) {
+            $md .= 'getrackt: ' . implode(' · ', $active) . "  \n";
+        }
+        if ($inactive) {
+            $md .= $this->gray('nicht getrackt: ' . implode(' · ', $inactive));
+        }
+        $md .= "\n\n";
 
         return $md;
+    }
+
+    /** Name → engine-slug für den Abgleich mit aktiven GEO-Kanälen. */
+    private function assistantSlug(string $name): string
+    {
+        return match (true) {
+            str_contains($name, 'ChatGPT')    => 'chatgpt',
+            str_contains($name, 'Gemini')     => 'gemini',
+            str_contains($name, 'Claude')     => 'claude',
+            str_contains($name, 'Perplexity') => 'perplexity',
+            str_contains($name, 'Copilot')    => 'bing_ai',
+            default                            => strtolower($name),
+        };
+    }
+
+    /** Grauer Text (HTML — wird in gerenderten Viewern/HTML-Report grau, in reinem MD ignoriert). */
+    private function gray(string $text): string
+    {
+        return "<span style=\"color:#888\">{$text}</span>";
     }
 
     /** Sichtbarkeits-Verlauf (Google, historisch) — Sparkline + Tabelle + Trend. */
@@ -216,7 +264,7 @@ final class ReportBuilder
         $md .= "| KI-Kanal | Prompts | Erwähnt | Zitiert | Sichtbarkeit |\n|---|---:|---:|---:|---:|\n";
 
         $labels = ['chatgpt' => 'ChatGPT', 'gemini' => 'Gemini', 'claude' => 'Claude',
-            'perplexity' => 'Perplexity', 'ai_overview' => 'Google AI Overview', 'bing_ai' => 'Bing-AI (Copilot)'];
+            'perplexity' => 'Perplexity', 'bing_ai' => 'Copilot / Bing-AI', 'ai_overview' => 'Google AI Overview / AI Mode'];
         foreach ($labels as $engine => $label) {
             if (!isset($summary[$engine])) {
                 continue;
@@ -226,6 +274,12 @@ final class ReportBuilder
             $md .= "| {$label} | {$s['prompts']} | {$s['mentioned']} | {$s['cited']} | {$rate} % |\n";
         }
         $md .= "\n";
+
+        // Noch nicht erhobene GEO-Kanäle transparent nennen (Herkunft der Daten).
+        $md .= $this->gray('Noch nicht im Report: **Copilot / Bing-AI** (Datenquelle: Bing '
+            . 'AI-Performance-CSV) und **Google AI Overview / AI Mode** (Datenquelle: GSC '
+            . 'Search-Generative-AI-Report, bei CH-Domains noch nicht ausgerollt). Beide zählen '
+            . 'zu GEO, nicht zu klassischem SEO.') . "\n\n";
 
         return $md;
     }
