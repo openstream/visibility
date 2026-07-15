@@ -48,8 +48,8 @@ Der Report kann **automatisch (monatlich) oder manuell** per Mail versendet werd
 - **Datenerhebung über APIs, KEIN eigener Crawler/Scraper.** „Crawlen" meint hier
   den regelmässigen Erhebungslauf gegen APIs — nicht das Bauen eines eigenen
   Website-Crawlers. Onsite-/technische Checks kommen über die DataForSEO OnPage API
-  (+ gratis Google-APIs/Observatory), Content-Kontext beim Onboarding über
-  DataForSEO/Firecrawl-APIs. Guzzle ist nur der HTTP-Client für diese API-Calls,
+  (+ gratis Google-APIs/Observatory), Content-Kontext beim Onboarding ebenfalls über
+  die DataForSEO OnPage API. Guzzle ist nur der HTTP-Client für diese API-Calls,
   kein Scraper. Falls ein Check über keine API verfügbar ist: mit Nick abklären,
   nicht eigenmächtig einen Crawler bauen.
 - **Nur für Nick.** Kein Kundenzugang, kein Login, kein Rollen-/Rechte-System,
@@ -63,7 +63,7 @@ Der Report kann **automatisch (monatlich) oder manuell** per Mail versendet werd
   Daily-Tracking. Kein Daily nötig.
 - **Diagramme sind Pflicht** — im Dashboard und im `.md`-Report. Immer beides:
   **Momentaufnahme** (aktueller Stand) *und* **historische Entwicklung** (Zeitreihe
-  über die Wochen/Monate). Siehe ROADMAP → „Diagramme & Visualisierung".
+  über die Wochen/Monate). Siehe README → „Diagramme & Visualisierung".
 - **Lokal zuerst mit DDEV**, später evtl. produktiv auf `visibility.openstream.ch`.
   Code so schreiben, dass der Sprung lokal→prod klein ist (keine hartcodierten
   Pfade/URLs, Config über `.env`).
@@ -80,7 +80,7 @@ Der Report kann **automatisch (monatlich) oder manuell** per Mail versendet werd
 
 ## Datenquellen / APIs (Stand Recherche Juli 2026)
 
-> Konkrete Auswahl + Kosten stehen in `ROADMAP.md`. Kurzfassung:
+> Konkrete Auswahl + Kosten stehen in `README.md`. Kurzfassung:
 
 - **Google Search Console API** — kostenlos, für Nicks *eigene* verifizierte
   Properties. Liefert echte Klicks/Impressions/CTR/Position pro Query & Seite.
@@ -95,7 +95,7 @@ Der Report kann **automatisch (monatlich) oder manuell** per Mail versendet werd
   Backlinks (Offsite), AI Optimization (GEO). Weitere Gruppen für spätere Features:
   Keywords Data & Labs (Onboarding/Keyword-Ideen/Wettbewerber), Business Data
   (Local SEO — für CH-KMU relevant), Content Analysis (Sentiment/Brand-Mentions),
-  Domain Analytics. **Vollständiges Inventar + Priorisierung in ROADMAP.**
+  Domain Analytics. **Vollständiges Inventar + Priorisierung in README.**
   → **`DataForSeoClient` generisch bauen** (Endpoint + Payload als Parameter,
   gemeinsames Auth/Retry/Cost-Logging), damit neue Gruppen ohne Umbau andockbar sind.
   - SERP API: Google-Rankings für Keywords ohne GSC (CH+Deutsch unterstützt).
@@ -129,14 +129,14 @@ können, ohne den Report-Code anzufassen. API-Keys nur aus `.env`.
   **vom Kunden freigegeben** (Status `approved`) — inkl. Bestätigung des Profils
   („richtig verstanden?"). `collect` läuft erst mit freigegebenen Listen.
   Profil & Prompts sind CH-lokalisiert und **lebende Config** (quartalsweise/bei
-  Relaunch prüfen). Siehe ROADMAP → „Keyword- & GEO-Prompt-Generierung".
+  Relaunch prüfen). Siehe README → „Keyword- & GEO-Prompt-Generierung".
 - **Reports** landen unter `storage/reports/<kunde>/<YYYY-MM>.md`. Roh-API-Antworten
   unter `storage/raw/...` cachen (Kosten + Reproduzierbarkeit).
 - **Kein Live-API-Call in der Web-UI** ohne Not — teuer/langsam. UI liest aus DB;
   Erhebung läuft über CLI-Kommandos/Cron.
 - Zeitzone Europe/Zurich. Beträge/Zahlen im Report deutsch formatiert.
 
-## Häufige Kommandos (Zielbild, siehe ROADMAP)
+## Häufige Kommandos (Zielbild, siehe README)
 
 ```bash
 ddev start
@@ -149,4 +149,4 @@ ddev exec php bin/console send    --client=<slug> --month=2026-07 [--dry-run]
 
 ## Offene Punkte
 
-Siehe `ROADMAP.md` → „Offene Entscheidungen". Vor dem Coden mit Nick klären.
+Siehe `README.md` → „Offene Entscheidungen". Vor dem Coden mit Nick klären.

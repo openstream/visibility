@@ -1,6 +1,6 @@
 # Vorlage für eine Kunden-Konfiguration. Pro Kunde eine Datei: <slug>.yaml
 # Keywords & GEO-Prompts werden beim Onboarding generiert und vom Kunden freigegeben
-# (siehe ROADMAP → "Keyword- & GEO-Prompt-Generierung"). status: approved erst nach Freigabe.
+# (siehe README → "Keyword- & GEO-Prompt-Generierung"). status: approved erst nach Freigabe.
 
 slug: musterkunde
 name: Muster AG

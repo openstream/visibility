@@ -1,11 +1,38 @@
-# ROADMAP — Visibility Dashboard
+# Visibility Dashboard
 
-SEO + GEO Sichtbarkeits-Dashboard für openstream.ch. Ziel: monatlicher,
-ausführlicher Visibility-Report (`.md`, Deutsch) pro Kunde + Executive Summary
-als Mail-Body. Nur für Nick, kein Kundenzugang. Lokal mit DDEV, später evtl.
-`visibility.openstream.ch`.
+**SEO + GEO Sichtbarkeits-Dashboard** — prüft regelmässig und automatisiert die
+Sichtbarkeit von Websites in **Google & Bing** (klassisches SEO: Rankings, Onsite,
+Backlinks) und in **ChatGPT, Perplexity, Gemini & AI Overviews** (GEO: wird die
+Marke in KI-Antworten erwähnt/zitiert?). Erzeugt pro Kunde einen monatlichen,
+ausführlichen Report auf Deutsch inkl. Diagrammen + eine Executive Summary als
+Mail-Body.
 
-Siehe `CLAUDE.md` für Rahmenbedingungen und Stack.
+Eigenes Tool (kein Kundenzugang), lokal mit **DDEV** entwickelt, später evtl.
+produktiv auf `visibility.openstream.ch`. PHP 8.3, MariaDB, **DataForSEO** als
+zentrale Datenquelle + gratis Google/Bing-APIs. Keine fertigen SEO-Suites.
+
+> Dieses README ist zugleich **Konzept, Recherche, Architektur und Statusplan**.
+> Arbeitskonventionen für Claude Code stehen in `CLAUDE.md`.
+
+## Schnellstart
+
+```bash
+ddev start && ddev composer install
+cp .env.example .env          # API-Keys eintragen (DataForSEO, OpenAI, Anthropic ...)
+ddev exec php bin/console migrate
+ddev exec php bin/console onboard --client=<slug> --save   # Keywords + GEO-Prompts generieren
+ddev exec php bin/console approve --client=<slug>          # freigeben
+ddev exec php bin/console collect --client=<slug>          # Rankings erheben (wöchentlich)
+```
+
+## Inhalt
+
+- [Recherche: Datenquellen & Dienste](#recherche-datenquellen--dienste-juli-2026)
+- [Kostenübersicht](#kostenübersicht--pro-domain--monat-wöchentliche-erhebung)
+- [Keyword- & GEO-Prompt-Generierung (Onboarding)](#keyword--geo-prompt-generierung-onboarding-kern)
+- [Marktverteilung Schweiz](#marktverteilung-schweiz-kontext-für-dashboard--report)
+- [Diagramme & Visualisierung](#diagramme--visualisierung)
+- [Phasenplan & Status](#phasenplan)
 
 ---
 
@@ -188,25 +215,16 @@ Web-Suche. Alles andere zusammen kostet ~$0.60.
 | **SE Ranking (SE Visible)** | Abo | im SE-Ranking-Abo enthalten | Fertiges AI-Visibility-Dashboard mit **deutscher Konfiguration + CH**, API in allen Plänen; Perplexity/Gemini/AIO | **Einzige fertige Suite mit echtem dt./CH-Setup + API.** ChatGPT bleibt aber auch hier US/EN. Guter Fallback/Ergänzung. |
 | Fertige GEO-Suiten (Otterly, Peec [Berlin/DSGVO], Profound, Nightwatch, RankScale, Semrush AI, Ahrefs Brand Radar) | Abo | ~$20–700/Mt | AI-Visibility-Dashboards out-of-the-box | Referenz für Features & Fallback. **Achtung:** fast alle tracken ChatGPT **nur US/EN**; „DACH"-Tools (z.B. prompt-monitoring.com) nutzen zwar dt. Prompts, haben aber oft **kein API**. |
 
-### Firecrawl — geprüft, Rolle geklärt
+### Firecrawl — geprüft & verworfen (Juli 2026)
 
-**[Firecrawl](https://www.firecrawl.dev/)** ist eine Scrape/Crawl/Map/**Search**/Extract-API, die
-Webseiten in LLM-ready Markdown/JSON umwandelt. Geprüft für unseren Use-Case:
-
-- **Als SEO-Rank-Tracker: NEIN.** Der Search-Endpoint (`location="Switzerland"`
-  wird unterstützt, 2 Credits / 10 Ergebnisse) liefert **Seiteninhalte, keine
-  SERP-Positionen** — er ist nicht für Rank-Tracking gebaut. Für Google-Rankings
-  bleiben DataForSEO/SerpApi/GSC die richtigen Werkzeuge.
-- **Als GEO-Messquelle: NEIN.** Kann ChatGPT/Perplexity-Antworten nicht abfragen.
-- **Als Content-Werkzeug: JA, sinnvoll optional.** Gut geeignet, um
-  **Kundenseiten & Wettbewerber-Seiten sauber zu crawlen** (→ Grundlage für
-  Content-/Onpage-Hinweise, oder um zitierte Quellen aus Perplexity/Gemini
-  faktisch zu prüfen). Nur einbauen, wenn wir Content-Analyse ins Dashboard
-  aufnehmen — nicht für die Kern-Sichtbarkeitsmessung nötig.
-- **Preis 2026:** Abo-only, Free-Tier 1'000 Credits/Mt, danach Hobby/Standard/Growth.
-
-→ **Fazit: Firecrawl ist kein Ersatz für DataForSEO/SerpApi und keine GEO-Quelle.**
-Optional als Content-Crawler in einer späteren Phase, kein Teil des Kern-Stacks.
+**[Firecrawl](https://www.firecrawl.dev/)** (Scrape/Crawl/Search → LLM-ready Markdown)
+war kurz als Content-Werkzeug vorgemerkt. **Nicht nötig:** Als SEO-Rank-Tracker und
+GEO-Quelle ohnehin ungeeignet (liefert Seiteninhalte, keine SERP-Positionen; kann
+keine ChatGPT/Perplexity-Antworten abfragen). Und der Content-Zweck (Seiten fürs
+Website-Verständnis holen) wird bereits von der **DataForSEO OnPage API** abgedeckt,
+die wir schon nutzen (`ContentFetcher` liefert Meta/Headings/Text/Raw-HTML). Firecrawls
+„schöneres" Markdown bringt für unseren LLM-Schritt keinen relevanten Mehrwert. →
+**Kein Firecrawl** — eine Quelle weniger, Stack bleibt bei DataForSEO + gratis APIs.
 
 ### Empfohlener Ausgangs-Stack (an CH-Realität angepasst)
 
@@ -228,8 +246,6 @@ ist die zentrale bezahlte Quelle über vier Rollen hinweg; alles andere ist grat
   deutsche Prompts) — NICHT DataForSEO (dessen ChatGPT-Panel ist auf US/EN
   limitiert; die OpenAI-API selbst ist sprachneutral).
 - **Provider-Interface** kapselt alle Quellen, damit Wechsel/Ergänzung billig bleibt.
-- **Firecrawl:** nicht im Kern-Stack; optional später als **Content-API** (nicht
-  „Crawler" im Sinne von Eigenbau — eine fertige Scrape-API) für Onboarding-Kontext.
 
 > **Realistischer Minimal-Stack für den Start (die 4 CH-Domains):**
 > GSC (gratis) + Bing WMT (gratis) + **DataForSEO als Zentrale** (SERP + OnPage +
@@ -242,7 +258,7 @@ ist die zentrale bezahlte Quelle über vier Rollen hinweg; alles andere ist grat
 > Franken-/Dollar-Betrag pro Monat, wenn wir Standard-Queue nutzen und
 > Roh-Antworten cachen. Genaue Zahlen nach Kunden-/Keyword-Zählung in Phase 1.
 
-**Quellen:** [DataForSEO AI Optimization API](https://dataforseo.com/apis/ai-optimization-api) · [DataForSEO Docs v3](https://docs.dataforseo.com/v3/ai_optimization-overview/) · [DataForSEO LLM Mentions Locations & Languages (ChatGPT = US/EN only)](https://docs.dataforseo.com/v3/ai_optimization-llm_mentions-locations_and_languages/) · [DataForSEO: Swiss Italian in Labs API](https://dataforseo.com/update/swiss-italian-available-in-dataforseo-labs-api) · [Perplexity API Pricing](https://docs.perplexity.ai/docs/getting-started/pricing) · [Bing WMT AI Performance (Public Preview)](https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview) · [Bing AI Insights: Intents/Topics/Citation Share/Compare (Juni 2026)](https://blogs.bing.com/search/June-2026/New-AI-Visibility-Insights-in-Bing-Webmaster-Tools-Intents-Topics-Citation-Share-Compare) · [Bing WMT AI-Report: API? (Microsoft Q&A)](https://learn.microsoft.com/en-ca/answers/questions/5780844/bing-webmaster-tools-ai-performance-report-is-ther) · [SE Ranking AI Visibility](https://seranking.com/ai-visibility-tracker.html) · [SERP API Vergleich 2026](https://apiserpent.com/blog/serp-api-rank-tracking-cost) · [Firecrawl](https://www.firecrawl.dev/) · [Firecrawl Search-Endpoint](https://www.firecrawl.dev/blog/mastering-firecrawl-search-endpoint) · [Firecrawl Pricing](https://www.firecrawl.dev/pricing) · [Sistrix API](https://www.sistrix.com/api/) · [XOVI Rank Tracker](https://www.xovi.com/xovi-tool/rank-tracker/) · [SE Ranking API](https://seranking.com/api.html) · [Perplexity Sonar Language Filter](https://docs.perplexity.ai/guides/language-filter-guide) · [Peec AI (Berlin)](https://docs.peec.ai/api/introduction) · [Gemini API Grounding](https://ai.google.dev/gemini-api/docs/google-search) · [DataForSEO OnPage API](https://dataforseo.com/apis/on-page-api) · [DataForSEO Backlinks API](https://dataforseo.com/apis/backlinks-api) · [PageSpeed Insights API](https://developers.google.com/speed/docs/insights/v5/get-started) · [CrUX API](https://developer.chrome.com/docs/crux/guides/crux-api) · [Mozilla Observatory API](https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides)
+**Quellen:** [DataForSEO AI Optimization API](https://dataforseo.com/apis/ai-optimization-api) · [DataForSEO Docs v3](https://docs.dataforseo.com/v3/ai_optimization-overview/) · [DataForSEO LLM Mentions Locations & Languages (ChatGPT = US/EN only)](https://docs.dataforseo.com/v3/ai_optimization-llm_mentions-locations_and_languages/) · [DataForSEO: Swiss Italian in Labs API](https://dataforseo.com/update/swiss-italian-available-in-dataforseo-labs-api) · [Perplexity API Pricing](https://docs.perplexity.ai/docs/getting-started/pricing) · [Bing WMT AI Performance (Public Preview)](https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview) · [Bing AI Insights: Intents/Topics/Citation Share/Compare (Juni 2026)](https://blogs.bing.com/search/June-2026/New-AI-Visibility-Insights-in-Bing-Webmaster-Tools-Intents-Topics-Citation-Share-Compare) · [Bing WMT AI-Report: API? (Microsoft Q&A)](https://learn.microsoft.com/en-ca/answers/questions/5780844/bing-webmaster-tools-ai-performance-report-is-ther) · [SE Ranking AI Visibility](https://seranking.com/ai-visibility-tracker.html) · [SERP API Vergleich 2026](https://apiserpent.com/blog/serp-api-rank-tracking-cost) · [Sistrix API](https://www.sistrix.com/api/) · [XOVI Rank Tracker](https://www.xovi.com/xovi-tool/rank-tracker/) · [SE Ranking API](https://seranking.com/api.html) · [Perplexity Sonar Language Filter](https://docs.perplexity.ai/guides/language-filter-guide) · [Peec AI (Berlin)](https://docs.peec.ai/api/introduction) · [Gemini API Grounding](https://ai.google.dev/gemini-api/docs/google-search) · [DataForSEO OnPage API](https://dataforseo.com/apis/on-page-api) · [DataForSEO Backlinks API](https://dataforseo.com/apis/backlinks-api) · [PageSpeed Insights API](https://developers.google.com/speed/docs/insights/v5/get-started) · [CrUX API](https://developer.chrome.com/docs/crux/guides/crux-api) · [Mozilla Observatory API](https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides)
 
 ### Abdeckungs-Check für unsere Ziel-Domains (foppa.ch, openstream.ch, schwarzenbach.ch, hepro.ch)
 
@@ -304,9 +320,8 @@ Weitere abgeleitet wird.
 
 **Vorgehen (API-basiert, kein eigener Crawler):**
 - **Inhalt holen:** Startseite + wichtigste Unterseiten (Leistungen/Produkte, Über
-  uns, Kontakt) via **DataForSEO OnPage** (liefert Inhalt/Struktur ohnehin) bzw.
-  **Firecrawl** (sauberes LLM-ready Markdown). Sitemap/Navigation nutzen, um die
-  relevanten Seiten zu wählen (nicht die ganze Site).
+  uns, Kontakt) via **DataForSEO OnPage** (liefert Meta/Headings/Text/Raw-HTML). Über
+  `key_pages` in der Kunden-Config die relevanten Seiten wählen (nicht die ganze Site).
 - **Verstehen (LLM/Claude):** aus dem Inhalt ein strukturiertes **Website-Profil**
   ableiten:
   - **Was wird angeboten?** (Leistungen/Produkte, konkret)
@@ -332,7 +347,7 @@ Weitere abgeleitet wird.
 | **Bing Webmaster Tools** | Suchanfragen (API) **+ AI Performance „Grounding Queries"** (welche Fragen KI-Antworten mit Zitat der Seite auslösten) | **Prompt-Saatgut aus echten KI-Anfragen** | Klassik via API (✅); **AI-Report via CSV-Export** (keine API) → Grounding-Queries aus CSV einlesen |
 | **Google Search Console — Search Generative AI Report** | Impressions/Pages/Countries/Devices in AI Overviews & AI Mode (**keine Queries!**) | zeigt, *welche Seiten* in AIO auftauchen → daraus Themen ableiten | ⚠️ **angekündigt 3. Juni 2026, Rollout nur an UK-Teilmenge, Daten ab 18.05.2026, keine API.** Bei hepro.ch & Co. **noch nicht sichtbar** → als „kommt später" einplanen, nicht darauf warten. |
 | **DataForSEO** (Keyword-Ideen, „people also ask", verwandte Suchen, AI-Keyword-Data) | Keyword-Vorschläge & Volumen für CH, Frageformulierungen | Keyword- **und** Prompt-Ideen für Domains ohne/mit wenig GSC-Daten | ✅ via API |
-| **Website-Inhalt → Website-Profil** (via DataForSEO OnPage / Firecrawl API + LLM) | Was die Seite IST, Absicht/Ziel, Angebot, Zielgruppe, Positionierung, Marke | **Grundlage (Schritt 0)** für Kategorie- & Marken-Prompts — Innensicht | ✅ API + LLM |
+| **Website-Inhalt → Website-Profil** (via DataForSEO OnPage + LLM) | Was die Seite IST, Absicht/Ziel, Angebot, Zielgruppe, Positionierung, Marke | **Grundlage (Schritt 0)** für Kategorie- & Marken-Prompts — Innensicht | ✅ API + LLM |
 | **Wettbewerber** (vom Kunden genannt / aus SERP) | Konkurrenznamen | für „alternatives to X"- und Vergleichs-Prompts | ✅ |
 
 ### Methodik für realistische GEO-Prompts (Best Practice 2026)
