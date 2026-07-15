@@ -25,6 +25,17 @@ bing:
   site_url: "https://www.openstream.ch/"
   verified: true
 
+# GEO-Kanäle (KI-Sichtbarkeit). Aktiv = werden bei `collect --geo` erhoben.
+# Kosten-bewusst: ChatGPT (wichtigster, 72 % CH) + Perplexity (citation-native, günstig).
+# gemini/claude sind bereit, aber deaktiviert (bei Bedarf auf true) — sie sind teurer.
+# Rhythmus: GEO monatlich (KI-Antworten ändern sich langsam); Rankings bleiben wöchentlich.
+geo:
+  channels:
+    chatgpt:    true
+    perplexity: true
+    gemini:     false
+    claude:     false
+
 report:
   recipient: nick@openstream.ch
 

@@ -129,18 +129,27 @@ final class CollectCommand extends Command
                 $io->warning('Keine freigegebenen GEO-Prompts — überspringe GEO.');
             } else {
                 $io->section('GEO — KI-Sichtbarkeit');
-                $io->text(count($prompts) . ' GEO-Prompts über Kanäle ChatGPT/Gemini/Claude.');
                 $analyzer = new \Openstream\Visibility\Provider\MentionAnalyzer(
                     $domain, $repo->brandNames($clientId), $cfg['competitors'] ?? []
                 );
-                // Alle GEO-Kanäle einheitlich über DataForSEO (ChatGPT/Gemini/Claude) —
-                // eine Auth, ein Antwortformat. Serverseitige Web-Suche, kein Tool-Loop bei uns.
+                // Aktive GEO-Kanäle aus der Config (kostenbewusst wählbar).
+                // ChatGPT/Gemini/Claude via DataForSEO; Perplexity via Sonar (citation-native).
+                $channels = $cfg['geo']['channels'] ?? ['chatgpt' => true, 'perplexity' => true];
+                $active = array_keys(array_filter($channels));
+                $io->text(count($prompts) . ' GEO-Prompts über: ' . implode(', ', $active) . '.');
                 $dfsGeo = new DataForSeoClient();
-                $providers = [
-                    new \Openstream\Visibility\Provider\DataForSeoGeoProvider($dfsGeo, $analyzer, 'chatgpt'),
-                    new \Openstream\Visibility\Provider\DataForSeoGeoProvider($dfsGeo, $analyzer, 'gemini'),
-                    new \Openstream\Visibility\Provider\DataForSeoGeoProvider($dfsGeo, $analyzer, 'claude'),
-                ];
+                $providers = [];
+                foreach (['chatgpt', 'gemini', 'claude'] as $ch) {
+                    if (!empty($channels[$ch])) {
+                        $providers[] = new \Openstream\Visibility\Provider\DataForSeoGeoProvider($dfsGeo, $analyzer, $ch);
+                    }
+                }
+                if (!empty($channels['perplexity'])) {
+                    $providers[] = new \Openstream\Visibility\Provider\PerplexityGeoProvider($analyzer);
+                }
+                if (!$providers) {
+                    $io->warning('Keine GEO-Kanäle aktiviert (config geo.channels).');
+                }
                 foreach ($providers as $p) {
                     try {
                         $mentions = $p->collect($prompts);
@@ -152,7 +161,9 @@ final class CollectCommand extends Command
                         $io->warning($p->name() . ' fehlgeschlagen: ' . $e->getMessage());
                     }
                 }
-                $io->note(sprintf('DataForSEO-GEO-Kosten: $%.4f', $dfsGeo->spent()));
+                if ($dfsGeo->spent() > 0) {
+                    $io->note(sprintf('DataForSEO-GEO-Kosten: $%.4f (Perplexity separat via Sonar)', $dfsGeo->spent()));
+                }
             }
         }
 
