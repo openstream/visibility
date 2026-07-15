@@ -143,7 +143,10 @@ final class ReportBuilder
             . "Fakten:\n" . json_encode($facts, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         try {
-            $text = $this->claude->text($prompt, $system, 800);
+            // 1500 Tokens: genug, dass die 4-6 Bullets sicher komplett durchpassen
+            // (800 schnitt den letzten Punkt mitten im Satz ab). Die Kürze steuert der
+            // System-Prompt, nicht das Limit.
+            $text = $this->claude->text($prompt, $system, 1500);
         } catch (\Throwable $e) {
             return ''; // Report bleibt vollständig, nur ohne Summary
         }
