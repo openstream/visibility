@@ -93,6 +93,17 @@ final class SvgChartTest extends TestCase
         $this->assertStringContainsString('71,9 %', $svg);
     }
 
+    public function testChartsAreThemeAdaptive(): void
+    {
+        // Dark-Mode-Fähigkeit: <style> mit prefers-color-scheme, Variablen-Fallback,
+        // Hintergrund über --bg statt fest weiss.
+        $svg = $this->chart->line(['A', 'B'], [1.0, 2.0], 'T');
+        $this->assertStringContainsString('@media (prefers-color-scheme:dark)', $svg);
+        $this->assertStringContainsString('var(--ink,#1f2937)', $svg, 'Variable mit Light-Fallback');
+        $this->assertStringContainsString('fill="var(--bg,#ffffff)"', $svg, 'Hintergrund adaptiv, nicht fest weiss');
+        $this->assertStringNotContainsString('fill="#ffffff"', $svg, 'kein fest weisser Hintergrund mehr');
+    }
+
     public function testEscapesLabels(): void
     {
         $svg = $this->chart->bars([['label' => 'A & B <x>', 'value' => 1.0]]);
