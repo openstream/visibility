@@ -40,7 +40,8 @@ final class ReportBuilder
         $md .= $this->marketContext();
         $md .= $this->visibilityTrend($clientId, $period);
         $md .= $this->searchRankings($clientId, $period, $prevPeriod);
-        $md .= $this->pendingSections();
+        $md .= $this->onsiteOffsitePending();
+        $md .= $this->geoSection($clientId, $period);
 
         $md .= "\n---\n";
         $md .= "_Automatisch erstellt vom Visibility Dashboard. Datenquellen: Google Search "
@@ -61,10 +62,16 @@ final class ReportBuilder
         $md .= "_Warum welche Kanäle zählen — Marktanteile (Quelle: {$m['source']}, Stand "
             . "{$m['as_of']})._\n\n";
 
-        $md .= "**Suchmaschinen:** ";
+        // Nur die getrackten Suchmaschinen (Google + Bing) zeigen — nicht DuckDuckGo/Yahoo,
+        // die decken zusammen <5 % ab und werden bewusst nicht getrackt.
+        $tracked = array_values(array_filter(
+            $m['search_engines'] ?? [],
+            static fn($s) => in_array($s['name'], ['Google', 'Bing'], true),
+        ));
+        $md .= "**Suchmaschinen (getrackt):** ";
         $md .= implode(' · ', array_map(
             fn($s) => "{$s['name']} {$s['share']} %",
-            array_slice($m['search_engines'] ?? [], 0, 4),
+            $tracked,
         )) . "\n\n";
 
         $md .= "**KI-Assistenten:** ";
@@ -177,8 +184,8 @@ final class ReportBuilder
         return $md;
     }
 
-    /** Noch nicht erhobene Bereiche transparent ausweisen. */
-    private function pendingSections(): string
+    /** Onsite/Offsite — noch nicht erhoben, transparent ausweisen. */
+    private function onsiteOffsitePending(): string
     {
         $md  = "## 2. Onsite / Technisches SEO\n\n";
         $md .= "> _Noch nicht erhoben._ Geplant: technische Checks (Meta, Headings, hreflang, "
@@ -189,10 +196,36 @@ final class ReportBuilder
         $md .= "> _Noch nicht erhoben._ Geplant: referring domains, neue/verlorene Links, "
             . "Autoritäts-Trend, Spam-Score via DataForSEO Backlinks.\n\n";
 
-        $md .= "## 4. GEO — Sichtbarkeit in KI-Antworten\n\n";
-        $md .= "> _Noch nicht erhoben._ Geplant: Erwähnungen/Citations in ChatGPT, Perplexity, "
-            . "Gemini, Google AI Overview + Bing-AI (Copilot). Die GEO-Prompts sind im Onboarding "
-            . "bereits definiert.\n\n";
+        return $md;
+    }
+
+    /** GEO — Sichtbarkeit in KI-Antworten (ChatGPT/Gemini/Claude + Bing-AI/Copilot). */
+    private function geoSection(int $clientId, string $period): string
+    {
+        $summary = $this->repo->geoSummary($clientId, $period);
+        $md = "## 4. GEO — Sichtbarkeit in KI-Antworten\n\n";
+
+        if (!$summary) {
+            $md .= "> _Noch nicht erhoben._ Geplant: Erwähnungen/Citations in ChatGPT, Gemini, "
+                . "Claude, Perplexity + Bing-AI (Copilot). Erhebung mit `collect --geo`.\n\n";
+            return $md;
+        }
+
+        $md .= "_Wird die Marke in KI-Antworten auf die definierten Prompts erwähnt/zitiert? "
+            . "Pro Kanal: Anteil der Prompts mit Erwähnung._\n\n";
+        $md .= "| KI-Kanal | Prompts | Erwähnt | Zitiert | Sichtbarkeit |\n|---|---:|---:|---:|---:|\n";
+
+        $labels = ['chatgpt' => 'ChatGPT', 'gemini' => 'Gemini', 'claude' => 'Claude',
+            'perplexity' => 'Perplexity', 'ai_overview' => 'Google AI Overview', 'bing_ai' => 'Bing-AI (Copilot)'];
+        foreach ($labels as $engine => $label) {
+            if (!isset($summary[$engine])) {
+                continue;
+            }
+            $s = $summary[$engine];
+            $rate = $s['prompts'] > 0 ? round($s['mentioned'] / $s['prompts'] * 100) : 0;
+            $md .= "| {$label} | {$s['prompts']} | {$s['mentioned']} | {$s['cited']} | {$rate} % |\n";
+        }
+        $md .= "\n";
 
         return $md;
     }

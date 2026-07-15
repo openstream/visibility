@@ -585,12 +585,20 @@ Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openst
 - [ ] `OffsiteProvider`-Interface + DataForSEO-Backlinks-Implementierung
       (referring domains, ranks, spam-score, neu/verloren, Anchor-Texte,
       Wettbewerbsvergleich) → `backlinks`.
-- [ ] `GeoProvider`-Interface + Implementierungen je Kanal:
-      - DataForSEO AI Optimization → **Perplexity, Gemini, AI-Overview**
-      - **OpenAI web-search → ChatGPT (deutsche Prompts, CH)** — NICHT DataForSEO
-      - optional Perplexity Sonar direkt (citation-native)
-      Ergebnisse (Mention ja/nein, Position, Citations, Wettbewerber) pro
-      GEO-Prompt normalisieren, Quelle je Kanal im Datensatz vermerken.
+- [x] **`GeoProvider`-Interface + `MentionAnalyzer` + `DataForSeoGeoProvider`:**
+      **Wichtige Vereinfachung (15.07.2026):** ChatGPT, Gemini **und Claude** laufen
+      alle über **DataForSEO LLM-Responses** (deutsche Prompts, web_search) — eine
+      Auth, ein Antwortformat, serverseitige Web-Suche. Der ursprüngliche Plan
+      (ChatGPT via OpenAI, Claude via Anthropic) ist überholt: DataForSEO kann seit
+      Kontofreischaltung alle drei auf Deutsch (kein US/EN-Limit, weil wir die Prompts
+      selbst stellen). `MentionAnalyzer` (rein, getestet) prüft je Antwort: erwähnt/
+      zitiert/Position/Wettbewerber → `ai_mentions`. In `collect --geo` eingebunden.
+      Getestet openstream: Marke bei Marken-Prompts sichtbar (Pos 1), bei Kategorie-
+      Prompts (Wettbewerb) noch nicht — je Kanal unterschiedlich.
+      **Kanal-Marktanteile CH:** ChatGPT 72 %, Gemini 8 %, **Claude 7 % (vor Perplexity!)**.
+- [ ] **Perplexity** via Sonar-API (citation-native, deutsch) — noch offen.
+- [ ] **Copilot** = Bing-AI aus CSV (`BingAiImporter` liest Grounding Queries/Citations,
+      → `ai_mentions` engine=bing_ai). Onboarding-Seeding fertig; Mess-Import offen.
 - [ ] `bin/console collect --client=<slug>` (läuft **wöchentlich**) schreibt
       Roh-Antworten → `storage/raw`, normalisiert → DB **mit `measured_at`**.
       Idempotent pro Woche, mit Caching/Rate-Limit-Handling.

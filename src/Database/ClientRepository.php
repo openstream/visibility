@@ -188,6 +188,90 @@ final class ClientRepository
         return $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     }
 
+    /** @return array<int,string> approved GEO-Prompts (id => prompt) */
+    public function approvedGeoPrompts(int $clientId): array
+    {
+        $stmt = $this->db->prepare('SELECT id, prompt FROM geo_prompts WHERE client_id=? AND approved=1 ORDER BY id');
+        $stmt->execute([$clientId]);
+        return $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+    }
+
+    /** Eigene Marken aus dem jüngsten Website-Profil. @return array<int,string> */
+    public function brandNames(int $clientId): array
+    {
+        $stmt = $this->db->prepare('SELECT brand_names FROM website_profiles WHERE client_id=? ORDER BY id DESC LIMIT 1');
+        $stmt->execute([$clientId]);
+        $json = $stmt->fetchColumn();
+        return $json ? (json_decode((string) $json, true) ?: []) : [];
+    }
+
+    /**
+     * Speichert GEO-Messwerte (idempotent pro Tag/Engine/Prompt/Quelle).
+     * @param array<int,\Openstream\Visibility\Provider\GeoMention> $mentions
+     * @return int Anzahl geschriebener Zeilen
+     */
+    public function saveGeoMentions(int $clientId, array $mentions, string $measuredAt): int
+    {
+        $del = $this->db->prepare(
+            'DELETE FROM ai_mentions
+             WHERE client_id=:cid AND engine=:engine AND source=:source
+               AND measured_at=:mdate AND prompt_id <=> :pid'
+        );
+        $ins = $this->db->prepare(
+            'INSERT INTO ai_mentions
+               (client_id, prompt_id, engine, mentioned, position, cited, citations, competitors, source, measured_at)
+             VALUES
+               (:cid, :pid, :engine, :mentioned, :position, :cited, :citations, :competitors, :source, :mdate)'
+        );
+        $n = 0;
+        foreach ($mentions as $m) {
+            $del->execute([
+                'cid' => $clientId, 'engine' => $m->engine, 'source' => $m->source,
+                'mdate' => $measuredAt, 'pid' => $m->promptId,
+            ]);
+            $ins->execute([
+                'cid' => $clientId, 'pid' => $m->promptId, 'engine' => $m->engine,
+                'mentioned' => $m->mentioned ? 1 : 0, 'position' => $m->position,
+                'cited' => $m->cited ? 1 : 0,
+                'citations' => $this->json($m->citations),
+                'competitors' => $this->json($m->competitors),
+                'source' => $m->source, 'mdate' => $measuredAt,
+            ]);
+            $n++;
+        }
+        return $n;
+    }
+
+    /**
+     * GEO-Sichtbarkeit je Engine für einen Monat (für Report): wie viele Prompts,
+     * wie oft erwähnt/zitiert.
+     * @return array<string,array{prompts:int,mentioned:int,cited:int}>
+     */
+    public function geoSummary(int $clientId, string $period): array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT engine, COUNT(*) prompts, SUM(mentioned) mentioned, SUM(cited) cited
+             FROM ai_mentions
+             WHERE client_id = ? AND measured_at BETWEEN ? AND ?
+               AND measured_at = (SELECT MAX(measured_at) FROM ai_mentions a2
+                                  WHERE a2.client_id = ai_mentions.client_id
+                                    AND a2.engine = ai_mentions.engine
+                                    AND a2.measured_at BETWEEN ? AND ?)
+             GROUP BY engine"
+        );
+        $stmt->execute([$clientId, $start, $end, $start, $end]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $out[$r['engine']] = [
+                'prompts'   => (int) $r['prompts'],
+                'mentioned' => (int) $r['mentioned'],
+                'cited'     => (int) $r['cited'],
+            ];
+        }
+        return $out;
+    }
+
     /**
      * Schreibt Ranking-Messwerte mit measured_at (Zeitreihe). Idempotent pro
      * (client, keyword, engine, source, Tag): vorhandene Zeilen desselben Tages

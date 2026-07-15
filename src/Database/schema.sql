@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS ai_mentions (
     id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     client_id    INT UNSIGNED NOT NULL,
     prompt_id    INT UNSIGNED NULL,
-    engine       ENUM('chatgpt','perplexity','gemini','ai_overview','bing_ai') NOT NULL,
+    engine       ENUM('chatgpt','perplexity','gemini','claude','ai_overview','bing_ai') NOT NULL,
     mentioned    TINYINT(1)   NOT NULL DEFAULT 0,
     position     INT          NULL,           -- Rang in der Antwort, falls ermittelbar
     cited        TINYINT(1)   NOT NULL DEFAULT 0,

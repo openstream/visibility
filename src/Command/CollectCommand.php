@@ -32,6 +32,7 @@ final class CollectCommand extends Command
     {
         $this->addOption('client', null, InputOption::VALUE_REQUIRED, 'Kunden-Slug');
         $this->addOption('serp', null, InputOption::VALUE_NONE, 'Zusätzlich DataForSEO-SERP erheben (kostet, ~5 Min)');
+        $this->addOption('geo', null, InputOption::VALUE_NONE, 'GEO-Sichtbarkeit erheben (ChatGPT/Gemini/Claude, kostet pro Prompt)');
         $this->addOption('date', null, InputOption::VALUE_REQUIRED, 'measured_at überschreiben (Y-m-d, Default heute)');
     }
 
@@ -118,6 +119,40 @@ final class CollectCommand extends Command
                 $total += $n;
             } catch (\Throwable $e) {
                 $io->warning('DataForSEO-SERP fehlgeschlagen: ' . $e->getMessage());
+            }
+        }
+
+        // --- GEO: KI-Sichtbarkeit (optional, kostet pro Prompt) ---
+        if ($input->getOption('geo')) {
+            $prompts = $repo->approvedGeoPrompts($clientId);
+            if (!$prompts) {
+                $io->warning('Keine freigegebenen GEO-Prompts — überspringe GEO.');
+            } else {
+                $io->section('GEO — KI-Sichtbarkeit');
+                $io->text(count($prompts) . ' GEO-Prompts über Kanäle ChatGPT/Gemini/Claude.');
+                $analyzer = new \Openstream\Visibility\Provider\MentionAnalyzer(
+                    $domain, $repo->brandNames($clientId), $cfg['competitors'] ?? []
+                );
+                // Alle GEO-Kanäle einheitlich über DataForSEO (ChatGPT/Gemini/Claude) —
+                // eine Auth, ein Antwortformat. Serverseitige Web-Suche, kein Tool-Loop bei uns.
+                $dfsGeo = new DataForSeoClient();
+                $providers = [
+                    new \Openstream\Visibility\Provider\DataForSeoGeoProvider($dfsGeo, $analyzer, 'chatgpt'),
+                    new \Openstream\Visibility\Provider\DataForSeoGeoProvider($dfsGeo, $analyzer, 'gemini'),
+                    new \Openstream\Visibility\Provider\DataForSeoGeoProvider($dfsGeo, $analyzer, 'claude'),
+                ];
+                foreach ($providers as $p) {
+                    try {
+                        $mentions = $p->collect($prompts);
+                        $n = $repo->saveGeoMentions($clientId, $mentions, $measuredAt);
+                        $mentionedCount = count(array_filter($mentions, static fn($m) => $m->mentioned));
+                        $io->success(sprintf('%s: %d Prompts erhoben, in %d erwähnt.', $p->name(), $n, $mentionedCount));
+                        $total += $n;
+                    } catch (\Throwable $e) {
+                        $io->warning($p->name() . ' fehlgeschlagen: ' . $e->getMessage());
+                    }
+                }
+                $io->note(sprintf('DataForSEO-GEO-Kosten: $%.4f', $dfsGeo->spent()));
             }
         }
 
