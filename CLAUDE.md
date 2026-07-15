@@ -20,11 +20,11 @@ und misst zusätzlich den **Zustand der Website selbst**:
 - **Onsite/technisches SEO** (Audit der Kundenseite),
 - **Offsite SEO** (Backlink-/Autoritätsprofil).
 
-**Social Media** (Roadmap, s. README): YouTube, LinkedIn, Instagram, TikTok —
-Follower, Engagement, Post-Frequenz, Wachstum. **Nur EIGENE Kanäle über offizielle APIs
-mit Einwilligung** (YouTube Data API, LinkedIn Community Management API, IG Graph, TikTok
-Display). **Kein Scraping, kein Wettbewerber-Tracking** (Nick-Entscheidung Juli 2026:
-Scraping-Anbieter wie Apify/ScrapeCreators verletzen ToS, ethisch nicht vertretbar).
+**Social Media** (Roadmap, s. README): YouTube, TikTok, Instagram (LinkedIn vorerst weg).
+Fokus **monatliche Views/Follower der EIGENEN Kunden-Kanäle**. **YouTube** offiziell via
+Data API (API-Key, kein OAuth, Views inkl. Shorts). **TikTok/Instagram:** Gesamt-Views nur
+des **eigenen** Kunden-Accounts via **Apify** (kein OAuth). **Kein Wettbewerber-Tracking**
+(Nick-Entscheidung Juli 2026). Ethische Linie: eigene Accounts scrapen ≠ fremde scrapen.
 
 **Newsletter** (Roadmap, s. README, Owned Media): Öffnungs-/Klickraten, Bounces,
 Abmeldungen, Listen-Wachstum aus **Sendy** (eigene, private Daten; nur aggregierte
@@ -65,11 +65,11 @@ Der Report kann **automatisch (monatlich) oder manuell** per Mail versendet werd
   die DataForSEO OnPage API. Guzzle ist nur der HTTP-Client für diese API-Calls,
   kein Scraper. Falls ein Check über keine API verfügbar ist: mit Nick abklären,
   nicht eigenmächtig einen Crawler bauen.
-  - **Social-Media-Daten:** ausschliesslich über die **offiziellen APIs** der Plattformen
-    (YouTube Data API, LinkedIn Community Management API, IG Graph, TikTok Display) für die
-    **eigenen Kanäle des Kunden** (OAuth/Einwilligung). **KEIN Scraping** von fremden
-    Accounts (Nick-Entscheidung Juli 2026) — das würde die Plattform-ToS verletzen. Kein
-    Wettbewerber-Tracking auf Social. Nur aggregierte Account-Stats des Kunden.
+  - **Social-Media-Daten:** **YouTube** über die offizielle Data API (API-Key). **TikTok/
+    Instagram** über **Apify**, aber NUR für die **eigenen** öffentlichen Kunden-Accounts
+    (Gesamt-Views, kein OAuth). **KEIN Scraping fremder/Wettbewerber-Accounts** und keine
+    Personendaten (Nick-Entscheidung Juli 2026). Ethische Linie: eigene Accounts eines
+    Kunden auslesen ≠ fremde Accounts scrapen. Nur aggregierte Account-Stats des Kunden.
 - **Nur für Nick.** Kein Kundenzugang, kein Login, kein Rollen-/Rechte-System,
   kein Multi-User. Single-User-Tool. Keine Auth-Komplexität einbauen.
 - **Sprache der Reports: Deutsch.** Code, Kommentare, Commits: Englisch ok.

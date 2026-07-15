@@ -70,10 +70,10 @@ im Report erwartet — dann nur diese eine Zahl, nicht die Suite.
 > echter Unterschied: SE Ranking hat via Planable **Social-Media-Tracking** (9
 > Plattformen, inkl. Social-Zitate in ChatGPT/Perplexity), DataForSEO nicht.
 > **Update (Social ist jetzt Ziel):** Wir lösen das **nicht** über SE Ranking/Planable
-> (Suite), sondern selbst über die **offiziellen APIs der Plattformen** für die *eigenen*
-> Kanäle — YouTube/LinkedIn/Instagram/TikTok, kein Scraping, kein Wettbewerber-Tracking
-> (Nick-Entscheidung, s. „Social-Media-Sichtbarkeit"). SE Ranking bleibt damit verworfen;
-> die „keine Suite"-Leitplanke gilt weiter.
+> (Suite), sondern selbst — YouTube offiziell (Data API), TikTok/Instagram via Apify nur
+> für die *eigenen* Kunden-Accounts (Gesamt-Views). Kein Wettbewerber-Tracking, LinkedIn
+> vorerst weggelassen (Nick-Entscheidung, s. „Social-Media-Sichtbarkeit"). SE Ranking
+> bleibt verworfen; die „keine Suite"-Leitplanke gilt weiter.
 
 ### Onsite / technisches SEO (Website-Audit)
 
@@ -118,46 +118,40 @@ Trust-Flow/Citation-Flow-Metrik (Majestic-exklusiv) — brauchen wir nicht.
 > Backlinks/Offsite. Ein Account, eine Auth, ein `DataForSeoClient` im Code. Das
 > vereinfacht die Architektur erheblich und hält die Kosten niedrig.
 
-### Social-Media-Sichtbarkeit (nur eigene Kanäle, offiziell)
+### Social-Media-Sichtbarkeit (eigene Kanäle)
 
 Sichtbarkeit ist mehr als die Website: **Social Media** gehört zum Auftritt eines
-Unternehmens dazu. Ziel: Follower, Engagement (Likes/Kommentare/Views), Post-Frequenz
-und **Wachstum über Zeit** je Kanal. Plattformen: **YouTube, LinkedIn, Instagram, TikTok**.
-Alle Quellen liefern nur Momentaufnahmen → **Zeitreihe bauen wir selbst** (wöchentlich
-`collect` → DB), genau wie beim Rest des Tools.
+Unternehmens dazu. Ziel: **monatliche Views** und Follower-Wachstum der **eigenen**
+Kanäle des Kunden. Plattformen: **YouTube, TikTok, Instagram** (LinkedIn vorerst
+weggelassen). Zeitreihe bauen wir selbst (wöchentlich `collect` → DB).
 
-**Grundsatz-Entscheidung (Nick, Juli 2026): nur EIGENE Kanäle über offizielle APIs mit
-Einwilligung — KEIN Scraping, KEIN Wettbewerber-Tracking.** Die Recherche zu
-Scraping-Anbietern (s. unten) wurde bewusst verworfen: Wettbewerber-Daten gibt es auf
-IG/TikTok/LinkedIn nur über ToS-verletzendes Scraping, das wollen wir nicht. Damit bleibt
-der ethisch/rechtlich saubere Teil — und der ist für die eigenen Kanäle sogar der bessere,
-weil offizielle APIs mehr liefern (Reichweite/Impressions), als Scraping je sähe.
+**Kernentscheidung (Nick, Juli 2026):** Fokus auf **eigene Kanäle** und **öffentliche
+Views** — kein Impressions/Reichweite-Anspruch (das gäbe es nur via aufwändigem
+OAuth-Insights-Zugriff), **kein Wettbewerber-Tracking**. Views sind die aussagekräftigste
+öffentliche Visibility-Kennzahl.
 
-| Plattform | Quelle (offiziell, eigene Kanäle) | Kosten | Liefert |
+| Plattform | Quelle | OAuth? | Liefert |
 |---|---|---|---|
-| **YouTube** | **Data API v3** (`channels.list?part=statistics`) | **gratis** (10'000 Quota-Units/Tag) | Subscriber, Views, Video-Anzahl. Setup analog `gsc-api-access` (Google Cloud + API-Key). |
-| **LinkedIn** | **Community Management API** (`organizationalEntityFollowerStatistics` + `…ShareStatistics`) | **gratis** | Follower-Gains + Post-Engagement (Likes/Comments/Shares/Clicks/Impressions/Rate) als Zeitreihe. Admin-OAuth der Kunden-Seite nötig; API-Produkt beantragen. |
-| **Instagram** | **Graph API** (Business/Creator, eigenes Konto) | **gratis** | Follower, Media-Count, je Post Likes/Comments, Reichweite/Impressions (Insights). OAuth + Meta-App-Review, nur Business/Creator-Konten. |
-| **TikTok** | **Display API** (eigenes verbundenes Konto, OAuth) | **gratis** | Basis-Profil + Video-Stats des eigenen Kontos. (Research-API nur akademisch, für uns nicht relevant.) |
+| **YouTube** | **Data API v3** (`channels.list?part=statistics`), nur API-Key | ❌ nein | `viewCount` (Lifetime, **inkl. Shorts** seit 31.3.2025), Subscriber, Video-Anzahl. Monats-Views = Differenz Monat/Vormonat (Näherung, passt zum wöchentlichen Erhebungslauf). Skaliert für alle Kunden ohne Setup. Setup analog `gsc-api-access`. |
+| **TikTok** | **Apify**, nur **eigener** Kunden-Account | ❌ nein | Gesamt-Views + Follower des eigenen öffentlichen Accounts. |
+| **Instagram** | **Apify**, nur **eigener** Kunden-Account | ❌ nein | Gesamt-Views/Follower des eigenen öffentlichen Accounts. |
 
-Alle vier sind **offizielle APIs mit Einwilligung des Konto-Inhabers** (der Kunde gibt
-uns via OAuth Zugriff auf *seine* Kanäle). Rein eigene Daten → datenschutzrechtlich
-unkritisch. Nur aggregierte Account-/Post-Stats in den Report.
+**YouTube** ist der saubere Kern: offizielle API, kein OAuth, öffentliche Kanal-Views
+inkl. Shorts, nur die Kanal-ID nötig. *(Optional später: YouTube Analytics API mit OAuth
+für echte Monats-Views + Shorts-vs-Video-Split — als gekapselter Zusatzpfad, wenn ein
+Kunde Consent gibt. Nicht nötig für den Trend.)*
 
-→ **Architektur:** `SocialProvider`-Interface je Plattform, dahinter der offizielle
-API-Client (OAuth-Token je Kunde aus der Config). Report-Code bleibt stabil.
+**TikTok/Instagram:** offiziell gibt es öffentliche Views **nicht** ohne OAuth. Da
+OAuth + Meta-App-Review pro Kunde nicht skaliert, lesen wir dort die **Gesamt-Views des
+eigenen Kunden-Accounts** via **Apify** aus (nur die aggregierte Zahl fürs Reporting).
 
-> **Verworfen: Wettbewerber-Tracking via Scraping.** Recherche (Juli 2026) ergab: für
-> *fremde* IG/TikTok/LinkedIn-Accounts gibt es keine offizielle API, nur Scraping-Dienste
-> (ScrapeCreators, SociaVault, Bright Data, Apify u.a.). Alle verletzen die Plattform-ToS
-> gleichermassen — **ethisch nicht besser als Apify**, nur technisch bequemer. Nick hat
-> entschieden: **das machen wir nicht.** Proxycurl (ein solcher Anbieter) wurde 2025
-> verklagt und abgeschaltet — bestätigt das Risiko. Wettbewerber-Vergleich bleibt auf die
-> Kanäle beschränkt, wo es offiziell geht: **YouTube** (Data API deckt fremde Kanäle) und
-> optional **Instagram Business Discovery** (fremde Business-Konten) — beides ohne
-> ToS-Verletzung. Falls sich die Haltung ändert, ist die Anbieter-Recherche im
-> `social-media-newsletter-scope`-Memory + Git-Historie dokumentiert. DataForSEO deckt
-> Social übrigens NICHT ab (deren „Social Media API" ist Pinterest-only).
+> **Ethische Abgrenzung (bewusst gezogen):** **Eigene** Accounts eines Kunden scrapen ≠
+> **fremde** Accounts scrapen. Wir lesen nur die öffentlichen Gesamt-Zahlen der Kanäle,
+> die dem Kunden gehören (keine Wettbewerber, keine Personendaten, keine Follower-Listen).
+> Das ist der datenschutzrechtlich harmloseste Fall. **Wettbewerber-Tracking via Scraping
+> bleibt verworfen.** Die frühere Anbieter-Recherche (ScrapeCreators/SociaVault/Bright
+> Data u.a.) ist in `social-media-newsletter-scope`-Memory + Git-Historie dokumentiert,
+> falls sich die Frage neu stellt. DataForSEO deckt Social nicht ab (Pinterest-only).
 
 ### Newsletter / E-Mail-Marketing (Owned Media)
 
@@ -698,28 +692,29 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
 Sichtbarkeit = ganzes Unternehmen, nicht nur die Website. Neue Kanäle, jeweils als
 eigener `Provider` hinter einem Interface (tauschbar), Zeitreihe via `collect` → DB.
 Details + Anbieter-Bewertung s. „Social-Media-Sichtbarkeit" und „Newsletter".
-**Grundsatz (entschieden):** nur **eigene Kanäle** über **offizielle APIs mit Einwilligung**,
-kein Scraping, kein Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
+**Grundsatz (entschieden):** nur **eigene Kanäle**, Fokus auf **öffentliche Views**.
+YouTube offiziell (API-Key); TikTok/IG nur eigene Accounts via Apify. Kein
+Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
 - [ ] **`SocialProvider`-Interface** + DB-Tabelle `social_metrics` (Zeitreihe:
-      client, plattform, account, followers, engagement, posts, measured_at).
-      Config je Kunde: eigene Accounts + OAuth-Tokens je Plattform.
-- [ ] **YouTube** (`YouTubeProvider`) via **Data API v3** — offiziell, gratis,
-      Subscriber/Views/Video-Anzahl. Setup analog `gsc-api-access` (Google Cloud + API-Key).
-      Guter erster Kanal (kein OAuth-Flow nötig für eigene öffentliche Kanäle).
-- [ ] **LinkedIn** (`LinkedInProvider`) via **Community Management API**
-      (`organizationalEntityFollowerStatistics` + `…ShareStatistics`) — offiziell, gratis,
-      Follower-Gains + Post-Engagement als Zeitreihe. Admin-OAuth der Kunden-Seite +
-      API-Produkt beantragen.
-- [ ] **Instagram** (`InstagramProvider`) via **Graph API** (Business/Creator, eigenes
-      Konto, OAuth + Meta-App-Review) — Follower, Post-Engagement, Reichweite/Impressions.
-- [ ] **TikTok** (`TikTokProvider`) via **Display API** (eigenes verbundenes Konto, OAuth) —
-      Basis-Profil + Video-Stats.
+      client, plattform, account, followers, views_total, measured_at).
+      Config je Kunde: eigene Kanal-IDs/Handles je Plattform (Social ist optional —
+      Kunden ohne Kanal bekommen den Abschnitt sauber ausgeblendet).
+- [ ] **YouTube** (`YouTubeProvider`) via **Data API v3** (`channels.list?part=statistics`,
+      nur API-Key) — `viewCount` (Lifetime inkl. Shorts), Subscriber, Video-Anzahl.
+      Monats-Views = Differenz Monat/Vormonat. **Erster/sauberster Kanal, kein OAuth.**
+      Setup analog `gsc-api-access`. *(Optional später: Analytics API mit OAuth für echte
+      Monats-Views + Shorts-Split — gekapselter Zusatzpfad.)*
+- [ ] **TikTok + Instagram** (`ApifySocialProvider`): Gesamt-Views/Follower nur des
+      **eigenen** Kunden-Accounts via Apify (`run-sync-get-dataset-items`). Kein OAuth,
+      nur aggregierte öffentliche Zahlen. Generischer `ApifyClient` analog `DataForSeoClient`.
+- [ ] LinkedIn: **vorerst weggelassen** (kein öffentlicher View-Zugang ohne Admin-OAuth).
 - [ ] **`NewsletterProvider`** (Sendy): je Ausgabe Öffnungs-/Klickrate, Bounces,
       Abmeldungen, Listen-Wachstum → `newsletter_stats` (Zeitreihe). Zugriff über
       Sendy-API bzw. read-only aus Sendys MySQL-DB (beim Bau prüfen, was die Version
       hergibt). Nur aggregierte Raten in den Report, keine Empfänger-Adressen.
-- [ ] **Grundsatz:** nur aggregierte Account-/Kampagnen-Stats des Kunden, keine Personen-/
-      Follower-/Empfänger-Listen (DSG/DSGVO). Alles offiziell, kein Scraping.
+- [ ] **Grundsatz:** nur aggregierte Account-/Kampagnen-Stats des **eigenen** Kunden-Kanals,
+      keine Personen-/Follower-/Empfänger-Listen, kein Wettbewerber-Tracking (DSG/DSGVO).
+      YouTube/Newsletter offiziell; TikTok/IG-Scraping nur für eigene öffentliche Accounts.
 
 ### Phase 3 — Report-Generierung (inkl. Diagramme)
 - [ ] Report-Datenmodell: aktueller Monat vs. Vormonat (Deltas!) **plus Zeitreihe
