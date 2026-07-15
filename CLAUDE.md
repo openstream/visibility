@@ -5,8 +5,10 @@ Kontext und Konventionen für Claude Code in diesem Projekt. Kurz halten, aktuel
 ## Was das ist
 
 Ein **Visibility Dashboard** für Nick (openstream.ch): prüft regelmässig und
-automatisiert die Sichtbarkeit von Kunden-Websites in
+automatisiert die Sichtbarkeit **eines ganzen Unternehmens** — nicht nur der Website,
+sondern auch Social Media und Newsletter.
 
+**Website** in
 - **Google** (klassisches SEO — Rankings, Impressions, Klicks, CTR, Position),
 - **Bing** (SEO via Webmaster Tools **plus** dessen neuer **AI Performance
   (Beta)** Report — Citations in Copilot & Bing-AI-Summaries),
@@ -18,7 +20,17 @@ und misst zusätzlich den **Zustand der Website selbst**:
 - **Onsite/technisches SEO** (Audit der Kundenseite),
 - **Offsite SEO** (Backlink-/Autoritätsprofil).
 
-Es ist ein **SEO + GEO Dashboard**. Ersetzt Xovi (nicht mehr im Einsatz).
+**Social Media** (Roadmap, s. README): TikTok, Instagram, YouTube, LinkedIn —
+Follower, Engagement, Post-Frequenz, Wachstum; eigene *und* Wettbewerber-Accounts.
+YouTube offiziell/gratis, der Rest teils nur via Scraping (Apify) → als Roh-Daten-API
+einordnen, ToS/Datenschutz mit Nick abklären. Kein Suite-Produkt.
+
+**Newsletter** (Roadmap, s. README, Owned Media): Öffnungs-/Klickraten, Bounces,
+Abmeldungen, Listen-Wachstum aus **Sendy** (eigene, private Daten; nur aggregierte
+Raten, keine Empfänger-Adressen).
+
+Es ist ein **SEO + GEO Dashboard** mit Social- und Newsletter-Kanälen. Ersetzt Xovi
+(nicht mehr im Einsatz).
 
 **SEO umfasst dabei bewusst beide Seiten:**
 - **Onsite / technisches SEO** (bisher via Xovi gemacht): Meta/Titles/Descriptions,
@@ -52,6 +64,13 @@ Der Report kann **automatisch (monatlich) oder manuell** per Mail versendet werd
   die DataForSEO OnPage API. Guzzle ist nur der HTTP-Client für diese API-Calls,
   kein Scraper. Falls ein Check über keine API verfügbar ist: mit Nick abklären,
   nicht eigenmächtig einen Crawler bauen.
+  - **Social-Media-Daten (Ausnahme):** Für TikTok/Instagram/LinkedIn gibt es für
+    *fremde* Accounts keine offizielle API → dort nutzen wir eine **fremde
+    Scraping-API** (Apify o.ä.) als Roh-Daten-Quelle. Wir bauen also weiterhin
+    **keinen eigenen Scraper**, sondern rufen eine fremde Daten-API (wie DataForSEO).
+    Das ist eine bewusste **ToS-/Datenschutz-Abwägung** (v.a. Instagram/LinkedIn) und
+    mit Nick abzusegnen. YouTube läuft über die offizielle Data API (kein Scraping).
+    Nur aggregierte Account-Stats, keine Personen-/Follower-Listen.
 - **Nur für Nick.** Kein Kundenzugang, kein Login, kein Rollen-/Rechte-System,
   kein Multi-User. Single-User-Tool. Keine Auth-Komplexität einbauen.
 - **Sprache der Reports: Deutsch.** Code, Kommentare, Commits: Englisch ok.

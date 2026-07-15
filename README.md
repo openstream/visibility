@@ -1,12 +1,19 @@
 # Visibility Dashboard
 
 **SEO + GEO Sichtbarkeits-Dashboard** — misst regelmässig und automatisiert die
-Sichtbarkeit von Websites in **Google & Bing** (klassisches SEO: Rankings, Onsite,
-Backlinks) und in **ChatGPT, Perplexity, Gemini & AI Overviews** (GEO: wird die
-Marke in KI-Antworten erwähnt/zitiert?) und leitet daraus konkrete
-Optimierungsmöglichkeiten ab. Erzeugt pro Kunde einen monatlichen, ausführlichen
-Report auf Deutsch inkl. Diagrammen und einer Executive Summary; der automatische
-Mail-Versand (Summary als Mail-Body) ist geplant.
+Sichtbarkeit eines **ganzen Unternehmens** (nicht nur der Website, sondern auch
+Social Media und Newsletter) und leitet daraus konkrete Optimierungsmöglichkeiten ab:
+
+- **Website** in **Google & Bing** (klassisches SEO: Rankings, Onsite, Backlinks)
+  und in **ChatGPT, Perplexity, Gemini & AI Overviews** (GEO: wird die Marke in
+  KI-Antworten erwähnt/zitiert?).
+- **Social Media** (TikTok, Instagram, YouTube, LinkedIn): Follower, Engagement,
+  Wachstum — eigene und Wettbewerber-Accounts. *(Roadmap)*
+- **Newsletter** (Owned Media): Öffnungs-/Klickraten, Listen-Wachstum. *(Roadmap)*
+
+Erzeugt pro Kunde einen monatlichen, ausführlichen Report auf Deutsch inkl.
+Diagrammen und einer Executive Summary; der automatische Mail-Versand (Summary als
+Mail-Body) ist geplant.
 
 Eigenes Tool (kein Kundenzugang), lokal mit **DDEV** entwickelt, später evtl.
 produktiv auf `visibility.openstream.ch`. PHP 8.3, MariaDB, **DataForSEO** als
@@ -61,9 +68,11 @@ im Report erwartet — dann nur diese eine Zahl, nicht die Suite.
 > haben MCP-Server, aber MCP ist für ein LLM-Client-Szenario (Claude Desktop), nicht
 > für unser PHP-Tool, das die REST-API direkt anspricht — kein Mehrwert. Einziger
 > echter Unterschied: SE Ranking hat via Planable **Social-Media-Tracking** (9
-> Plattformen, inkl. Social-Zitate in ChatGPT/Perplexity), DataForSEO nicht. Für uns
-> aktuell nicht nötig → **bei DataForSEO bleiben.** Falls Social-Sichtbarkeit später
-> zum Ziel wird (z.B. Vlog-Zitate in KI-Antworten), SE Ranking/Planable neu abwägen.
+> Plattformen, inkl. Social-Zitate in ChatGPT/Perplexity), DataForSEO nicht.
+> **Update (Social ist jetzt Ziel):** Wir lösen das **nicht** über SE Ranking/Planable
+> (Suite), sondern selbst über Einzel-APIs — YouTube offiziell/gratis, TikTok/IG/LinkedIn
+> via Apify-Scraping als Roh-Daten. Details s. „Social-Media-Sichtbarkeit". SE Ranking
+> bleibt damit verworfen; die „keine Suite"-Leitplanke gilt weiter.
 
 ### Onsite / technisches SEO (Website-Audit)
 
@@ -107,6 +116,64 @@ Trust-Flow/Citation-Flow-Metrik (Majestic-exklusiv) — brauchen wir nicht.
 > **vier** Rollen — SERP-Rankings, GEO (Perplexity/Gemini/AIO), OnPage/Onsite und
 > Backlinks/Offsite. Ein Account, eine Auth, ein `DataForSeoClient` im Code. Das
 > vereinfacht die Architektur erheblich und hält die Kosten niedrig.
+
+### Social-Media-Sichtbarkeit (Owned + Wettbewerber)
+
+Sichtbarkeit ist mehr als die Website: **Social Media** gehört zum Auftritt eines
+Unternehmens dazu. Ziel: Follower, Engagement (Likes/Kommentare/Views), Post-Frequenz
+und **Wachstum über Zeit** je Kanal, für **eigene** *und* **Wettbewerber**-Accounts.
+Priorität: **TikTok, Instagram, YouTube, LinkedIn**. Alle Quellen liefern nur
+Momentaufnahmen → **Zeitreihe bauen wir selbst** (wöchentlich `collect` → DB), genau
+wie beim Rest des Tools.
+
+**Kernerkenntnis der Recherche (Juli 2026):** Nur **YouTube** hat eine saubere
+offizielle API für *fremde* Kanäle. Bei TikTok/Instagram/LinkedIn geben die offiziellen
+APIs entweder **nur eigene** Accounts her oder sind kommerziell gesperrt →
+Wettbewerber-Daten dort gehen faktisch **nur über Scraping** (Apify o.ä.).
+
+| Plattform | Quelle | Wettbewerber? | Kosten (Grössenordnung) | Bewertung |
+|---|---|---|---|---|
+| **YouTube** | **Data API v3** (`channels.list?part=statistics`) | ✅ jeder Kanal | **gratis** (10'000 Quota-Units/Tag, ~1–5/Abfrage) | ✅ **Sehr gut, offiziell.** Subscriber/Views/Video-Anzahl auch für Wettbewerber. Setup analog `gsc-api-access` (Google Cloud + API-Key). Kein Scraping nötig. |
+| **Instagram** | Graph API (eigene) **+** Apify `apify/instagram-profile-scraper` (Wettbewerber) | eigene: ✅ · Wettb.: nur Scraping | ~$1.60 / 1'000 Profile (Apify) | 🟡 **Gemischt.** Eigene Accounts via OAuth/Kundenfreigabe sauber. Wettbewerber nur Scraping (Meta gibt keine Fremd-Daten). Nur aggregierte Stats, keine Personen-/Follower-Listen (DSG/DSGVO). |
+| **TikTok** | Apify `clockworks/tiktok-profile-scraper` | nur Scraping | ~$0.006/Profil + $0.0003/Post | 🟡 **Nur Scraping.** Offizielle Research/Display-API kommerziell gesperrt. Actors stabil, ToS-Risiko moderat. Follower, Views, Likes, Kommentare, Shares je Video. |
+| **LinkedIn** | Marketing/Community-Mgmt API (eigene) **+** Apify/HarvestAPI (Wettbewerber) | eigene: ✅ · Wettb.: nur Scraping | ~$3 / 1'000 Companies (Apify) | ⚠️ **Heikelste Plattform.** Eigene Kunden-Seiten via Admin/OAuth sauber. Wettbewerber-Scraping = höchstes ToS-/Blocking-Risiko (hiQ-Urteil ist KEINE Erlaubnis). **Vor Produktiveinsatz mit Nick klären.** |
+
+**Anbieter-Muster (Apify):** pay-per-result, Free-Plan mit $5 Guthaben/Monat (kein
+Rollover). REST reicht ein Endpoint:
+`POST api.apify.com/v2/acts/{actorId}/run-sync-get-dataset-items` (Bearer-Token →
+JSON direkt, Timeout 300 s, sonst async). → **Generischen `ApifyClient` bauen**
+(actorId + Input als Parameter, gemeinsames Auth/Cost-Logging), analog `DataForSeoClient`.
+
+**Alternativen zu Apify** (falls nötig): **EnsembleData** (pay-as-you-go,
+TikTok/IG/YouTube, oft günstiger — stärkster Backup), SociaVault/RapidAPI-Anbieter
+(günstig, Qualität schwankend). ❌ **NICHT:** Phyllo/Data365/Bright Data
+(Enterprise-Preise, Hunderte–Tausende/Monat → Overkill).
+
+> **Offene Entscheidung (Nick):** Apify/Scraping-Anbieter als **Roh-Daten-API**
+> einordnen (wie DataForSEO-Backlinks) — konform mit der „keine Suite"-Regel, die
+> Aufbereitung bleibt eigener Code. Aber: Wettbewerber-Scraping bei IG/LinkedIn ist
+> eine bewusste **ToS-/Datenschutz-Abwägung** → vor Produktiveinsatz absegnen. Nur
+> **aggregierte Account-Stats**, keine Personen-/Follower-Listen. Dies löst zugleich
+> den Vorbehalt aus der SE-Ranking-Prüfung ein („Falls Social-Sichtbarkeit später zum
+> Ziel wird … neu abwägen") — wir bauen es selbst über Einzel-APIs, nicht über eine Suite.
+
+### Newsletter / E-Mail-Marketing (Owned Media)
+
+Der **Newsletter** ist ein weiterer eigener Sichtbarkeitskanal (Owned Media) neben
+Website und Social. openstream verschickt den zweimonatlichen Newsletter über
+**Sendy** (selbst-gehostetes PHP-Tool auf Amazon SES). Ziel: je Ausgabe **Öffnungsrate,
+Klickrate, Bounces, Abmeldungen** und **Listen-Wachstum**, plus Trend über die Ausgaben.
+
+- **Datenzugriff:** Sendy hat eine schlanke API (`/api/...`, u.a. Abonnenten-Zahl,
+  aktive/abgemeldete). Kampagnen-Kennzahlen (Opens/Clicks je Versand) liegen in Sendys
+  **MySQL-DB** → sauberster Weg ist ein read-only DB-Zugriff bzw. Sendys eigene
+  Report-Endpunkte. Beim Umsetzen prüfen, was die installierte Sendy-Version an API
+  hergibt vs. was aus der DB gelesen werden muss.
+- **Besonderheit:** rein **eigene, private Daten** (kein Scraping, kein
+  Wettbewerber-Vergleich) → datenschutzrechtlich unkritisch, nur aggregierte Raten
+  in den Report (keine Empfänger-Adressen).
+- **Report:** eigener Abschnitt „Newsletter" mit Momentaufnahme (letzte Ausgabe) +
+  Zeitreihe (Öffnungs-/Klickrate über die Ausgaben, Listen-Wachstum).
 
 ---
 
@@ -624,6 +691,32 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       **Offen (optional):** Roh-Antworten zusätzlich nach `storage/raw` cachen.
 - [ ] Fehler-/Kostenlogging pro Lauf (aktuell: Kosten werden je Lauf ausgegeben,
       aber nicht persistiert; kein zentrales Log).
+
+### Phase 2.5 — Social Media + Newsletter (Owned Media erweitern)
+Sichtbarkeit = ganzes Unternehmen, nicht nur die Website. Neue Kanäle, jeweils als
+eigener `Provider` hinter einem Interface (tauschbar), Zeitreihe via `collect` → DB.
+Details + Anbieter-Bewertung s. „Social-Media-Sichtbarkeit" und „Newsletter".
+- [ ] **`SocialProvider`-Interface** + DB-Tabelle `social_metrics` (Zeitreihe:
+      client, plattform, account, followers, engagement, posts, measured_at).
+      Config je Kunde: eigene + Wettbewerber-Accounts (Handles/URLs je Plattform).
+- [ ] **YouTube** (`YouTubeProvider`) via **Data API v3** — offiziell, gratis,
+      liefert Subscriber/Views/Video-Anzahl auch für Wettbewerber. **Erste Wahl,
+      kein Scraping.** Setup analog `gsc-api-access` (Google Cloud + API-Key).
+- [ ] **Generischer `ApifyClient`** (actorId + Input als Parameter, Auth/Cost-Logging,
+      `run-sync-get-dataset-items`) — analog `DataForSeoClient`.
+- [ ] **TikTok** (`TikTokProvider`) via Apify `clockworks/tiktok-profile-scraper`
+      (offizielle API kommerziell gesperrt → nur Scraping).
+- [ ] **Instagram** (`InstagramProvider`): Wettbewerber via Apify
+      `apify/instagram-profile-scraper`; eigene Accounts optional via Graph API (OAuth).
+- [ ] **LinkedIn** (`LinkedInProvider`): eigene Kunden-Seiten via Marketing/Community-
+      Mgmt API (Admin/OAuth); Wettbewerber via Apify/HarvestAPI. ⚠️ **ToS-/Datenschutz-
+      Abwägung mit Nick klären, bevor produktiv** (höchstes Blocking-Risiko).
+- [ ] **`NewsletterProvider`** (Sendy): je Ausgabe Öffnungs-/Klickrate, Bounces,
+      Abmeldungen, Listen-Wachstum → `newsletter_stats` (Zeitreihe). Zugriff über
+      Sendy-API bzw. read-only aus Sendys MySQL-DB (beim Bau prüfen, was die Version
+      hergibt). Nur aggregierte Raten in den Report, keine Empfänger-Adressen.
+- [ ] **Grundsatz:** nur aggregierte Account-/Kampagnen-Stats, keine Personen-/
+      Follower-/Empfänger-Listen (DSG/DSGVO). Apify als Roh-Daten-API, kein Suite-Produkt.
 
 ### Phase 3 — Report-Generierung (inkl. Diagramme)
 - [ ] Report-Datenmodell: aktueller Monat vs. Vormonat (Deltas!) **plus Zeitreihe
