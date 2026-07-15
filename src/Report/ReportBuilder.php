@@ -38,21 +38,24 @@ final class ReportBuilder
         // Aktive GEO-Kanäle aus der Config (für die Grau-Darstellung im Markt-Kontext).
         $activeGeo = array_keys(array_filter($cfg['geo']['channels'] ?? ['chatgpt' => true, 'perplexity' => true]));
 
+        // Gesamt-Traffic der Google-Property live aus GSC (die echte, aussagekräftige Zahl).
+        $gscTotals = $this->gscTotals($cfg);
+
         // Detail-Abschnitte zuerst bauen (die Summary fasst deren Zahlen zusammen).
         $sections  = $this->marketContext($activeGeo);
         $sections .= $this->visibilityTrend($clientId, $period);
-        $sections .= $this->searchRankings($clientId, $period, $prevPeriod);
+        $sections .= $this->searchRankings($clientId, $period, $prevPeriod, $gscTotals);
         $sections .= $this->onsiteOffsitePending();
         $sections .= $this->geoSection($clientId, $period);
 
-        $md  = "# Visibility-Report — {$name}\n\n";
+        $md  = "# Visibility-Report: {$name}\n\n";
         $md .= "**Domain:** {$domain}  \n";
         $md .= "**Berichtsmonat:** " . $this->monthLabel($period) . "  \n";
         $md .= "**Erstellt:** " . date('d.m.Y') . "\n\n";
         $md .= "---\n\n";
 
         $md .= $this->intro($name);
-        $md .= $this->executiveSummary($clientId, $period, $name, $domain);
+        $md .= $this->executiveSummary($clientId, $period, $name, $domain, $gscTotals);
         $md .= $sections;
 
         $md .= "\n---\n";
@@ -62,18 +65,38 @@ final class ReportBuilder
         return $md;
     }
 
+    /**
+     * Gesamt-Traffic der Google-Property live aus GSC. @return ?array{clicks:int,impressions:int,ctr:float,position:float}
+     * @param array<string,mixed> $cfg
+     */
+    private function gscTotals(array $cfg): ?array
+    {
+        $siteUrl = $cfg['gsc']['site_url'] ?? null;
+        if (!$siteUrl) {
+            return null;
+        }
+        try {
+            $gsc = \Openstream\Visibility\Provider\GscClient::fromEnv();
+            $end = date('Y-m-d', strtotime('-3 days'));
+            $start = date('Y-m-d', strtotime('-28 days'));
+            return $gsc->totals($siteUrl, $start, $end);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     /** Kurze „Was ist das?"-Einordnung für den Kunden. */
     private function intro(string $name): string
     {
         $md  = "## Worum es geht\n\n";
-        $md .= "Dieser Report zeigt monatlich, **wie sichtbar {$name} online ist** — und zwar "
+        $md .= "Dieser Report zeigt monatlich, wie sichtbar {$name} online ist, und zwar "
             . "in beiden Welten der Websuche:\n\n";
         $md .= "- **Klassische Suche (SEO):** Auf welchen Positionen erscheint die Website bei "
-            . "**Google** und **Bing**? Wie entwickelt sich die Sichtbarkeit über die Zeit, wie "
-            . "steht es um das technische Fundament (Onsite) und die Verlinkung von aussen (Offsite)?\n";
-        $md .= "- **KI-Suche (GEO):** Wird die Marke in den Antworten von **KI-Assistenten** wie "
-            . "ChatGPT, Perplexity, Google AI Overviews oder Microsoft Copilot **erwähnt und zitiert**? "
-            . "Immer mehr Menschen suchen so — hier sichtbar zu sein wird zunehmend entscheidend.\n\n";
+            . "Google und Bing? Wie entwickelt sich die Sichtbarkeit über die Zeit, wie steht es "
+            . "um das technische Fundament (Onsite) und die Verlinkung von aussen (Offsite)?\n";
+        $md .= "- **KI-Suche (GEO):** Wird die Marke in den Antworten von KI-Assistenten wie "
+            . "ChatGPT, Perplexity, Google AI Overviews oder Microsoft Copilot erwähnt und zitiert? "
+            . "Immer mehr Menschen suchen so, und hier sichtbar zu sein wird zunehmend entscheidend.\n\n";
         $md .= "Ziel: auf einen Blick sehen, wo {$name} gut sichtbar ist und wo Potenzial liegt.\n\n";
         return $md;
     }
@@ -82,22 +105,32 @@ final class ReportBuilder
      * Executive Summary am Anfang — per LLM aus den Kern-Kennzahlen formuliert (Deutsch,
      * mit Einordnung). Zum Kopieren als Mail-Text. Ohne Claude/bei Fehler: entfällt.
      */
-    private function executiveSummary(int $clientId, string $period, string $name, string $domain): string
+    private function executiveSummary(int $clientId, string $period, string $name, string $domain, ?array $gscTotals): string
     {
         if ($this->claude === null) {
             return '';
         }
-        $facts = $this->summaryFacts($clientId, $period);
+        $facts = $this->summaryFacts($clientId, $period, $gscTotals);
         if (!$facts) {
             return '';
         }
 
         $system = 'Du schreibst die Executive Summary eines monatlichen Sichtbarkeits-Reports für '
             . 'einen Schweizer Kunden. Deutsch, professionell, aber verständlich (kein Fachjargon '
-            . 'ohne Erklärung). 4–6 Sätze bzw. kurze Bullet-Punkte. Fasse das Wichtigste zusammen: '
+            . 'ohne Erklärung). 4-6 kurze Bullet-Punkte. Fasse das Wichtigste zusammen: '
             . 'Google/Bing-Sichtbarkeit inkl. Trend, KI-Sichtbarkeit, und nenne EINE konkrete '
-            . 'Chance/Empfehlung. Keine erfundenen Zahlen — nur die gelieferten Fakten. Beginne '
-            . 'direkt mit der Aussage, keine Anrede.';
+            . 'Chance/Empfehlung. '
+            . 'WICHTIG zum Sichtbarkeits-Trend: Wenn die klassische Google-Sichtbarkeit sinkt, während '
+            . 'die KI-Sichtbarkeit gut ist, ORDNE das ein: Ein Teil des Rückgangs kann daran liegen, '
+            . 'dass sich die Nutzung von der klassischen Suche hin zu KI-Assistenten und Google '
+            . 'AI Overviews verschiebt (Klicks wandern von den blauen Links in die KI-Antworten). '
+            . 'Formuliere das als mögliche Erklärung, nicht als Gewissheit, und leite daraus ab, dass '
+            . 'GEO-Sichtbarkeit wichtiger wird. '
+            . 'Nutze für Klicks/Impressionen die GESAMTZAHLEN der Website (gsc_gesamt), NICHT die '
+            . 'kleineren Zahlen einzelner getrackter Keywords. '
+            . 'Keine erfundenen Zahlen, nur die gelieferten Fakten. Beginne direkt mit der Aussage, '
+            . 'keine Anrede. Verwende keine Gedankenstriche (Bindestriche mit Leerzeichen sind ok). '
+            . 'Fettschrift nur für den Kernbefund am Anfang eines Bullet-Punkts, nicht mitten im Satz.';
         $prompt = "Kunde: {$name} ({$domain}), Monat: " . $this->monthLabel($period) . "\n\n"
             . "Fakten:\n" . json_encode($facts, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
@@ -115,10 +148,22 @@ final class ReportBuilder
 
     /**
      * Kern-Kennzahlen für die Summary. @return array<string,mixed>
+     * @param ?array{clicks:int,impressions:int,ctr:float,position:float} $gscTotals
      */
-    private function summaryFacts(int $clientId, string $period): array
+    private function summaryFacts(int $clientId, string $period, ?array $gscTotals): array
     {
         $facts = [];
+
+        // Gesamt-Traffic der Website (die maßgebliche Zahl für Klicks/Impressionen).
+        if ($gscTotals) {
+            $facts['gsc_gesamt_letzte_28_tage'] = [
+                'klicks' => $gscTotals['clicks'],
+                'impressionen' => $gscTotals['impressions'],
+                'klickrate_prozent' => $gscTotals['ctr'],
+                'durchschnittsposition' => $gscTotals['position'],
+                'hinweis' => 'gesamter organischer Google-Traffic der Website',
+            ];
+        }
 
         // Sichtbarkeits-Trend
         $hist = $this->repo->visibilityHistory($clientId, 'google', $period);
@@ -132,15 +177,14 @@ final class ReportBuilder
             ];
         }
 
-        // Rankings
+        // Getrackte Keywords (Subset — NICHT der Gesamt-Traffic).
         $rank = $this->repo->rankingSummary($clientId, $period);
         foreach (['google', 'bing'] as $e) {
             if (isset($rank[$e])) {
-                $facts["rankings_{$e}"] = [
-                    'sichtbare_keywords' => $rank[$e]['count'],
+                $facts["getrackte_keywords_{$e}"] = [
+                    'anzahl_sichtbar' => $rank[$e]['count'],
                     'durchschnittsposition' => $rank[$e]['avg_position'],
-                    'impressionen' => $rank[$e]['impressions'],
-                    'klicks' => $rank[$e]['clicks'],
+                    'hinweis' => 'nur die getrackten Einzel-Keywords, nicht der Gesamt-Traffic',
                 ];
             }
         }
@@ -170,7 +214,7 @@ final class ReportBuilder
         }
         $m = Yaml::parseFile($file);
         $md = "## Markt-Kontext Schweiz\n\n";
-        $md .= "_Warum welche Kanäle zählen — Marktanteile (Quelle: {$m['source']}, Stand "
+        $md .= "_Warum welche Kanäle zählen, Marktanteile (Quelle: {$m['source']}, Stand "
             . "{$m['as_of']})._\n\n";
 
         // Suchmaschinen: getrackte (Google + Bing) mit % und Summe; übrige grau ohne %.
@@ -187,7 +231,7 @@ final class ReportBuilder
         $trackedSum = array_sum(array_map(static fn($s) => (float) $s['share'], $tracked));
         $md .= "**Suchmaschinen (getrackt):** ";
         $md .= implode(' · ', array_map(fn($s) => "{$s['name']} {$s['share']} %", $tracked));
-        $md .= ' — zusammen ' . number_format($trackedSum, 1, ',', '') . ' %';
+        $md .= '  ·  zusammen ' . number_format($trackedSum, 1, ',', '') . ' %';
         if ($untracked) {
             $md .= "  \n" . $this->gray('nicht getrackt: ' . implode(', ', $untracked));
         }
@@ -245,8 +289,8 @@ final class ReportBuilder
         }
 
         $md = "## Sichtbarkeits-Verlauf (Google)\n\n";
-        $md .= "_Geschätzte Sichtbarkeit (ETV) und Anzahl rankender Keywords je Monat "
-            . "— rückwirkend aus DataForSEO. Zeigt den Trend, nicht nur die Momentaufnahme._\n\n";
+        $md .= "_Geschätzte Sichtbarkeit (ETV) und Anzahl rankender Keywords je Monat, "
+            . "rückwirkend aus DataForSEO. Zeigt den Trend, nicht nur die Momentaufnahme._\n\n";
         $md .= $this->gray('**ETV** (Estimated Traffic Value) = geschätzter monatlicher '
             . 'organischer Traffic der Domain. Berechnet aus allen rankenden Keywords: '
             . 'Suchvolumen × erwartete Klickrate für die jeweilige Position, aufsummiert. '
@@ -297,18 +341,39 @@ final class ReportBuilder
     }
 
     /** Suchmaschinen-Rankings (Google + Bing) mit Delta zum Vormonat. */
-    private function searchRankings(int $clientId, string $period, string $prevPeriod): string
+    /**
+     * @param ?array{clicks:int,impressions:int,ctr:float,position:float} $gscTotals
+     *        Gesamt-Traffic der Google-Property (live aus GSC) — die aussagekräftige Zahl.
+     */
+    private function searchRankings(int $clientId, string $period, string $prevPeriod, ?array $gscTotals): string
     {
         $summary = $this->repo->rankingSummary($clientId, $period);
-        $prevAvg = $this->repo->avgPositionByEngine($clientId, $prevPeriod);
 
         $md = "## 1. Suchmaschinen-Rankings\n\n";
 
+        // (a) Gesamt-Traffic der Website bei Google (echte Property-Zahlen, kein getracktes Subset).
+        if ($gscTotals) {
+            $md .= "### Google gesamt (ganze Website)\n\n";
+            $md .= "_Der gesamte organische Google-Traffic der Website in den letzten 28 Tagen "
+                . "(Quelle: Google Search Console)._\n\n";
+            $md .= '- Klicks: ' . number_format($gscTotals['clicks'], 0, ',', '\'') . "\n";
+            $md .= '- Impressionen: ' . number_format($gscTotals['impressions'], 0, ',', '\'') . "\n";
+            $md .= '- Ø-Position: ' . $this->fmtPos($gscTotals['position'])
+                . ' · Klickrate: ' . number_format($gscTotals['ctr'], 1, ',', '') . " %\n\n";
+        }
+
         if (!$summary) {
-            $md .= "> Für {$this->monthLabel($period)} liegen noch keine Ranking-Messwerte vor. "
-                . "Nach dem ersten `collect`-Lauf erscheinen hier Positionen, Impressionen und Trends.\n\n";
+            $md .= $this->gray('Für die getrackten Keywords liegen für ' . $this->monthLabel($period)
+                . ' noch keine Positionsdaten vor.') . "\n\n";
             return $md;
         }
+
+        // (b) Getrackte Keywords — ausdrücklich als Subset gekennzeichnet, damit die
+        //     kleinen Zahlen nicht mit dem Gesamt-Traffic verwechselt werden.
+        $md .= "### Getrackte Keywords\n\n";
+        $md .= $this->gray('Dies ist eine Auswahl der für Sie definierten Keywords, nicht der '
+            . 'gesamte Website-Traffic (siehe oben). Klicks/Impressionen beziehen sich nur auf diese '
+            . 'einzelnen Begriffe.') . "\n\n";
 
         foreach (['google', 'bing'] as $engine) {
             if (!isset($summary[$engine])) {
@@ -317,14 +382,9 @@ final class ReportBuilder
             $s = $summary[$engine];
             $label = self::ENGINE_LABEL[$engine];
 
-            $md .= "### {$label}\n\n";
-            $delta = $this->positionDelta($s['avg_position'], $prevAvg[$engine] ?? null);
-            $md .= "- **Sichtbare Keywords:** {$s['count']}\n";
-            $md .= "- **Ø-Position:** " . $this->fmtPos($s['avg_position']) . $delta . "\n";
-            $md .= "- **Impressionen:** " . number_format($s['impressions'], 0, ',', '\'') . "\n";
-            $md .= "- **Klicks:** " . number_format($s['clicks'], 0, ',', '\'') . "\n\n";
+            $md .= "**{$label}:** {$s['count']} getrackte Keywords sichtbar, "
+                . 'Ø-Position ' . $this->fmtPos($s['avg_position']) . "\n\n";
 
-            // Top-Keywords nach Impressionen.
             $top = array_slice($s['rows'], 0, 10);
             if ($top) {
                 $md .= "| Keyword | Position | Impressionen | Klicks |\n|---|---:|---:|---:|\n";
@@ -360,7 +420,7 @@ final class ReportBuilder
     private function geoSection(int $clientId, string $period): string
     {
         $summary = $this->repo->geoSummary($clientId, $period);
-        $md = "## 4. GEO — Sichtbarkeit in KI-Antworten\n\n";
+        $md = "## 4. GEO: Sichtbarkeit in KI-Antworten\n\n";
 
         if (!$summary) {
             $md .= "> _Noch nicht erhoben._ Geplant: Erwähnungen/Citations in ChatGPT, Gemini, "

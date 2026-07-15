@@ -90,4 +90,23 @@ class GscClient
         $data = json_decode((string) $res->getBody(), true);
         return $data['rows'] ?? [];
     }
+
+    /**
+     * Gesamt-Kennzahlen der Property (ohne Dimension) — der echte Website-Traffic,
+     * NICHT die Summe der einzelnen Query-Zeilen (die untererfasst wegen anonymisierter
+     * seltener Anfragen). Das ist die Zahl, die in der GSC-Übersicht steht.
+     *
+     * @return array{clicks:int,impressions:int,ctr:float,position:float}
+     */
+    public function totals(string $siteUrl, string $startDate, string $endDate): array
+    {
+        $rows = $this->searchAnalytics($siteUrl, $startDate, $endDate, [], 1);
+        $r = $rows[0] ?? [];
+        return [
+            'clicks'      => (int) ($r['clicks'] ?? 0),
+            'impressions' => (int) ($r['impressions'] ?? 0),
+            'ctr'         => round((float) ($r['ctr'] ?? 0) * 100, 2),
+            'position'    => round((float) ($r['position'] ?? 0), 1),
+        ];
+    }
 }
