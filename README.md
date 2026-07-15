@@ -156,20 +156,25 @@ eigenen Kunden-Accounts** via **Apify** aus (nur die aggregierte Zahl fürs Repo
 ### Newsletter / E-Mail-Marketing (Owned Media)
 
 Der **Newsletter** ist ein weiterer eigener Sichtbarkeitskanal (Owned Media) neben
-Website und Social. openstream verschickt den zweimonatlichen Newsletter über
-**Sendy** (selbst-gehostetes PHP-Tool auf Amazon SES). Ziel: je Ausgabe **Öffnungsrate,
-Klickrate, Bounces, Abmeldungen** und **Listen-Wachstum**, plus Trend über die Ausgaben.
+Website und Social. Ziel: je Ausgabe **Öffnungsrate, Klickrate, Bounces, Abmeldungen**
+und **Listen-Wachstum**, plus Trend über die Ausgaben.
 
-- **Datenzugriff:** Sendy hat eine schlanke API (`/api/...`, u.a. Abonnenten-Zahl,
-  aktive/abgemeldete). Kampagnen-Kennzahlen (Opens/Clicks je Versand) liegen in Sendys
-  **MySQL-DB** → sauberster Weg ist ein read-only DB-Zugriff bzw. Sendys eigene
-  Report-Endpunkte. Beim Umsetzen prüfen, was die installierte Sendy-Version an API
-  hergibt vs. was aus der DB gelesen werden muss.
+**Das Tool ist pro Kunde verschieden** — openstream nutzt **Sendy**, viele Kunden
+**Mailchimp**. Deshalb als **zwei Provider hinter einem `NewsletterProvider`-Interface**,
+je Kunde in der Config gewählt. API-Keys je Kunde in `.env` (Suffix = Slug), damit
+Secrets aus dem Repo bleiben und pro Kunde getrennte Accounts möglich sind.
+
+| Tool | Datenzugriff | Liefert |
+|---|---|---|
+| **Mailchimp** | offizielle **Marketing API** (`/reports`, `/lists`), REST/JSON, API-Key (enthält Server-Prefix `-usXX`) | Opens/Clicks/Bounces/Unsubscribes je Kampagne + Listen-Wachstum, sauber. |
+| **Sendy** (selbst-gehostet, Amazon SES) | schlanke API (`/api/...`, Abonnenten aktiv/abgemeldet); Kampagnen-Opens/Clicks liegen in Sendys **MySQL-DB** → read-only-Zugriff bzw. Report-Endpunkte. Beim Bau prüfen, was die Version hergibt. | dieselben Kennzahlen, teils via DB. |
+
 - **Besonderheit:** rein **eigene, private Daten** (kein Scraping, kein
   Wettbewerber-Vergleich) → datenschutzrechtlich unkritisch, nur aggregierte Raten
   in den Report (keine Empfänger-Adressen).
 - **Report:** eigener Abschnitt „Newsletter" mit Momentaufnahme (letzte Ausgabe) +
-  Zeitreihe (Öffnungs-/Klickrate über die Ausgaben, Listen-Wachstum).
+  Zeitreihe (Öffnungs-/Klickrate über die Ausgaben, Listen-Wachstum). Kunden ohne
+  Newsletter: Abschnitt sauber ausblenden.
 
 ---
 
@@ -708,10 +713,13 @@ Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
       **eigenen** Kunden-Accounts via Apify (`run-sync-get-dataset-items`). Kein OAuth,
       nur aggregierte öffentliche Zahlen. Generischer `ApifyClient` analog `DataForSeoClient`.
 - [ ] LinkedIn: **vorerst weggelassen** (kein öffentlicher View-Zugang ohne Admin-OAuth).
-- [ ] **`NewsletterProvider`** (Sendy): je Ausgabe Öffnungs-/Klickrate, Bounces,
-      Abmeldungen, Listen-Wachstum → `newsletter_stats` (Zeitreihe). Zugriff über
-      Sendy-API bzw. read-only aus Sendys MySQL-DB (beim Bau prüfen, was die Version
-      hergibt). Nur aggregierte Raten in den Report, keine Empfänger-Adressen.
+- [ ] **`NewsletterProvider`-Interface** + `newsletter_stats` (Zeitreihe): je Ausgabe
+      Öffnungs-/Klickrate, Bounces, Abmeldungen, Listen-Wachstum. Tool je Kunde in der
+      Config gewählt, API-Key je Kunde aus `.env` (Suffix = Slug). Nur aggregierte Raten,
+      keine Empfänger-Adressen.
+  - [ ] **`MailchimpProvider`** via offizielle Marketing API (`/reports`, `/lists`).
+  - [ ] **`SendyProvider`** via Sendy-API bzw. read-only aus Sendys MySQL-DB (beim Bau
+        prüfen, was die installierte Version hergibt). openstream nutzt Sendy.
 - [ ] **Grundsatz:** nur aggregierte Account-/Kampagnen-Stats des **eigenen** Kunden-Kanals,
       keine Personen-/Follower-/Empfänger-Listen, kein Wettbewerber-Tracking (DSG/DSGVO).
       YouTube/Newsletter offiziell; TikTok/IG-Scraping nur für eigene öffentliche Accounts.

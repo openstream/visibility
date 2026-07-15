@@ -27,8 +27,10 @@ des **eigenen** Kunden-Accounts via **Apify** (kein OAuth). **Kein Wettbewerber-
 (Nick-Entscheidung Juli 2026). Ethische Linie: eigene Accounts scrapen ≠ fremde scrapen.
 
 **Newsletter** (Roadmap, s. README, Owned Media): Öffnungs-/Klickraten, Bounces,
-Abmeldungen, Listen-Wachstum aus **Sendy** (eigene, private Daten; nur aggregierte
-Raten, keine Empfänger-Adressen).
+Abmeldungen, Listen-Wachstum. Tool je Kunde verschieden — **Mailchimp** (viele Kunden,
+offizielle Marketing API) und **Sendy** (openstream, selbst-gehostet). Zwei Provider
+hinter einem Interface, API-Key je Kunde aus `.env` (Suffix = Slug). Eigene, private
+Daten; nur aggregierte Raten, keine Empfänger-Adressen.
 
 Es ist ein **SEO + GEO Dashboard** mit Social- und Newsletter-Kanälen. Ersetzt Xovi
 (nicht mehr im Einsatz).
