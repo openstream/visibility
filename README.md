@@ -498,10 +498,12 @@ Immer zwei Perspektiven pro Kennzahl: **Momentaufnahme** (aktueller Stand) und
       136 Klicks / 47'312 Impr. / Ø-Pos 22.5 (28 T). URL-Prefix-Property, deckt alles ab.
       Key liegt ausserhalb des Repos; Token-Helper `gsc_token.sh`. **hepro.ch ebenfalls
       schon am selben SA angebunden.**
-- [ ] Bing Webmaster Tools: Ziel-Domains verifizieren, API-Key holen,
-      AI-Performance-Report für die 4 Domains sichten (was liefert er real?)
-- [ ] Ziel-Kunden + Keywords + GEO-Prompts pro Kunde grob festlegen
-      (Start-Domains: foppa.ch, openstream.ch, schwarzenbach.ch, hepro.ch)
+- [x] Bing Webmaster Tools: API-Key vorhanden, 14 Properties verifiziert
+      (u.a. openstream/foppa/hepro). **Offen:** schwarzenbach.ch verifizieren,
+      AI-Performance-Report für die Domains real sichten (was liefert er?).
+- [x] 🟡 Ziel-Kunden + Keywords + GEO-Prompts pro Kunde: **openstream vollständig
+      onboardet** (104 Keywords + 20 GEO-Prompts approved). foppa/hepro/schwarzenbach
+      als Config angelegt, aber noch nicht durchs Onboarding geschickt.
 
 ### Phase 1 — Gerüst & lokale Umgebung  ✅ (Grundgerüst steht)
 - [x] DDEV-Projekt (PHP 8.3, MariaDB 10.11, docroot `public`), `ddev start` läuft
@@ -512,18 +514,20 @@ Immer zwei Perspektiven pro Kennzahl: **Momentaufnahme** (aktueller Stand) und
       Chart,Mail,Onboarding}`, `public/index.php`, `storage/{raw,reports}`,
       `config/{clients,market}/`, `.env.example`, `.gitignore`
 - [x] **Marktdaten-Referenz** `config/market/switzerland.yaml` (StatCounter Juni 2026)
-- [x] DB-Schema **als Zeitreihen** (`measured_at`): `clients`, `keywords`,
-      `geo_prompts`, `competitors`, `measurements`, `ai_mentions`, `onsite_audits`,
-      `backlinks`, `reports` — via `migrate` angewendet (9 Tabellen).
+- [x] DB-Schema **als Zeitreihen** (`measured_at`): `clients`, `website_profiles`,
+      `competitors`, `keywords`, `geo_prompts`, `measurements`, `ai_mentions`,
+      `onsite_audits`, `backlinks`, `visibility_history`, `reports` — via `migrate`
+      angewendet (11 Tabellen).
 - [x] Kunden-Konfiguration als YAML (`config/clients/_example.yaml` als Vorlage) +
       Messwerte in DB.
-- [x] CLI-Gerüst: `migrate` (funktionsfähig), `onboard`/`collect`/`report`/`send`
-      (Signatur steht, Logik folgt in den jeweiligen Phasen).
-- [ ] **Offen (du):** DataForSEO-Account anlegen, Key in `.env` eintragen.
-- [ ] git-Repo initialisieren + erster Commit (auf Wunsch).
+- [x] CLI-Gerüst: alle Kommandos funktionsfähig — `migrate`, `onboard`, `approve`,
+      `backfill`, `collect`, `report`, `send`.
+- [x] DataForSEO-Account angelegt, Key in `.env` eingetragen (verifiziert).
+- [x] git-Repo initialisiert (34 Commits auf `main`).
 
-### Phase 1.5 — Onboarding einer Domain (Keywords & GEO-Prompts)  ✅ (Grundfunktion)
-Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openstream.ch.
+### Phase 1.5 — Onboarding einer Domain (Keywords & GEO-Prompts)  ✅ (End-to-end)
+Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf openstream.ch
+(vom Website-Verständnis über Vorschläge bis Freigabe in der DB).
 - [x] **Schritt 0 — Website verstehen:** `WebsiteAnalyzer` holt Seiten via DataForSEO
       OnPage (`ContentFetcher`) → `ClaudeClient.structuredJson()` leitet `website_profile`
       ab (Angebot, Absicht, Zielgruppe, Region, Positionierung, Marke). Auf openstream.ch
@@ -535,25 +539,25 @@ Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openst
       Quell-Signal. GSC-Signale heben die Qualität sichtbar (echte Nachfrage statt geraten).
 - [x] **Onboarding-Report `.md`** (Deutsch): Website-Profil zur Bestätigung +
       Keyword-/Prompt-Tabellen → `storage/reports/<slug>/onboarding.md`. Kosten ~$0.0003/Lauf.
-- [ ] **Offen:** freigegebene Listen → DB (`keywords`/`geo_prompts`/`website_profiles`,
-      Status `approved`) schreiben — aktuell nur als Report. Danach darf `collect` laufen.
-- [ ] **Offen:** Bing-Grounding-Queries + DataForSEO-Keyword-Ideen als weitere Signale.
+- [x] **Freigabe → DB:** `onboard --save` schreibt Profil/Keywords/GEO-Prompts als
+      `pending` in die DB (`ClientRepository`), `approve --client=<slug>` setzt sie auf
+      `approved` (+ Datum). `collect` prüft die Freigabe und läuft erst danach. Für
+      openstream durchlaufen: 104 Keywords + 20 GEO-Prompts + Profil approved.
+- [x] 🟡 Bing-Grounding-Queries als GEO-Prompt-Saatgut: umgesetzt (`onboard --bing-ai=<csv>`
+      → `BingAiImporter`). **Offen:** DataForSEO-Keyword-Ideen als weiteres Signal.
 - **Setup-Notiz:** GSC-Key-Verzeichnis wird via `.ddev/docker-compose.gsc-keys.yaml`
       read-only in den Container gemountet (`/mnt/gcloud-keys`); `.env` zeigt dorthin.
 - [ ] Re-Onboarding/Review quartalsweise möglich (Prompts sind lebende Config).
-- [ ] **Historie-Backfill (Entscheidung: ja):** Beim Onboarding ~12 Monate
-      Google-Ranking-Historie rückwirkend laden, damit der erste Report sofort eine
-      Verlaufsgrafik zeigt statt bei null zu starten.
-      - `dataforseo_labs/google/historical_rank_overview/live` — aggregierte
-        monatliche Sichtbarkeit (ab Okt 2020, CH+de), ~$0.0001/Monat.
-      - `dataforseo_labs/google/historical_serps/live` — echte monatliche
-        Keyword-Positionen (ab Aug 2021) für approved Keywords. ~$0.50 einmalig/Domain
-        für 12–36 Monate × ~100 Keywords.
-      - → `measurements` mit `source=dataforseo_historical`, engine=google.
+- [x] **Historie-Backfill (umgesetzt):** `backfill --client=<slug>` lädt via
+      `HistoricalProvider` (`dataforseo_labs/google/historical_rank_overview/live`)
+      die aggregierte monatliche Google-Sichtbarkeit rückwirkend → `visibility_history`
+      (~$0.13/Domain, einmalig). Der erste Report zeigt so sofort eine Verlaufsgrafik.
+      - **Offen (optional):** echte monatliche Keyword-Positionen via
+        `historical_serps/live` → `measurements` (`source=dataforseo_historical`).
       - **Grenze:** Bing hat KEINE historischen Rankings (nur live). GSC liefert
         zusätzlich 16 Monate echte eigene Daten (falls Property alt genug).
 
-### Phase 2 — Datenerhebung (das Herzstück)  🟡 (Rankings fertig)
+### Phase 2 — Datenerhebung (das Herzstück)  🟡 (Rankings + Onsite/Offsite + GEO fertig)
 - [x] `SerpProvider`-Interface + `Measurement`-DTO.
 - [x] **GSC-Implementierung** (`GscSerpProvider`): echte Position/Klicks/Impressionen/
       CTR pro Query, Zuordnung zu approved Keywords. Auf openstream getestet (10 Messwerte).
@@ -580,19 +584,19 @@ Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openst
       - Kommando: `bin/console import-bing-ai --client=<slug> --file=<csv>`.
       - Sobald Microsoft die API liefert (angekündigt „im Laufe 2026"): auf API umstellen,
         Importer als Fallback behalten.
-- [ ] `OnsiteProvider`-Interface + Implementierungen (**rein API-basiert**):
-      - DataForSEO OnPage (technische Checks: Meta/Title/Description, Headings,
-        Canonicals, hreflang de/fr/it-CH, Alt-Texte, strukturierte Daten, Broken Links)
-      - PageSpeed Insights + CrUX (Core Web Vitals, gratis)
-      - Mozilla Observatory (Security-Header, gratis)
-      Ergebnisse normalisiert → `onsite_audits`. **Kein eigener Crawler.**
-      **Seitenauswahl (Entscheidung):** `key_pages` aus der Config **+ Top-Seiten
-      aus GSC** (z.B. Top 20 nach Impressionen) — deckt strategische *und* real
-      wichtige Seiten ab, ohne die ganze Sitemap zu crawlen (Kosten ~$0.01–0.02/Lauf).
-      Für openstream: Startseite + WordPress/WooCommerce/Shopify/Magento/Blog/Vlog + GSC-Top.
-- [ ] `OffsiteProvider`-Interface + DataForSEO-Backlinks-Implementierung
-      (referring domains, ranks, spam-score, neu/verloren, Anchor-Texte,
-      Wettbewerbsvergleich) → `backlinks`.
+- [x] 🟡 `OnsiteProvider` (**rein API-basiert, umgesetzt**) via DataForSEO OnPage
+      (`on_page/instant_pages`): technische Checks je Seite (Title/Description-Länge,
+      H1/H2, interne/externe Links, 17 Problem-Checks wie Title zu lang, fehlende
+      Alt-Texte, Broken/4xx/5xx, Duplicate Meta …) → `onsite_audits`. In `collect --onsite`
+      eingebunden, im Report als Abschnitt 2 aufbereitet. **Kein eigener Crawler.**
+      **Seitenauswahl (umgesetzt):** `key_pages` aus der Config + Top-Seiten aus GSC
+      (nach Klicks), dedupliziert auf max. 25 Seiten (`onsiteUrls()`).
+      **Offen (optional):** PageSpeed/CrUX (Core Web Vitals) + Mozilla Observatory
+      (Security-Header), beide gratis — als zusätzliche Signale.
+- [x] `OffsiteProvider` (**umgesetzt**) via DataForSEO `backlinks/summary/live`:
+      Domain Rank (0–1000), Backlinks gesamt, referring domains, broken/neu/verloren
+      → `backlinks`. In `collect --offsite` eingebunden, im Report als Abschnitt 3.
+      **Offen (optional):** Anchor-Texte + Wettbewerbs-Backlink-Vergleich.
 - [x] **`GeoProvider`-Interface + `MentionAnalyzer` + `DataForSeoGeoProvider`:**
       **Wichtige Vereinfachung (15.07.2026):** ChatGPT, Gemini **und Claude** laufen
       alle über **DataForSEO LLM-Responses** (deutsche Prompts, web_search) — eine
@@ -604,21 +608,34 @@ Eigener Schritt **vor** der ersten Datenerhebung. End-to-end getestet auf openst
       Getestet openstream: Marke bei Marken-Prompts sichtbar (Pos 1), bei Kategorie-
       Prompts (Wettbewerb) noch nicht — je Kanal unterschiedlich.
       **Kanal-Marktanteile CH:** ChatGPT 72 %, Gemini 8 %, **Claude 7 % (vor Perplexity!)**.
-- [ ] **Perplexity** via Sonar-API (citation-native, deutsch) — noch offen.
+- [x] **Perplexity** via Sonar-API (`PerplexityGeoProvider`, citation-native, deutsch):
+      Antwort + Citations → `MentionAnalyzer` → `ai_mentions`. In `collect --geo`
+      eingebunden (config `geo.channels.perplexity`).
+- [x] **Google AI Overview** (`AiOverviewProvider`): prüft je Keyword mit Suchvolumen,
+      ob die Domain in der AI-Zusammenfassung der Google-SERP zitiert wird
+      → `ai_mentions` engine=`ai_overview`. In `collect --geo` eingebunden.
 - [ ] **Copilot** = Bing-AI aus CSV (`BingAiImporter` liest Grounding Queries/Citations,
-      → `ai_mentions` engine=bing_ai). Onboarding-Seeding fertig; Mess-Import offen.
-- [ ] `bin/console collect --client=<slug>` (läuft **wöchentlich**) schreibt
-      Roh-Antworten → `storage/raw`, normalisiert → DB **mit `measured_at`**.
-      Idempotent pro Woche, mit Caching/Rate-Limit-Handling.
-- [ ] Fehler-/Kostenlogging pro Lauf
+      → `ai_mentions` engine=bing_ai). Onboarding-Seeding fertig; **Mess-Import-Kommando
+      (`import-bing-ai`) offen.**
+- [x] `bin/console collect --client=<slug>` (läuft **wöchentlich**) schreibt
+      normalisiert → DB **mit `measured_at`**, idempotent pro Tag/Quelle. Flags:
+      `--serp`/`--geo`/`--onsite`/`--offsite`, `--date` zum Nachtragen.
+      **Offen (optional):** Roh-Antworten zusätzlich nach `storage/raw` cachen.
+- [ ] Fehler-/Kostenlogging pro Lauf (aktuell: Kosten werden je Lauf ausgegeben,
+      aber nicht persistiert; kein zentrales Log).
 
 ### Phase 3 — Report-Generierung (inkl. Diagramme)
 - [ ] Report-Datenmodell: aktueller Monat vs. Vormonat (Deltas!) **plus Zeitreihe
       aus den wöchentlichen Datenpunkten** für die Verlaufs-Diagramme.
-- [ ] `src/Chart`: Chart-Generator, der aus den Zeitreihen Diagramme erzeugt —
-      statische PNG/SVG für den `.md`-Report (QuickChart/headless Chart.js) und
-      dieselben Daten als JSON fürs Web-Dashboard (Chart.js). Diagrammtypen
-      s. „Diagramme & Visualisierung". Ausgabe → `storage/reports/<kunde>/charts/`.
+- [x] `src/Chart`: Chart-Generator (`SvgChart` + `ReportCharts`), der aus den
+      Zeitreihen/Momentaufnahmen **eigenständiges SVG** erzeugt — kein externer
+      Dienst (kein QuickChart), keine Netzwerk-Calls, voll reproduzierbar. Vier
+      Diagrammtypen umgesetzt: **Linie** (ETV-Verlauf, Zeitreihe), **Balken**
+      (Keyword-Positionsverteilung + GEO-Erwähnungsrate, Momentaufnahme), **Donut**
+      (CH-Marktanteile Suchmaschinen + KI-Assistenten). Deutsche Zahlenformatierung.
+      Ausgabe → `storage/reports/<kunde>/charts/*.svg`, relativ im `.md` eingebettet.
+      Text-Sparkline bleibt als Fallback, wenn ohne Charts gebaut wird. Web-Dashboard-
+      JSON (Chart.js) folgt bei der UI.
 - [ ] **Ausführlicher `.md`-Report (Deutsch)** mit klaren Abschnitten:
       0. **Markt-Kontext CH** (Donut Suchmaschinen + AI-Assistenten) — kurzer
          Einordnungs-Block, warum welche Kanäle zählen.
