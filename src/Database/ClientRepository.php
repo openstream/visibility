@@ -456,6 +456,72 @@ final class ClientRepository
         return $stmt->fetchAll();
     }
 
+    /**
+     * Speichert Onsite-Audit-Zeilen (je URL) für einen Tag (idempotent pro Tag/URL).
+     * @param array<int,array<string,mixed>> $rows aus OnsiteProvider::audit()
+     */
+    public function saveOnsiteAudit(int $clientId, array $rows, string $measuredAt): int
+    {
+        $this->db->prepare('DELETE FROM onsite_audits WHERE client_id=? AND measured_at=? AND source=?')
+            ->execute([$clientId, $measuredAt, 'dataforseo_onpage']);
+        $ins = $this->db->prepare(
+            'INSERT INTO onsite_audits (client_id, url, issues, source, measured_at)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+        $n = 0;
+        foreach ($rows as $r) {
+            $ins->execute([$clientId, $r['url'], $this->json($r), 'dataforseo_onpage', $measuredAt]);
+            $n++;
+        }
+        return $n;
+    }
+
+    /** @return array<int,array<string,mixed>> Onsite-Audit für einen Monat */
+    public function onsiteAudit(int $clientId, string $period): array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT url, issues FROM onsite_audits
+             WHERE client_id=? AND measured_at BETWEEN ? AND ? AND source='dataforseo_onpage'
+             AND measured_at=(SELECT MAX(measured_at) FROM onsite_audits o2
+                              WHERE o2.client_id=onsite_audits.client_id AND o2.measured_at BETWEEN ? AND ?)"
+        );
+        $stmt->execute([$clientId, $start, $end, $start, $end]);
+        return array_map(static fn($r) => json_decode((string) $r['issues'], true) ?: ['url' => $r['url']], $stmt->fetchAll());
+    }
+
+    /**
+     * Speichert einen Backlink-Snapshot (idempotent pro Tag).
+     * @param array<string,mixed> $s aus OffsiteProvider::summary()
+     */
+    public function saveBacklinks(int $clientId, array $s, string $measuredAt): void
+    {
+        $this->db->prepare('DELETE FROM backlinks WHERE client_id=? AND measured_at=?')
+            ->execute([$clientId, $measuredAt]);
+        $this->db->prepare(
+            'INSERT INTO backlinks (client_id, referring_domains, backlinks_total, domain_rank,
+                new_last_period, lost_last_period, source, measured_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([
+            $clientId, $s['referring_domains'], $s['backlinks'], $s['domain_rank'],
+            $s['new'], $s['lost'], 'dataforseo_backlinks', $measuredAt,
+        ]);
+    }
+
+    /** @return array<string,mixed>|null jüngster Backlink-Snapshot im Monat */
+    public function backlinks(int $clientId, string $period): ?array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            'SELECT referring_domains, backlinks_total, domain_rank, new_last_period, lost_last_period
+             FROM backlinks WHERE client_id=? AND measured_at BETWEEN ? AND ?
+             ORDER BY measured_at DESC LIMIT 1'
+        );
+        $stmt->execute([$clientId, $start, $end]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
     /** Erster/letzter Tag eines Monats (YYYY-MM). @return array{0:string,1:string} */
     private function monthRange(string $period): array
     {

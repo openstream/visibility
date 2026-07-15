@@ -45,7 +45,7 @@ final class ReportBuilder
         $sections  = $this->marketContext($activeGeo);
         $sections .= $this->visibilityTrend($clientId, $period);
         $sections .= $this->searchRankings($clientId, $period, $prevPeriod, $gscTotals);
-        $sections .= $this->onsiteOffsitePending();
+        $sections .= $this->onsiteOffsite($clientId, $period);
         $sections .= $this->geoSection($clientId, $period);
 
         $md  = "# Visibility-Report: {$name}\n\n";
@@ -89,14 +89,14 @@ final class ReportBuilder
     private function intro(string $name): string
     {
         $md  = "## Worum es geht\n\n";
-        $md .= "Dieser Report zeigt monatlich, wie sichtbar {$name} online ist, und zwar "
-            . "in beiden Welten der Websuche:\n\n";
+        $md .= "Dieser Report zeigt monatlich, wie sichtbar {$name} online ist, in "
+            . "beiden Welten der Websuche:\n\n";
         $md .= "- **Klassische Suche (SEO):** Auf welchen Positionen erscheint die Website bei "
             . "Google und Bing? Wie entwickelt sich die Sichtbarkeit über die Zeit, wie steht es "
             . "um das technische Fundament (Onsite) und die Verlinkung von aussen (Offsite)?\n";
         $md .= "- **KI-Suche (GEO):** Wird die Marke in den Antworten von KI-Assistenten wie "
             . "ChatGPT, Perplexity, Google AI Overviews oder Microsoft Copilot erwähnt und zitiert? "
-            . "Immer mehr Menschen suchen so, und hier sichtbar zu sein wird zunehmend entscheidend.\n\n";
+            . "Immer mehr Menschen suchen so, und dort sichtbar zu sein wird zunehmend entscheidend.\n\n";
         $md .= "Ziel: auf einen Blick sehen, wo {$name} gut sichtbar ist und wo Potenzial liegt.\n\n";
         return $md;
     }
@@ -129,8 +129,11 @@ final class ReportBuilder
             . 'Nutze für Klicks/Impressionen die GESAMTZAHLEN der Website (gsc_gesamt), NICHT die '
             . 'kleineren Zahlen einzelner getrackter Keywords. '
             . 'Keine erfundenen Zahlen, nur die gelieferten Fakten. Beginne direkt mit der Aussage, '
-            . 'keine Anrede. Verwende keine Gedankenstriche (Bindestriche mit Leerzeichen sind ok). '
-            . 'Fettschrift nur für den Kernbefund am Anfang eines Bullet-Punkts, nicht mitten im Satz.';
+            . 'keine Anrede. '
+            . 'DEUTSCHE SCHREIBREGELN (streng befolgen): kein Gedankenstrich/Longdash (— oder –); '
+            . 'Schweizer Schreibweise mit ss statt ß (dass, aussen, grösser); Umlaute normal (ä/ö/ü); '
+            . 'KEIN Komma vor „und" ausser wenn ein Nebensatz davor endet; Fettschrift nur für den '
+            . 'Kernbefund am Anfang eines Bullet-Punkts, nicht mitten im Satz.';
         $prompt = "Kunde: {$name} ({$domain}), Monat: " . $this->monthLabel($period) . "\n\n"
             . "Fakten:\n" . json_encode($facts, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
@@ -154,7 +157,7 @@ final class ReportBuilder
     {
         $facts = [];
 
-        // Gesamt-Traffic der Website (die maßgebliche Zahl für Klicks/Impressionen).
+        // Gesamt-Traffic der Website (die massgebliche Zahl für Klicks/Impressionen).
         if ($gscTotals) {
             $facts['gsc_gesamt_letzte_28_tage'] = [
                 'klicks' => $gscTotals['clicks'],
@@ -401,17 +404,79 @@ final class ReportBuilder
         return $md;
     }
 
-    /** Onsite/Offsite — noch nicht erhoben, transparent ausweisen. */
-    private function onsiteOffsitePending(): string
+    /** Onsite (technisches SEO) + Offsite (Backlinks) aus den erhobenen Daten. */
+    private function onsiteOffsite(int $clientId, string $period): string
     {
-        $md  = "## 2. Onsite / Technisches SEO\n\n";
-        $md .= "> _Noch nicht erhoben._ Geplant: technische Checks (Meta, Headings, hreflang, "
-            . "Broken Links, Core Web Vitals) für die wichtigsten Seiten via DataForSEO OnPage "
-            . "+ PageSpeed/CrUX.\n\n";
+        $md = $this->onsiteSection($clientId, $period);
+        $md .= $this->offsiteSection($clientId, $period);
+        return $md;
+    }
 
-        $md .= "## 3. Offsite / Backlinks\n\n";
-        $md .= "> _Noch nicht erhoben._ Geplant: referring domains, neue/verlorene Links, "
-            . "Autoritäts-Trend, Spam-Score via DataForSEO Backlinks.\n\n";
+    private function onsiteSection(int $clientId, string $period): string
+    {
+        $audit = $this->repo->onsiteAudit($clientId, $period);
+        $md = "## 2. Onsite / Technisches SEO\n\n";
+
+        if (!$audit) {
+            $md .= $this->gray('Noch nicht erhoben. Erhebung mit `collect --onsite`.') . "\n\n";
+            return $md;
+        }
+
+        // Problem-Häufigkeit über alle Seiten aggregieren.
+        $problemCounts = [];
+        $pagesWithProblems = 0;
+        foreach ($audit as $p) {
+            if (!empty($p['problems'])) {
+                $pagesWithProblems++;
+            }
+            foreach ($p['problems'] ?? [] as $prob) {
+                $problemCounts[$prob] = ($problemCounts[$prob] ?? 0) + 1;
+            }
+        }
+        arsort($problemCounts);
+
+        $md .= "_Technische Prüfung der " . count($audit) . " wichtigsten Seiten "
+            . "(Quelle: DataForSEO OnPage)._\n\n";
+        $md .= '- Geprüfte Seiten: ' . count($audit) . "\n";
+        $md .= '- Seiten mit Auffälligkeiten: ' . $pagesWithProblems . "\n\n";
+
+        if ($problemCounts) {
+            $md .= "**Häufigste technische Auffälligkeiten:**\n\n";
+            $md .= "| Auffälligkeit | Betroffene Seiten |\n|---|---:|\n";
+            foreach (array_slice($problemCounts, 0, 8, true) as $prob => $cnt) {
+                $md .= "| {$prob} | {$cnt} |\n";
+            }
+            $md .= "\n";
+        } else {
+            $md .= "Keine technischen Auffälligkeiten auf den geprüften Seiten. Sehr gut.\n\n";
+        }
+
+        return $md;
+    }
+
+    private function offsiteSection(int $clientId, string $period): string
+    {
+        $b = $this->repo->backlinks($clientId, $period);
+        $md = "## 3. Offsite / Backlinks\n\n";
+
+        if (!$b) {
+            $md .= $this->gray('Noch nicht erhoben. Erhebung mit `collect --offsite`.') . "\n\n";
+            return $md;
+        }
+
+        $md .= "_Verlinkung der Website von aussen, ein Signal für Autorität und Vertrauen "
+            . "(Quelle: DataForSEO Backlinks)._\n\n";
+        $md .= '- **Domain Rank:** ' . ((int) $b['domain_rank']) . " / 1000  \n  ";
+        $md .= $this->gray('Autoritäts-Kennzahl von DataForSEO (0 bis 1000). Es gibt keinen '
+            . 'offiziellen Google-Wert; auch Moz "Domain Authority" oder Ahrefs "Domain Rating" '
+            . 'sind Schätzungen von Drittanbietern.') . "\n\n";
+        $md .= '- Backlinks gesamt: ' . number_format((int) $b['backlinks_total'], 0, ',', '\'') . "\n";
+        $md .= '- Verweisende Domains: ' . number_format((int) $b['referring_domains'], 0, ',', '\'') . "\n";
+        if ($b['new_last_period'] !== null || $b['lost_last_period'] !== null) {
+            $md .= '- Neue / verlorene Links (Zeitraum): +' . (int) $b['new_last_period']
+                . ' / -' . (int) $b['lost_last_period'] . "\n";
+        }
+        $md .= "\n";
 
         return $md;
     }

@@ -33,6 +33,8 @@ final class CollectCommand extends Command
         $this->addOption('client', null, InputOption::VALUE_REQUIRED, 'Kunden-Slug');
         $this->addOption('serp', null, InputOption::VALUE_NONE, 'Zusätzlich DataForSEO-SERP erheben (kostet, ~5 Min)');
         $this->addOption('geo', null, InputOption::VALUE_NONE, 'GEO-Sichtbarkeit erheben (ChatGPT/Gemini/Claude, kostet pro Prompt)');
+        $this->addOption('onsite', null, InputOption::VALUE_NONE, 'Onsite-Audit der wichtigsten Seiten (DataForSEO OnPage)');
+        $this->addOption('offsite', null, InputOption::VALUE_NONE, 'Offsite/Backlinks-Snapshot (DataForSEO)');
         $this->addOption('date', null, InputOption::VALUE_REQUIRED, 'measured_at überschreiben (Y-m-d, Default heute)');
     }
 
@@ -167,7 +169,68 @@ final class CollectCommand extends Command
             }
         }
 
+        // --- Onsite-Audit (wichtigste Seiten: key_pages + Top-Seiten aus GSC) ---
+        if ($input->getOption('onsite')) {
+            $urls = $this->onsiteUrls($cfg);
+            $io->section('Onsite / Technisches SEO');
+            $io->text(count($urls) . ' Seiten prüfen …');
+            $dfsOn = new DataForSeoClient();
+            try {
+                $audit = (new \Openstream\Visibility\Provider\OnsiteProvider($dfsOn))->audit($urls);
+                $n = $repo->saveOnsiteAudit($clientId, $audit, $measuredAt);
+                $probs = array_sum(array_map(static fn($a) => count($a['problems']), $audit));
+                $io->success("Onsite: {$n} Seiten geprüft, {$probs} Auffälligkeiten.");
+                $io->note(sprintf('DataForSEO-OnPage-Kosten: $%.4f', $dfsOn->spent()));
+            } catch (\Throwable $e) {
+                $io->warning('Onsite-Audit fehlgeschlagen: ' . $e->getMessage());
+            }
+        }
+
+        // --- Offsite/Backlinks-Snapshot ---
+        if ($input->getOption('offsite')) {
+            $io->section('Offsite / Backlinks');
+            $dfsOff = new DataForSeoClient();
+            try {
+                $summary = (new \Openstream\Visibility\Provider\OffsiteProvider($dfsOff, $domain))->summary();
+                $repo->saveBacklinks($clientId, $summary, $measuredAt);
+                $io->success(sprintf('Offsite: Domain Rank %s, %s Backlinks, %s Referring Domains.',
+                    $summary['domain_rank'] ?? '?', $summary['backlinks'] ?? '?', $summary['referring_domains'] ?? '?'));
+                $io->note(sprintf('DataForSEO-Backlinks-Kosten: $%.4f', $dfsOff->spent()));
+            } catch (\Throwable $e) {
+                $io->warning('Offsite fehlgeschlagen: ' . $e->getMessage());
+            }
+        }
+
         $io->success("Fertig. {$total} Messwerte für {$measuredAt} in der DB.");
         return Command::SUCCESS;
+    }
+
+    /**
+     * URLs fürs Onsite-Audit: key_pages aus der Config + Top-Seiten aus GSC (nach Klicks).
+     * @param array<string,mixed> $cfg
+     * @return array<int,string>
+     */
+    private function onsiteUrls(array $cfg): array
+    {
+        $urls = $cfg['key_pages'] ?? ['https://' . ($cfg['domain'] ?? '') . '/'];
+
+        // Top-Seiten aus GSC ergänzen (nach Klicks), falls Property vorhanden.
+        $siteUrl = $cfg['gsc']['site_url'] ?? null;
+        if ($siteUrl) {
+            try {
+                $gsc = GscClient::fromEnv();
+                $end = date('Y-m-d', strtotime('-3 days'));
+                $start = date('Y-m-d', strtotime('-28 days'));
+                $rows = $gsc->searchAnalytics($siteUrl, $start, $end, ['page'], 20);
+                foreach ($rows as $r) {
+                    $urls[] = $r['keys'][0];
+                }
+            } catch (\Throwable) {
+                // ohne GSC nur key_pages
+            }
+        }
+
+        // Deduplizieren, auf sinnvolle Anzahl begrenzen (Kosten/Zeit).
+        return array_slice(array_values(array_unique($urls)), 0, 25);
     }
 }
