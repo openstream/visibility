@@ -318,6 +318,60 @@ final class ClientRepository
         return $out;
     }
 
+    /**
+     * Speichert die monatliche Sichtbarkeits-Historie (idempotent pro Monat/Engine/Quelle).
+     * @param array<int,array<string,mixed>> $rows aus HistoricalProvider::overview()
+     * @return int Anzahl geschriebener Monate
+     */
+    public function saveVisibilityHistory(int $clientId, array $rows): int
+    {
+        $stmt = $this->db->prepare(
+            'INSERT INTO visibility_history
+               (client_id, engine, period, keywords_total, pos_1, pos_2_3, pos_4_10,
+                pos_11_20, pos_21_50, pos_51_100, etv, is_new, is_lost, source)
+             VALUES
+               (:cid, :engine, :period, :kt, :p1, :p23, :p410, :p1120, :p2150, :p51100,
+                :etv, :new, :lost, :source)
+             ON DUPLICATE KEY UPDATE
+               keywords_total=VALUES(keywords_total), pos_1=VALUES(pos_1),
+               pos_2_3=VALUES(pos_2_3), pos_4_10=VALUES(pos_4_10), pos_11_20=VALUES(pos_11_20),
+               pos_21_50=VALUES(pos_21_50), pos_51_100=VALUES(pos_51_100), etv=VALUES(etv),
+               is_new=VALUES(is_new), is_lost=VALUES(is_lost)'
+        );
+        $n = 0;
+        foreach ($rows as $r) {
+            $stmt->execute([
+                'cid' => $clientId, 'engine' => $r['engine'], 'period' => $r['period'],
+                'kt' => $r['keywords_total'], 'p1' => $r['pos_1'], 'p23' => $r['pos_2_3'],
+                'p410' => $r['pos_4_10'], 'p1120' => $r['pos_11_20'], 'p2150' => $r['pos_21_50'],
+                'p51100' => $r['pos_51_100'], 'etv' => $r['etv'], 'new' => $r['is_new'],
+                'lost' => $r['is_lost'], 'source' => 'dataforseo_historical',
+            ]);
+            $n++;
+        }
+        return $n;
+    }
+
+    /**
+     * Sichtbarkeits-Historie für den Report (chronologisch). Bis einschliesslich $period.
+     * @return array<int,array<string,mixed>>
+     */
+    public function visibilityHistory(int $clientId, string $engine = 'google', ?string $upToPeriod = null): array
+    {
+        $sql = 'SELECT period, keywords_total, pos_1, pos_2_3, pos_4_10, pos_11_20,
+                       pos_21_50, pos_51_100, etv, is_new, is_lost
+                FROM visibility_history WHERE client_id = ? AND engine = ?';
+        $params = [$clientId, $engine];
+        if ($upToPeriod !== null) {
+            $sql .= ' AND period <= ?';
+            $params[] = $upToPeriod;
+        }
+        $sql .= ' ORDER BY period ASC';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
     /** Erster/letzter Tag eines Monats (YYYY-MM). @return array{0:string,1:string} */
     private function monthRange(string $period): array
     {

@@ -150,6 +150,31 @@ CREATE TABLE IF NOT EXISTS backlinks (
     CONSTRAINT fk_backlinks_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Aggregierte monatliche Sichtbarkeits-Historie (DataForSEO Labs historical_rank_overview).
+-- Rückwirkend beim Onboarding befüllt → sofortiger Verlauf im Report, ohne bei null zu starten.
+-- Ranking-Verteilung + geschätzter Traffic-Wert (etv) pro Monat.
+CREATE TABLE IF NOT EXISTS visibility_history (
+    id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id     INT UNSIGNED NOT NULL,
+    engine        ENUM('google','bing') NOT NULL DEFAULT 'google',
+    period        CHAR(7)      NOT NULL,          -- YYYY-MM
+    keywords_total INT         NULL,              -- Anzahl rankender Keywords
+    pos_1         INT          NULL,
+    pos_2_3       INT          NULL,
+    pos_4_10      INT          NULL,
+    pos_11_20     INT          NULL,
+    pos_21_50     INT          NULL,
+    pos_51_100    INT          NULL,
+    etv           DECIMAL(12,2) NULL,             -- estimated traffic value (Sichtbarkeits-Proxy)
+    is_new        INT          NULL,
+    is_lost       INT          NULL,
+    source        VARCHAR(64)  NOT NULL DEFAULT 'dataforseo_historical',
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_vishist (client_id, engine, period, source),
+    KEY idx_vishist_client (client_id, period),
+    CONSTRAINT fk_vishist_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Erzeugte Monatsberichte (Metadaten; die .md/Charts liegen im Dateisystem).
 CREATE TABLE IF NOT EXISTS reports (
     id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

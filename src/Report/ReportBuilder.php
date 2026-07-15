@@ -38,6 +38,7 @@ final class ReportBuilder
         $md .= "---\n\n";
 
         $md .= $this->marketContext();
+        $md .= $this->visibilityTrend($clientId, $period);
         $md .= $this->searchRankings($clientId, $period, $prevPeriod);
         $md .= $this->pendingSections();
 
@@ -73,6 +74,62 @@ final class ReportBuilder
         )) . "\n\n";
 
         return $md;
+    }
+
+    /** Sichtbarkeits-Verlauf (Google, historisch) — Sparkline + Tabelle + Trend. */
+    private function visibilityTrend(int $clientId, string $period): string
+    {
+        $hist = $this->repo->visibilityHistory($clientId, 'google', $period);
+        if (count($hist) < 2) {
+            return ''; // ohne Verlauf (min. 2 Punkte) kein Trend-Abschnitt
+        }
+
+        $md = "## Sichtbarkeits-Verlauf (Google)\n\n";
+        $md .= "_Geschätzte Sichtbarkeit (ETV) und Anzahl rankender Keywords je Monat "
+            . "— rückwirkend aus DataForSEO. Zeigt den Trend, nicht nur die Momentaufnahme._\n\n";
+
+        $etv = array_map(static fn($r) => (float) $r['etv'], $hist);
+        $md .= "**Sichtbarkeit:** " . $this->sparkline($etv) . "  \n";
+        $md .= "**Verlauf:**\n\n";
+        $md .= "| Monat | Sichtbarkeit (ETV) | Keywords | Top-3 | Top-10 |\n|---|---:|---:|---:|---:|\n";
+        foreach ($hist as $r) {
+            $top3 = (int) $r['pos_1'] + (int) $r['pos_2_3'];
+            $top10 = $top3 + (int) $r['pos_4_10'];
+            $md .= '| ' . $this->monthShort($r['period'])
+                . ' | ' . number_format((float) $r['etv'], 0, ',', '\'')
+                . ' | ' . (int) $r['keywords_total']
+                . ' | ' . $top3
+                . ' | ' . $top10 . " |\n";
+        }
+        $md .= "\n";
+
+        // Trend-Einordnung erster vs. letzter Monat.
+        $first = $etv[0];
+        $last = end($etv);
+        if ($first > 0) {
+            $pct = round(($last - $first) / $first * 100);
+            $dir = $pct > 2 ? "gestiegen (▲ {$pct} %)" : ($pct < -2 ? 'gesunken (▼ ' . abs($pct) . ' %)' : 'stabil');
+            $md .= "> **Trend:** Über den erfassten Zeitraum ist die geschätzte Google-Sichtbarkeit "
+                . "**{$dir}** (von " . number_format($first, 0, ',', '\'') . ' auf '
+                . number_format($last, 0, ',', '\'') . " ETV).\n\n";
+        }
+
+        return $md;
+    }
+
+    /** Einfache Text-Sparkline aus Unicode-Blöcken (bis echte Charts da sind). */
+    private function sparkline(array $values): string
+    {
+        $blocks = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+        $min = min($values);
+        $max = max($values);
+        $range = $max - $min ?: 1;
+        $out = '';
+        foreach ($values as $v) {
+            $idx = (int) round(($v - $min) / $range * (count($blocks) - 1));
+            $out .= $blocks[$idx];
+        }
+        return $out . '  (' . number_format($min, 0, ',', '\'') . '–' . number_format($max, 0, ',', '\'') . ' ETV)';
     }
 
     /** Suchmaschinen-Rankings (Google + Bing) mit Delta zum Vormonat. */
@@ -165,6 +222,14 @@ final class ReportBuilder
             'August', 'September', 'Oktober', 'November', 'Dezember'];
         [$y, $m] = explode('-', $period);
         return ($months[(int) $m] ?? $m) . ' ' . $y;
+    }
+
+    private function monthShort(string $period): string
+    {
+        $months = [1 => 'Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul',
+            'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+        [$y, $m] = explode('-', $period);
+        return ($months[(int) $m] ?? $m) . ' ' . substr($y, 2);
     }
 
     private function cell(string $v): string
