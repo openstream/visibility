@@ -118,40 +118,62 @@ Trust-Flow/Citation-Flow-Metrik (Majestic-exklusiv) — brauchen wir nicht.
 > Backlinks/Offsite. Ein Account, eine Auth, ein `DataForSeoClient` im Code. Das
 > vereinfacht die Architektur erheblich und hält die Kosten niedrig.
 
-### Social-Media-Sichtbarkeit (eigene Kanäle)
+### Social-Media-Sichtbarkeit (eigene Kanäle, via OAuth)
 
 Sichtbarkeit ist mehr als die Website: **Social Media** gehört zum Auftritt eines
-Unternehmens dazu. Ziel: **monatliche Views** und Follower-Wachstum der **eigenen**
-Kanäle des Kunden. Plattformen: **YouTube, TikTok, Instagram** (LinkedIn vorerst
-weggelassen). Zeitreihe bauen wir selbst (wöchentlich `collect` → DB).
+Unternehmens dazu. Ziel: **echte monatliche Views/Reichweite** und Follower-Wachstum der
+**eigenen** Kanäle des Kunden. Plattformen: **YouTube, Instagram, TikTok** (LinkedIn
+vorerst weggelassen). Zeitreihe bauen wir selbst (wöchentlich `collect` → DB).
 
-**Kernentscheidung (Nick, Juli 2026):** Fokus auf **eigene Kanäle** und **öffentliche
-Views** — kein Impressions/Reichweite-Anspruch (das gäbe es nur via aufwändigem
-OAuth-Insights-Zugriff), **kein Wettbewerber-Tracking**. Views sind die aussagekräftigste
-öffentliche Visibility-Kennzahl.
+**Kernentscheidung (Nick, Juli 2026 — Kurskorrektur weg von Apify):** Für zuverlässige,
+**exakte Monats-Views** führt kein Weg an den **offiziellen APIs mit OAuth** vorbei.
+Apify/öffentliches Scraping liefert das nicht sauber (IG gibt öffentlich gar keine
+Account-Views; TikTok je nach Actor; YouTube nur Lifetime-Näherung). Deshalb: **der Kunde
+verbindet seine Kanäle selbst per OAuth** über eine schlanke Web-App auf
+`visibility.openstream.ch` → einmal „mit YouTube/Instagram/TikTok verbinden" klicken. Das
+skaliert (kein Setup-Aufwand für Nick pro Kunde) und liefert die genauesten Daten.
 
-| Plattform | Quelle | OAuth? | Liefert |
-|---|---|---|---|
-| **YouTube** | **Data API v3** (`channels.list?part=statistics`), nur API-Key | ❌ nein | `viewCount` (Lifetime, **inkl. Shorts** seit 31.3.2025), Subscriber, Video-Anzahl. Monats-Views = Differenz Monat/Vormonat (Näherung, passt zum wöchentlichen Erhebungslauf). Skaliert für alle Kunden ohne Setup. Setup analog `gsc-api-access`. |
-| **TikTok** | **Apify**, nur **eigener** Kunden-Account | ❌ nein | Gesamt-Views + Follower des eigenen öffentlichen Accounts. |
-| **Instagram** | **Apify**, nur **eigener** Kunden-Account | ❌ nein | Gesamt-Views/Follower des eigenen öffentlichen Accounts. |
+| Plattform | Quelle (OAuth, eigenes Konto) | Liefert |
+|---|---|---|
+| **YouTube** | **Analytics API** (`youtubeAnalytics.reports.query`, Scope `yt-analytics.readonly`) | echte Monats-`views`, Watchtime, Subscriber-Gains, **Shorts-vs-Video-Split** (`creatorContentType`). |
+| **Instagram** | **Graph API Insights** (Business/Creator) | echte Reichweite/Impressions/Views + Follower — das, was öffentlich GAR nicht geht. Meta-App-Review nötig. |
+| **TikTok** | **Display/Business API** (eigenes verbundenes Konto) | echte Video-Views/Engagement des eigenen Kontos. |
 
-**YouTube** ist der saubere Kern: offizielle API, kein OAuth, öffentliche Kanal-Views
-inkl. Shorts, nur die Kanal-ID nötig. *(Optional später: YouTube Analytics API mit OAuth
-für echte Monats-Views + Shorts-vs-Video-Split — als gekapselter Zusatzpfad, wenn ein
-Kunde Consent gibt. Nicht nötig für den Trend.)*
+**Architektur der OAuth-Anbindung** (s. „Social via OAuth" unten für Details):
+- Schlanke **Verbindungsseite** je Kunde: OAuth-Consent → **Refresh-Token verschlüsselt in
+  der DB** (`social_connections`, App-Key aus `.env`).
+- `collect --social` nutzt die gespeicherten Tokens (Refresh → Access-Token) und ruft die
+  Analytics-APIs headless ab. Kein Kunden-Login/Portal darüber hinaus.
+- **Fallback ohne OAuth:** die bereits gebaute **YouTube Data API** (nur API-Key,
+  Lifetime-Views-Näherung) bleibt nutzbar, wenn ein Kunde (noch) nicht verbunden ist.
 
-**TikTok/Instagram:** offiziell gibt es öffentliche Views **nicht** ohne OAuth. Da
-OAuth + Meta-App-Review pro Kunde nicht skaliert, lesen wir dort die **Gesamt-Views des
-eigenen Kunden-Accounts** via **Apify** aus (nur die aggregierte Zahl fürs Reporting).
+> **Kein Scraping, kein Wettbewerber-Tracking.** Nur die eigenen Kanäle des Kunden mit
+> seiner Einwilligung, nur aggregierte Account-Stats (keine Personendaten). Der frühere
+> Apify-Weg (heute als `TikTokProvider`/`InstagramProvider` im Code) wird durch OAuth
+> ersetzt; die Scraping-Anbieter-Recherche bleibt in Memory + Git-Historie dokumentiert.
+> DataForSEO deckt Social nicht ab (Pinterest-only).
 
-> **Ethische Abgrenzung (bewusst gezogen):** **Eigene** Accounts eines Kunden scrapen ≠
-> **fremde** Accounts scrapen. Wir lesen nur die öffentlichen Gesamt-Zahlen der Kanäle,
-> die dem Kunden gehören (keine Wettbewerber, keine Personendaten, keine Follower-Listen).
-> Das ist der datenschutzrechtlich harmloseste Fall. **Wettbewerber-Tracking via Scraping
-> bleibt verworfen.** Die frühere Anbieter-Recherche (ScrapeCreators/SociaVault/Bright
-> Data u.a.) ist in `social-media-newsletter-scope`-Memory + Git-Historie dokumentiert,
-> falls sich die Frage neu stellt. DataForSEO deckt Social nicht ab (Pinterest-only).
+### Social via OAuth — Architektur (Roadmap)
+
+Bewusste Erweiterung um eine **minimale Web-Komponente** (bricht die „nur CLI/kein Login"-
+Leitplanke gezielt für genau diesen Zweck, s. CLAUDE.md). Kein Kundenportal, keine Reports
+für Kunden — nur das Verbinden der Kanäle.
+
+- **`social_connections`** (DB): `client_id`, `platform`, `account_ref`, `refresh_token`
+  (**verschlüsselt**, AES via App-Key aus `.env`), `scopes`, `connected_at`, `status`.
+- **OAuth-Flow** (Web): `/connect/<platform>?client=<slug>` → Provider-Consent → Callback
+  speichert den Refresh-Token verschlüsselt. Pro Plattform eine registrierte OAuth-App
+  (Google Cloud / Meta / TikTok Developer) mit Callback-URL auf `visibility.openstream.ch`.
+- **`OAuthTokenStore`**: entschlüsselt Refresh-Token, tauscht ihn gegen kurzlebiges
+  Access-Token (gecacht), stellt es den Providern bereit.
+- **Provider** (`YouTubeAnalyticsProvider`, `InstagramInsightsProvider`,
+  `TikTokProvider`): rufen die Analytics-Endpunkte mit dem Access-Token → echte Monats-Views
+  → `social_metrics` (bzw. eigene monatliche Tabelle, da hier echte Monatswerte statt Deltas).
+- **Lokal testbar (DDEV):** OAuth-Flow gegen Nicks eigene openstream-Konten lokal
+  entwickeln/testen (Callback auf die DDEV-URL registrieren), bevor `visibility.openstream.ch`
+  produktiv steht.
+- **Reihenfolge:** erst die gemeinsame Infrastruktur (Flow + `social_connections` +
+  `OAuthTokenStore` + Interface), dann die drei Provider nacheinander andocken.
 
 ### Newsletter / E-Mail-Marketing (Owned Media)
 
@@ -755,13 +777,13 @@ Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
       Video-Anzahl. Löst Kanal-ID/URL/@handle auf (`resolve()`, getestet). **Live-Test
       offen bis YOUTUBE_API_KEY gesetzt.** *(Optional später: Analytics API mit OAuth für
       echte Monats-Views + Shorts-Split.)*
-- [x] **TikTok + Instagram** (`TikTokProvider`/`InstagramProvider`) via generischen
-      **`ApifyClient`** (`run-sync-get-dataset-items`) — nur eigene Kunden-Accounts, kein
-      OAuth. **Live-Test offen bis APIFY_API_TOKEN gesetzt; Actor-Feldnamen dann am
-      Gratis-Kontingent verifizieren.** *(Einschränkung: IG liefert öffentlich keine
-      aggregierten Account-Views → nur Follower; TikTok-Gesamt-Views je nach Actor.)*
+- [x] 🟡 **TikTok + Instagram** (`TikTokProvider`/`InstagramProvider` via `ApifyClient`):
+      gebaut, aber **durch OAuth ersetzt** (Apify liefert Monats-Views nicht zuverlässig;
+      IG öffentlich gar keine). Code bleibt vorerst als Fallback/Referenz, wird durch die
+      OAuth-Provider (s. Phase 2.6) abgelöst. Kein Apify-Token nötig.
 - [x] **Monats-Views je Kanal** aus wöchentlichen `views_total`-Ständen (Differenz,
-      clamp ≥0) — `ClientRepository::socialMonthly()`. Report-getestet.
+      clamp ≥0) — `ClientRepository::socialMonthly()`. Report-getestet. *(Bei OAuth-
+      Providern später durch echte Monatswerte ersetzbar.)*
 - [ ] LinkedIn: **vorerst weggelassen** (kein öffentlicher View-Zugang ohne Admin-OAuth).
 - [ ] **`NewsletterProvider`-Interface** + `newsletter_stats` (Zeitreihe): je Ausgabe
       Öffnungs-/Klickrate, Bounces, Abmeldungen, Listen-Wachstum. Tool je Kunde in der
@@ -770,16 +792,33 @@ Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
   - [ ] **`MailchimpProvider`** via offizielle Marketing API (`/reports`, `/lists`).
   - [ ] **`SendyProvider`** via Sendy-API bzw. read-only aus Sendys MySQL-DB (beim Bau
         prüfen, was die installierte Version hergibt). openstream nutzt Sendy.
-- [ ] **Monats-Views je Kanal ableiten:** aus den wöchentlichen `views_total`-Ständen
-      (Lifetime) den **Monatswert = Differenz Monatsende/Vormonatsende** berechnen und je
-      Kanal/Monat speichern (`social_metrics_monthly` o.ä.). Robust gegen fehlende Wochen
-      + gegen rückläufige Zähler (YouTube bereinigt Views rückwirkend → clamp auf ≥0).
 - [ ] **Openstream Visibility Score (OVS):** monatliche „aktive Sichtkontakte"
       plattformübergreifend berechnen (Formel s. „Openstream Visibility Score") → als
       Zeitreihe speichern. Formel zentral im Code + dokumentiert.
 - [ ] **Grundsatz:** nur aggregierte Account-/Kampagnen-Stats des **eigenen** Kunden-Kanals,
       keine Personen-/Follower-/Empfänger-Listen, kein Wettbewerber-Tracking (DSG/DSGVO).
-      YouTube/Newsletter offiziell; TikTok/IG-Scraping nur für eigene öffentliche Accounts.
+
+### Phase 2.6 — Social via OAuth (exakte Monats-Views, minimale Web-Komponente)
+Kurskorrektur: Apify liefert Monats-Views nicht zuverlässig → **offizielle APIs mit OAuth**,
+der Kunde verbindet seine Kanäle selbst. Bewusste, minimale Web-Erweiterung (kein
+Kundenportal). Details s. „Social via OAuth — Architektur". **Erst Infrastruktur, dann Provider.**
+- [ ] **OAuth-Apps registrieren:** Google Cloud (YouTube Analytics, Scope
+      `yt-analytics.readonly`), Meta (Instagram Graph + App-Review), TikTok Developer.
+      Callback-URLs auf `visibility.openstream.ch` (+ DDEV-URL fürs lokale Testen).
+- [ ] **DB `social_connections`** (client_id, platform, account_ref, refresh_token
+      **verschlüsselt**, scopes, connected_at, status) + App-Verschlüsselungs-Key in `.env`.
+- [ ] **`OAuthTokenStore`**: Refresh-Token ver-/entschlüsseln, gegen Access-Token tauschen
+      (gecacht), Providern bereitstellen.
+- [ ] **Verbindungsseite (Web):** `/connect/<platform>?client=<slug>` → Consent → Callback
+      speichert verschlüsselten Refresh-Token. Schlank, kein Login/Session darüber hinaus.
+- [ ] **`YouTubeAnalyticsProvider`** (`youtubeAnalytics.reports.query`): echte Monats-`views`
+      + Shorts-vs-Video-Split. Baut auf dem bestehenden `YouTubeProvider` auf.
+- [ ] **`InstagramInsightsProvider`** (Graph API Insights): echte Reichweite/Impressions/Views.
+- [ ] **`TikTokProvider` (OAuth)** (Display/Business API): echte Video-Views des eigenen Kontos.
+- [ ] **Lokal testen (DDEV):** OAuth-Flow gegen Nicks openstream-Konten, bevor
+      `visibility.openstream.ch` produktiv steht (s. Phase 6).
+- [ ] Echte Monatswerte → `social_metrics` (bzw. eigene Monatstabelle), ersetzen die
+      Apify-Deltas. Report-Abschnitt „Social Media" nutzt dann die exakten Zahlen.
 
 ### Phase 3 — Report-Generierung (inkl. Diagramme)
 - [ ] Report-Datenmodell: aktueller Monat vs. Vormonat (Deltas!) **plus Zeitreihe

@@ -67,13 +67,19 @@ Der Report kann **automatisch (monatlich) oder manuell** per Mail versendet werd
   die DataForSEO OnPage API. Guzzle ist nur der HTTP-Client für diese API-Calls,
   kein Scraper. Falls ein Check über keine API verfügbar ist: mit Nick abklären,
   nicht eigenmächtig einen Crawler bauen.
-  - **Social-Media-Daten:** **YouTube** über die offizielle Data API (API-Key). **TikTok/
-    Instagram** über **Apify**, aber NUR für die **eigenen** öffentlichen Kunden-Accounts
-    (Gesamt-Views, kein OAuth). **KEIN Scraping fremder/Wettbewerber-Accounts** und keine
-    Personendaten (Nick-Entscheidung Juli 2026). Ethische Linie: eigene Accounts eines
-    Kunden auslesen ≠ fremde Accounts scrapen. Nur aggregierte Account-Stats des Kunden.
-- **Nur für Nick.** Kein Kundenzugang, kein Login, kein Rollen-/Rechte-System,
-  kein Multi-User. Single-User-Tool. Keine Auth-Komplexität einbauen.
+  - **Social-Media-Daten:** über die **offiziellen APIs mit OAuth** — der Kunde verbindet
+    seine eigenen Kanäle selbst (YouTube Analytics, Instagram Graph Insights, TikTok
+    Display/Business). Liefert die EXAKTEN Monats-Views/Reichweite, die öffentlich bzw. via
+    Apify NICHT zuverlässig zu bekommen sind (Entscheidung Juli 2026: OAuth statt Apify).
+    **Kein Scraping, kein Wettbewerber-Tracking.** YouTube Data API (nur API-Key, ohne
+    OAuth) bleibt als einfacher öffentlicher Fallback. Nur aggregierte Account-Stats des
+    Kunden, keine Personendaten. Details s. README → „Social via OAuth".
+- **Grundsätzlich für Nick — MIT einer Ausnahme (OAuth-Verbindung):** Kein Kundenportal,
+  kein Rollen-/Rechte-System, kein Report-Zugang für Kunden. Auswertung/Reports laufen
+  weiter nur über CLI/Nick. **Die EINZIGE Kundeninteraktion:** eine schlanke OAuth-
+  Verbindungsseite auf `visibility.openstream.ch`, wo der Kunde einmalig seine Social-
+  Kanäle verbindet (Refresh-Token → **verschlüsselt in der DB**). Kein Login/keine Session
+  darüber hinaus, kein Multi-User-Dashboard. Diese Ausnahme bewusst und minimal halten.
 - **Sprache der Reports: Deutsch.** Code, Kommentare, Commits: Englisch ok.
 - **Erhebungsrhythmus: wöchentlich crawlen, monatlich auswerten.** Die Erhebung
   (`collect`) läuft **wöchentlich** je Kunde → jeder Messwert wird mit Datum in
