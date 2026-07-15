@@ -234,6 +234,98 @@ final class ClientRepository
         return $n;
     }
 
+    /** @return array<string,mixed>|null Kundenstammdaten */
+    public function client(int $clientId): ?array
+    {
+        $stmt = $this->db->prepare('SELECT * FROM clients WHERE id = ?');
+        $stmt->execute([$clientId]);
+        $row = $stmt->fetch();
+        return $row ?: null;
+    }
+
+    /**
+     * Ranking-Kennzahlen je Engine für einen Monat (letzter Messwert im Monat je Keyword),
+     * plus die Ranking-Detailzeilen. Für den Report.
+     *
+     * @return array<string,array{count:int,avg_position:?float,impressions:int,clicks:int,rows:array<int,array<string,mixed>>}>
+     *         keyed by engine (google|bing)
+     */
+    public function rankingSummary(int $clientId, string $period): array
+    {
+        // Datumsbereich statt DATE_FORMAT-String (vermeidet Collation-Konflikte, indexnutzbar).
+        [$start, $end] = $this->monthRange($period);
+        // Letzter Erhebungstag im Monat je (engine) — Momentaufnahme des Monats.
+        $stmt = $this->db->prepare(
+            "SELECT m.engine, m.source, m.position, m.impressions, m.clicks, k.keyword,
+                    m.measured_at
+             FROM measurements m
+             LEFT JOIN keywords k ON k.id = m.keyword_id
+             WHERE m.client_id = :cid
+               AND m.measured_at = (
+                   SELECT MAX(measured_at) FROM measurements
+                   WHERE client_id = :cid2 AND engine = m.engine
+                     AND measured_at BETWEEN :start AND :end
+               )
+             ORDER BY m.engine, m.impressions DESC, m.position ASC"
+        );
+        $stmt->execute(['cid' => $clientId, 'cid2' => $clientId, 'start' => $start, 'end' => $end]);
+
+        $byEngine = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $e = $r['engine'];
+            if (!isset($byEngine[$e])) {
+                $byEngine[$e] = ['count' => 0, 'pos_sum' => 0.0, 'pos_n' => 0, 'impressions' => 0, 'clicks' => 0, 'rows' => []];
+            }
+            $byEngine[$e]['count']++;
+            if ($r['position'] !== null) {
+                $byEngine[$e]['pos_sum'] += (float) $r['position'];
+                $byEngine[$e]['pos_n']++;
+            }
+            $byEngine[$e]['impressions'] += (int) ($r['impressions'] ?? 0);
+            $byEngine[$e]['clicks'] += (int) ($r['clicks'] ?? 0);
+            $byEngine[$e]['rows'][] = $r;
+        }
+
+        $out = [];
+        foreach ($byEngine as $e => $d) {
+            $out[$e] = [
+                'count'        => $d['count'],
+                'avg_position' => $d['pos_n'] > 0 ? round($d['pos_sum'] / $d['pos_n'], 1) : null,
+                'impressions'  => $d['impressions'],
+                'clicks'       => $d['clicks'],
+                'rows'         => $d['rows'],
+            ];
+        }
+        return $out;
+    }
+
+    /** Ø-Position je Engine für einen Monat (für Delta-Vergleich). @return array<string,?float> */
+    public function avgPositionByEngine(int $clientId, string $period): array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT engine, ROUND(AVG(position),1) avg_pos
+             FROM measurements
+             WHERE client_id = ? AND position IS NOT NULL
+               AND measured_at BETWEEN ? AND ?
+             GROUP BY engine"
+        );
+        $stmt->execute([$clientId, $start, $end]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $out[$r['engine']] = $r['avg_pos'] !== null ? (float) $r['avg_pos'] : null;
+        }
+        return $out;
+    }
+
+    /** Erster/letzter Tag eines Monats (YYYY-MM). @return array{0:string,1:string} */
+    private function monthRange(string $period): array
+    {
+        $start = $period . '-01';
+        $end = date('Y-m-t', strtotime($start));
+        return [$start, $end];
+    }
+
     /** @param array<mixed> $v */
     private function json(array $v): string
     {
