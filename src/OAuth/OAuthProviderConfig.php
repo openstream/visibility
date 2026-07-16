@@ -60,8 +60,8 @@ final class OAuthProviderConfig
     /** @return array<string,mixed>|null */
     private static function meta(App $app): ?array
     {
-        $id = $app->env('META_OAUTH_CLIENT_ID');
-        $secret = $app->env('META_OAUTH_CLIENT_SECRET');
+        $id = $app->env('INSTAGRAM_OAUTH_CLIENT_ID');
+        $secret = $app->env('INSTAGRAM_OAUTH_CLIENT_SECRET');
         if (!$id || !$secret) {
             return null;
         }
