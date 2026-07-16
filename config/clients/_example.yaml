@@ -20,6 +20,8 @@ report:
 # Social-Media-Kanäle (EIGENE Accounts des Kunden). `collect --social`.
 # YouTube: Kanal-ID (UC...), URL oder @handle. TikTok/Instagram: @handle oder URL.
 # Leer lassen, wenn nicht vorhanden → Report blendet den Kanal aus.
+# Tipp: Das Handle möglichst VOR dem ersten `collect --social` eintragen — es dient als
+# Kanal-Label; ändert es sich nachträglich, entsteht eine zweite Zeile statt eines Updates.
 social:
   youtube: []
   tiktok: []

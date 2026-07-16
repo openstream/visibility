@@ -42,7 +42,7 @@ geo:
 # Leer lassen, wenn ein Kunde einen Kanal nicht hat — der Report blendet ihn dann aus.
 social:
   youtube: ["@OpenstreamCH"]
-  tiktok: []
+  tiktok: ["@openstream.ch"]
   instagram: []
 
 # Newsletter (Owned Media). provider: sendy | mailchimp. env_suffix = Slug in GROSSBUCHSTABEN
