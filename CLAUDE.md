@@ -20,10 +20,12 @@ und misst zusätzlich den **Zustand der Website selbst**:
 - **Onsite/technisches SEO** (Audit der Kundenseite),
 - **Offsite SEO** (Backlink-/Autoritätsprofil).
 
-**Social Media** (teils gebaut): YouTube, Instagram, TikTok (LinkedIn vorerst weg). Fokus
-**echte monatliche Views der EIGENEN Kunden-Kanäle** via **OAuth** — der Kunde verbindet
+**Social Media** (gebaut & live für openstream): YouTube, Instagram, TikTok (LinkedIn weg).
+Fokus **echte monatliche Views der EIGENEN Kunden-Kanäle** via **OAuth** — der Kunde verbindet
 seine Kanäle selbst über die Web-App (`/connect/<platform>`), Refresh-Token verschlüsselt
-in der DB. **YouTube Data API** (API-Key, kein OAuth) bleibt als öffentlicher Fallback.
+in der DB. Instagram läuft über den **Instagram-Login-Weg** (`graph.instagram.com`, echte
+Monats-Views), TikTok über die **Display API** (Sandbox reicht, Monats-Views als Delta),
+YouTube über die **Analytics API** (+ Data API als Fallback ohne OAuth).
 **Kein Scraping (Apify ist raus), kein Wettbewerber-Tracking** (Nick-Entscheidung Juli 2026).
 
 **Newsletter** (Roadmap, s. README, Owned Media): Öffnungs-/Klickraten, Bounces,

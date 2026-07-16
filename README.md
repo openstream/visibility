@@ -8,8 +8,9 @@ Social Media und Newsletter) und leitet daraus konkrete Optimierungsmöglichkeit
   und in **ChatGPT, Perplexity, Gemini & AI Overviews** (GEO: wird die Marke in
   KI-Antworten erwähnt/zitiert?).
 - **Social Media** (TikTok, Instagram, YouTube): Follower, Views, Engagement,
-  Wachstum — nur die *eigenen* Kunden-Accounts, kein Wettbewerber-Tracking.
-- **Newsletter** (Owned Media): Öffnungs-/Klickraten, Listen-Wachstum. *(Roadmap)*
+  Wachstum — nur die *eigenen* Kunden-Accounts (via OAuth verbunden), kein
+  Wettbewerber-Tracking.
+- **Newsletter** (Owned Media): Öffnungs-/Klickraten, Listen-Wachstum (Sendy + Mailchimp).
 
 Erzeugt pro Kunde einen monatlichen, ausführlichen Report auf Deutsch inkl.
 Diagrammen und einer Executive Summary; der automatische Mail-Versand (Summary als
@@ -136,8 +137,8 @@ skaliert (kein Setup-Aufwand für Nick pro Kunde) und liefert die genauesten Dat
 | Plattform | Quelle (OAuth, eigenes Konto) | Liefert |
 |---|---|---|
 | **YouTube** | **Analytics API** (`youtubeAnalytics.reports.query`, Scope `yt-analytics.readonly`) | echte Monats-`views`, Watchtime, Subscriber-Gains, **Shorts-vs-Video-Split** (`creatorContentType`). |
-| **Instagram** | **Graph API Insights** (Business/Creator) | echte Reichweite/Impressions/Views + Follower — das, was öffentlich GAR nicht geht. Meta-App-Review nötig. |
-| **TikTok** | **Display/Business API** (eigenes verbundenes Konto) | echte Video-Views/Engagement des eigenen Kontos. |
+| **Instagram** | **Instagram-Login + Graph Insights** (`graph.instagram.com/me/insights`, Business/Creator) | echte Reichweite/Views + Follower — das, was öffentlich GAR nicht geht. Fürs eigene Konto ohne vollen App-Review (Dev-Modus), keine FB-Seite nötig. |
+| **TikTok** | **Display API** (eigenes verbundenes Konto, Sandbox reicht) | Video-Views/Engagement des eigenen Kontos; Monats-Views als Delta. Keine historischen Monate (nur Momentaufnahme). |
 
 **Architektur der OAuth-Anbindung** (s. „Social via OAuth" unten für Details):
 - Schlanke **Verbindungsseite** je Kunde: OAuth-Consent → **Refresh-Token verschlüsselt in
@@ -176,22 +177,26 @@ für Kunden — nur das Verbinden der Kanäle.
   | Provider | Endpunkt | Monats-Views | Follower |
   |---|---|---|---|
   | `YouTubeAnalyticsProvider` | YouTube Analytics `reports` | **echt** (month-to-date) | via Data API |
-  | `InstagramInsightsProvider` | Graph API `/{ig-id}/insights` (`views`,`reach`) | **echt** (Zeitraumswert) | `followers_count` |
+  | `InstagramInsightsProvider` | `graph.instagram.com/me/insights` (`views`,`reach`) | **echt** (Zeitraumswert, kein Delta) | `followers_count` |
   | `TikTokProvider` | Display API `video/list` + `user/info` | **Delta** aus `viewsTotal` (Lifetime-Summe) | `follower_count` |
 
   Ergebnis → `social_metrics`; `socialMonthly()` liefert je Kanal den echten Monatswert
   bzw. das Delta zweier wöchentlicher Stände.
-- **Freischalt-Hürden (vor dem Live-Test):**
-  - *TikTok* — Display-API-Zugang + „Login Kit" in der App aktivieren
-    (https://developers.tiktok.com/apps/), Redirect-URI `.../connect/tiktok/callback`.
-  - *Meta* — App-Typ „Business", Produkt „Instagram" (https://developers.facebook.com/apps/);
-    `instagram_manage_insights` braucht **App-Review** für fremde Konten. Kunde braucht
-    Business-/Creator-Konto, verknüpft mit einer Facebook-Seite.
-- **Lokal testbar (DDEV):** OAuth-Flow gegen Nicks eigene openstream-Konten (Callback auf
-  die DDEV-URL registrieren), bevor `visibility.openstream.ch` produktiv steht.
-- **Status:** Infrastruktur (Flow + `social_connections` + `OAuthTokenStore`) und alle drei
-  Provider sind gebaut und gegen gemockte API-Antworten getestet. Ausstehend: die
-  Developer-Apps bei Meta/TikTok anlegen/freischalten und einen realen Connect durchspielen.
+- **Freischaltung je Plattform (so eingerichtet):**
+  - *YouTube* — Google-Cloud-OAuth-Client, Scope `yt-analytics.readonly`.
+  - *TikTok* — App auf https://developers.tiktok.com/apps/, Produkt „Login Kit", Scopes
+    `user.info.basic`/`user.info.stats`/`video.list`. **Sandbox-Modus reicht** (eigenes Konto
+    als target user) — kein Production-Review mit ToS-/Datenschutz-URLs nötig.
+  - *Instagram* — **Instagram-Login-Weg** (nicht Facebook-Login): App auf
+    https://developers.facebook.com/apps/, Anwendungsfall „Messaging und Content auf Instagram
+    verwalten", Scopes `instagram_business_basic`/`instagram_business_manage_insights`. Das
+    Business-/Creator-Konto als „Instagram-Tester" (Tab App-Rollen) hinzufügen und die
+    Einladung in Instagram annehmen. **Kein voller App-Review** fürs eigene Konto (Dev-Modus).
+    Wichtig: die *Instagram*-App-ID verwenden, nicht die Facebook-App-ID. **Keine** FB-Seite nötig.
+- **Status: LIVE.** Alle drei Kanäle sind für openstream real verbunden und liefern echte
+  Zahlen (`collect --social`). YouTube/Instagram liefern Juni rückwirkend (Analytics- bzw.
+  90-Tage-Insights-Fenster); TikTok-Juni kam aus dem TikTok-Studio-CSV-Export (die Display API
+  liefert keine historischen Monate) und akkumuliert ab Juli per Delta.
 
 ### Newsletter / E-Mail-Marketing (Owned Media)
 
