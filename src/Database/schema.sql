@@ -199,6 +199,22 @@ CREATE TABLE IF NOT EXISTS social_metrics (
 -- Nachträglich ergänzte Spalte (falls social_metrics schon ohne monthly_views existiert).
 ALTER TABLE social_metrics ADD COLUMN IF NOT EXISTS monthly_views BIGINT UNSIGNED NULL AFTER views_total;
 
+-- Openstream Visibility Score (OVS) je Monat: „aktive Sichtkontakte" plattformübergreifend.
+-- Wird beim Report berechnet und als Zeitreihe gespeichert (für den OVS-Trend-Chart).
+-- components = JSON mit dem Beitrag je Kanal (für die offene Zusammensetzung im Report).
+CREATE TABLE IF NOT EXISTS visibility_score (
+    id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id    INT UNSIGNED NOT NULL,
+    period       CHAR(7)      NOT NULL,           -- YYYY-MM
+    score        BIGINT UNSIGNED NOT NULL,        -- OVS (Summe aktiver Sichtkontakte)
+    components   JSON         NULL,               -- {"google_clicks":..,"google_impr_weighted":..,...}
+    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_vscore (client_id, period),
+    KEY idx_vscore_client (client_id, period),
+    CONSTRAINT fk_vscore_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Newsletter-Kennzahlen je Kampagne/Ausgabe (Owned Media). Provider: sendy | mailchimp.
 -- Eigene, private Daten des Kunden; nur aggregierte Raten, keine Empfänger-Adressen.
 CREATE TABLE IF NOT EXISTS newsletter_stats (

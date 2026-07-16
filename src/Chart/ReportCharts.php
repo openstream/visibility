@@ -47,6 +47,22 @@ final class ReportCharts
     }
 
     /**
+     * Zeitreihe: Openstream Visibility Score (aktive Sichtkontakte) je Monat.
+     * @param array<int,array{period:string,score:int}> $history
+     */
+    public function ovsTrend(array $history): string
+    {
+        if (count($history) < 2) {
+            return '';
+        }
+        $labels = array_map(fn($r) => $this->monthShort((string) $r['period']), $history);
+        $values = array_map(static fn($r) => (float) $r['score'], $history);
+
+        $svg = $this->svg->line($labels, $values, 'Sichtbarkeits-Score (aktive Sichtkontakte) je Monat');
+        return $this->write('ovs-trend', $svg, 'OVS-Verlauf je Monat');
+    }
+
+    /**
      * Momentaufnahme: Keyword-Verteilung über Positions-Buckets (letzter Monat).
      * @param array<string,mixed>|null $latest jüngste visibility_history-Zeile
      */

@@ -639,6 +639,39 @@ final class ClientRepository
     }
 
     /**
+     * Speichert den OVS eines Monats (idempotent pro Monat) samt Zusammensetzung.
+     * @param array<string,int> $components
+     */
+    public function saveVisibilityScore(int $clientId, string $period, int $score, array $components): void
+    {
+        $this->db->prepare(
+            'INSERT INTO visibility_score (client_id, period, score, components)
+             VALUES (:cid, :period, :score, :components)
+             ON DUPLICATE KEY UPDATE score=VALUES(score), components=VALUES(components)'
+        )->execute([
+            'cid' => $clientId, 'period' => $period, 'score' => $score,
+            'components' => $this->json($components),
+        ]);
+    }
+
+    /**
+     * OVS-Zeitreihe (chronologisch, bis einschliesslich $period) für den Trend-Chart.
+     * @return array<int,array{period:string,score:int}>
+     */
+    public function visibilityScoreHistory(int $clientId, string $period): array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT period, score FROM visibility_score
+             WHERE client_id = ? AND period <= ? ORDER BY period ASC'
+        );
+        $stmt->execute([$clientId, $period]);
+        return array_map(
+            static fn($r) => ['period' => (string) $r['period'], 'score' => (int) $r['score']],
+            $stmt->fetchAll()
+        );
+    }
+
+    /**
      * Speichert Newsletter-Kampagnen-Kennzahlen (idempotent pro Kampagne).
      * @param array<int,\Openstream\Visibility\Provider\NewsletterStat> $stats
      * @return int Anzahl geschriebener Zeilen

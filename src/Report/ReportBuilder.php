@@ -46,8 +46,12 @@ final class ReportBuilder
         // Gesamt-Traffic der Google-Property live aus GSC (die echte, aussagekräftige Zahl).
         $gscTotals = $this->gscTotals($cfg);
 
+        // OVS zuerst berechnen + speichern (Dach-Zahl; die Summary/der Abschnitt nutzen ihn).
+        $ovs = $this->computeAndStoreOvs($clientId, $period, $gscTotals);
+
         // Detail-Abschnitte zuerst bauen (die Summary fasst deren Zahlen zusammen).
-        $sections  = $this->marketContext($activeGeo);
+        $sections  = $this->ovsSection($clientId, $period, $ovs);
+        $sections .= $this->marketContext($activeGeo);
         $sections .= $this->visibilityTrend($clientId, $period);
         $sections .= $this->searchRankings($clientId, $period, $prevPeriod, $gscTotals);
         $sections .= $this->onsiteOffsite($clientId, $period);
@@ -136,6 +140,8 @@ final class ReportBuilder
             . 'Falls Social-Media-Daten geliefert werden (social_media/social_views_gesamt): '
             . 'erwähne die Social-Sichtbarkeit kurz (monatliche Views je Kanal bzw. gesamt) als '
             . 'eigenen Aspekt der Unternehmens-Sichtbarkeit. Wenn keine Social-Daten da sind, lass es weg. '
+            . 'Falls ein Sichtbarkeits-Score (sichtbarkeits_score_ovs) geliefert wird: nenne ihn im '
+            . 'ERSTEN Bullet als Gesamt-Kennzahl („aktive Sichtkontakte über alle Kanäle") inkl. Trend. '
             . 'WICHTIG zum Sichtbarkeits-Trend: Wenn die klassische Google-Sichtbarkeit sinkt, während '
             . 'die KI-Sichtbarkeit gut ist, ORDNE das ein: Ein Teil des Rückgangs kann daran liegen, '
             . 'dass sich die Nutzung von der klassischen Suche hin zu KI-Assistenten und Google '
@@ -174,6 +180,18 @@ final class ReportBuilder
     private function summaryFacts(int $clientId, string $period, ?array $gscTotals): array
     {
         $facts = [];
+
+        // OVS — die Dach-Kennzahl (aktive Sichtkontakte, plattformübergreifend).
+        $ovsHist = $this->repo->visibilityScoreHistory($clientId, $period);
+        if ($ovsHist) {
+            $last = (int) end($ovsHist)['score'];
+            $facts['sichtbarkeits_score_ovs'] = ['aktueller_monat' => $last];
+            if (count($ovsHist) >= 2) {
+                $first = (int) $ovsHist[0]['score'];
+                $facts['sichtbarkeits_score_ovs']['veränderung_prozent'] =
+                    $first > 0 ? round(($last - $first) / $first * 100) : null;
+            }
+        }
 
         // Gesamt-Traffic der Website (die massgebliche Zahl für Klicks/Impressionen).
         if ($gscTotals) {
@@ -680,6 +698,80 @@ final class ReportBuilder
     {
         $t = strtotime($ymd);
         return $t ? date('d.m.Y', $t) : $ymd;
+    }
+
+    /**
+     * Berechnet den OVS aus den Monatsdaten aller Kanäle und speichert ihn (Zeitreihe).
+     * @param ?array{clicks:int,impressions:int,ctr:float,position:float} $gscTotals
+     * @return array{score:int,components:array<string,int>}
+     */
+    private function computeAndStoreOvs(int $clientId, string $period, ?array $gscTotals): array
+    {
+        $in = [];
+        if ($gscTotals) {
+            $in['google_clicks'] = $gscTotals['clicks'];
+            $in['google_impressions'] = $gscTotals['impressions'];
+            $in['google_ctr'] = $gscTotals['ctr'];
+        }
+        // Bing-Klicks (getrackte Keywords) als grobe Näherung, falls vorhanden.
+        $rank = $this->repo->rankingSummary($clientId, $period);
+        if (isset($rank['bing'])) {
+            $in['bing_clicks'] = (int) ($rank['bing']['clicks'] ?? 0);
+        }
+        // KI-Nennungen (Summe „erwähnt" über alle GEO-Kanäle).
+        $geo = $this->repo->geoSummary($clientId, $period);
+        $in['geo_mentions'] = array_sum(array_map(static fn($s) => (int) $s['mentioned'], $geo));
+        // Social-Views (Summe der monatlichen Views je Kanal).
+        $social = $this->repo->socialMonthly($clientId, $period);
+        $in['social_views'] = array_sum(array_map(static fn($r) => (int) ($r['monthly_views'] ?? 0), $social));
+        // Newsletter-Öffnungen (Summe über Kampagnen des Monats).
+        $nl = $this->repo->newsletterCampaigns($clientId, $period, 12);
+        $in['newsletter_opens'] = array_sum(array_map(static fn($r) => (int) ($r['opens'] ?? 0), $nl));
+
+        $ovs = VisibilityScore::compute($in);
+        $this->repo->saveVisibilityScore($clientId, $period, $ovs['score'], $ovs['components']);
+        return $ovs;
+    }
+
+    /**
+     * OVS-Abschnitt (Dach-Zahl): eine Zahl + offene Zusammensetzung je Kanal + Trend-Chart.
+     * @param array{score:int,components:array<string,int>} $ovs
+     */
+    private function ovsSection(int $clientId, string $period, array $ovs): string
+    {
+        if ($ovs['score'] <= 0) {
+            return ''; // ohne Daten kein Score
+        }
+
+        $md = "## Sichtbarkeits-Score (OVS)\n\n";
+        $md .= "**" . number_format($ovs['score'], 0, ',', '\'') . " aktive Sichtkontakte** "
+            . "im " . $this->monthLabel($period) . ".\n\n";
+        $md .= $this->gray('Der Openstream Visibility Score bündelt die Sichtbarkeit über alle '
+            . 'Kanäle zu einer Zahl: wie oft wurde das Unternehmen diesen Monat online aktiv '
+            . 'gesehen (Klicks, Views, KI-Nennungen, Newsletter-Öffnungen). Impressionen zählen '
+            . 'dabei nicht roh, sondern mit der tatsächlichen Klickrate gewichtet (also als '
+            . 'erwartete Besuche), damit die Zahl ehrlich bleibt.') . "\n\n";
+
+        // Trend-Chart (falls ≥2 Monate).
+        $hist = $this->repo->visibilityScoreHistory($clientId, $period);
+        if ($this->charts !== null && count($hist) >= 2) {
+            $chart = $this->charts->ovsTrend($hist);
+            if ($chart !== '') {
+                $md .= $chart;
+            }
+        }
+
+        // Offene Zusammensetzung.
+        $md .= "**Zusammensetzung:**\n\n";
+        $md .= "| Kanal | Kontakte |\n|---|---:|\n";
+        arsort($ovs['components']);
+        foreach ($ovs['components'] as $key => $val) {
+            $md .= '| ' . VisibilityScore::label($key) . ' | '
+                . number_format($val, 0, ',', '\'') . " |\n";
+        }
+        $md .= '| **Summe (OVS)** | **' . number_format($ovs['score'], 0, ',', '\'') . "** |\n\n";
+
+        return $md;
     }
 
     private function positionDelta(?float $now, ?float $prev): string
