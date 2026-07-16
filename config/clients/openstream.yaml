@@ -41,7 +41,7 @@ geo:
 # YouTube: Kanal-ID (UC...), Kanal-URL oder @handle. TikTok/Instagram: @handle oder Profil-URL.
 # Leer lassen, wenn ein Kunde einen Kanal nicht hat — der Report blendet ihn dann aus.
 social:
-  youtube: []      # z.B. ["@openstream"] oder ["UCxxxxxxxxxxxxxxxxxxxxxx"]
+  youtube: ["@OpenstreamCH"]
   tiktok: []
   instagram: []
 
@@ -50,7 +50,7 @@ social:
 newsletter:
   provider: sendy
   env_suffix: OPENSTREAM
-  list_id: ""        # Sendy-Listen-ID (für aktive Abonnenten-Zahl); beim Setup eintragen
+  list_id: "aczKi892kyKbP9miN8923NJEgw"   # Sendy-Listen-ID (öffentlich, kein Secret)
 
 report:
   recipient: nick@openstream.ch
