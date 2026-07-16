@@ -846,7 +846,9 @@ final class ReportBuilder
             . 'Kanäle zu einer Zahl: wie oft wurde das Unternehmen diesen Monat online aktiv '
             . 'gesehen (Klicks, Views, KI-Nennungen, Newsletter-Öffnungen). Impressionen zählen '
             . 'dabei nicht roh, sondern mit der tatsächlichen Klickrate gewichtet (also als '
-            . 'erwartete Besuche), damit die Zahl ehrlich bleibt.') . "\n\n";
+            . 'erwartete Besuche), damit die Zahl ehrlich bleibt. Nennungen in KI-Antworten '
+            . 'zählen ' . VisibilityScore::GEO_WEIGHT . '-fach, da eine Empfehlung durch einen '
+            . 'KI-Assistenten erfahrungsgemäss wertvoller ist als ein klassischer Klick.') . "\n\n";
 
         // Trend-Chart (falls ≥2 Monate).
         $hist = $this->repo->visibilityScoreHistory($clientId, $period);

@@ -34,9 +34,18 @@ final class VisibilityScoreTest extends TestCase
             'social_views' => 42000,
             'newsletter_opens' => 460,
         ]);
-        // 100 + 20 + 100 + 15 + 42000 + 460
-        $this->assertSame(42695, $r['score']);
+        // 100 + 20 + 100 + (15 × GEO_WEIGHT=2 → 30) + 42000 + 460
+        $this->assertSame(42710, $r['score']);
+        $this->assertSame(30, $r['components']['ki_nennungen']);
         $this->assertCount(6, $r['components']);
+    }
+
+    public function testGeoMentionsAreWeighted(): void
+    {
+        $r = VisibilityScore::compute(['geo_mentions' => 10]);
+        // KI-Nennungen zählen mit dem GEO-Gewicht, nicht 1:1.
+        $this->assertSame(10 * VisibilityScore::GEO_WEIGHT, $r['components']['ki_nennungen']);
+        $this->assertSame(10 * VisibilityScore::GEO_WEIGHT, $r['score']);
     }
 
     public function testZeroChannelsAreOmitted(): void

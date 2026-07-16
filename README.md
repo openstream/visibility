@@ -7,8 +7,8 @@ Social Media und Newsletter) und leitet daraus konkrete Optimierungsmöglichkeit
 - **Website** in **Google & Bing** (klassisches SEO: Rankings, Onsite, Backlinks)
   und in **ChatGPT, Perplexity, Gemini & AI Overviews** (GEO: wird die Marke in
   KI-Antworten erwähnt/zitiert?).
-- **Social Media** (TikTok, Instagram, YouTube, LinkedIn): Follower, Engagement,
-  Wachstum — eigene und Wettbewerber-Accounts. *(Roadmap)*
+- **Social Media** (TikTok, Instagram, YouTube): Follower, Views, Engagement,
+  Wachstum — nur die *eigenen* Kunden-Accounts, kein Wettbewerber-Tracking.
 - **Newsletter** (Owned Media): Öffnungs-/Klickraten, Listen-Wachstum. *(Roadmap)*
 
 Erzeugt pro Kunde einen monatlichen, ausführlichen Report auf Deutsch inkl.
@@ -71,8 +71,8 @@ im Report erwartet — dann nur diese eine Zahl, nicht die Suite.
 > Plattformen, inkl. Social-Zitate in ChatGPT/Perplexity), DataForSEO nicht.
 > **Update (Social ist jetzt Ziel):** Wir lösen das **nicht** über SE Ranking/Planable
 > (Suite), sondern selbst — YouTube offiziell (Data API), TikTok/Instagram via Apify nur
-> für die *eigenen* Kunden-Accounts (Gesamt-Views). Kein Wettbewerber-Tracking, LinkedIn
-> vorerst weggelassen (Nick-Entscheidung, s. „Social-Media-Sichtbarkeit"). SE Ranking
+> für die *eigenen* Kunden-Accounts (Gesamt-Views). Kein Wettbewerber-Tracking
+> (Nick-Entscheidung, s. „Social-Media-Sichtbarkeit"). SE Ranking
 > bleibt verworfen; die „keine Suite"-Leitplanke gilt weiter.
 
 ### Onsite / technisches SEO (Website-Audit)
@@ -122,8 +122,8 @@ Trust-Flow/Citation-Flow-Metrik (Majestic-exklusiv) — brauchen wir nicht.
 
 Sichtbarkeit ist mehr als die Website: **Social Media** gehört zum Auftritt eines
 Unternehmens dazu. Ziel: **echte monatliche Views/Reichweite** und Follower-Wachstum der
-**eigenen** Kanäle des Kunden. Plattformen: **YouTube, Instagram, TikTok** (LinkedIn
-vorerst weggelassen). Zeitreihe bauen wir selbst (wöchentlich `collect` → DB).
+**eigenen** Kanäle des Kunden. Plattformen: **YouTube, Instagram, TikTok**.
+Zeitreihe bauen wir selbst (wöchentlich `collect` → DB).
 
 **Kernentscheidung (Nick, Juli 2026 — Kurskorrektur weg von Apify):** Für zuverlässige,
 **exakte Monats-Views** führt kein Weg an den **offiziellen APIs mit OAuth** vorbei.
@@ -781,7 +781,6 @@ Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
       zuverlässig → durch OAuth ersetzt (s. Phase 2.6). Kein Apify-Code/-Token mehr.
 - [x] **Monats-Views je Kanal** — `socialMonthly()` bevorzugt echte OAuth-Monatswerte,
       fällt sonst auf das `views_total`-Delta (clamp ≥0) der Data API zurück. Getestet.
-- [ ] LinkedIn: **vorerst weggelassen** (kein öffentlicher View-Zugang ohne Admin-OAuth).
 - [x] **`NewsletterProvider`-Interface** + `newsletter_stats` (Zeitreihe): `collect
       --newsletter`, Tool je Kunde in der Config, Key je Kunde aus `.env` (Suffix). Nur
       aggregierte Raten. Report-Abschnitt „6. Newsletter". Report-getestet.
