@@ -9,7 +9,7 @@ locale:
   country: Switzerland
   gl: ch
   languages: [de]
-  region: null
+  region: Zürich
 
 # Google Search Console — SA-Zugriff eingerichtet (read-only).
 # Achtung: als URL-Prefix-Property angebunden, nicht als Domain-Property.

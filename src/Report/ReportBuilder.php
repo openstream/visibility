@@ -61,8 +61,8 @@ final class ReportBuilder
         $sections .= $this->socialSection($clientId, $period);
         $sections .= $this->newsletterSection($clientId, $period);
 
-        $md  = "# Visibility-Report: {$name}\n\n";
-        $md .= "**Domain:** {$domain}  \n";
+        $md  = "# " . $this->reportTitle($name, $cfg) . "\n\n";
+        $md .= "**Website:** " . $this->websiteLink($domain) . "  \n";
         if ($handles = $this->socialHandles($cfg)) {
             $md .= "**Social Media:** {$handles}  \n";
         }
@@ -77,7 +77,10 @@ final class ReportBuilder
 
         $md .= "\n---\n";
         $md .= "_Automatisch erstellt vom Visibility Dashboard. Datenquellen: Google Search "
-            . "Console, Bing Webmaster Tools, DataForSEO._\n";
+            . "Console, Bing Webmaster Tools, Bing AI Performance, DataForSEO (SERP, OnPage, "
+            . "Backlinks, AI Optimization), YouTube Data & Analytics API, Instagram Graph API, "
+            . "TikTok Display API, Sendy._  \n";
+        $md .= "_Quellcode: [github.com/openstream/visibility](https://github.com/openstream/visibility)._\n";
 
         return $md;
     }
@@ -139,17 +142,62 @@ final class ReportBuilder
      * Zeigt nur Plattformen mit hinterlegtem Handle. Gibt '' zurück, wenn keine da sind.
      * @param array<string,mixed> $cfg
      */
+    /**
+     * Report-Titel inkl. Region (falls in der Config gesetzt): „Visibility Report für X in Y".
+     * @param array<string,mixed> $cfg
+     */
+    private function reportTitle(string $name, array $cfg): string
+    {
+        $region = trim((string) ($cfg['locale']['region'] ?? ''));
+        $suffix = $region !== '' ? " in {$region}" : '';
+        return "Visibility Report für {$name}{$suffix}";
+    }
+
+    /** Website als Markdown-Link mit www-Präfix (ohne Schema in der Anzeige). */
+    private function websiteLink(string $domain): string
+    {
+        $host = preg_replace('#^https?://#', '', rtrim($domain, '/'));
+        $display = str_starts_with($host, 'www.') ? $host : 'www.' . $host;
+        return "[{$display}](https://{$display})";
+    }
+
+    /**
+     * Social-Media-Handles fürs Header, jeweils verlinkt auf das Profil.
+     * @param array<string,mixed> $cfg
+     */
     private function socialHandles(array $cfg): string
     {
         $labels = ['youtube' => 'YouTube', 'tiktok' => 'TikTok', 'instagram' => 'Instagram'];
         $parts = [];
         foreach ($labels as $key => $label) {
             $handles = array_values(array_filter((array) ($cfg['social'][$key] ?? [])));
-            if ($handles) {
-                $parts[] = $label . ': ' . implode(', ', $handles);
+            $links = array_map(fn($h) => $this->socialLink($key, (string) $h), $handles);
+            if ($links) {
+                $parts[] = $label . ': ' . implode(', ', $links);
             }
         }
         return implode(' · ', $parts);
+    }
+
+    /**
+     * Markdown-Link zum Social-Profil aus einem Handle/einer URL. Ist der Wert bereits
+     * eine URL, wird sie direkt genutzt; sonst je Plattform die Profil-URL gebaut.
+     */
+    private function socialLink(string $platform, string $handle): string
+    {
+        $display = $handle;
+        if (preg_match('#^https?://#', $handle)) {
+            $url = $handle;
+        } else {
+            $h = ltrim($handle, '@');
+            $url = match ($platform) {
+                'youtube'   => 'https://www.youtube.com/@' . $h,
+                'tiktok'    => 'https://www.tiktok.com/@' . $h,
+                'instagram' => 'https://www.instagram.com/' . $h,
+                default     => '#',
+            };
+        }
+        return "[{$display}]({$url})";
     }
 
     /** Kurze „Was ist das?"-Einordnung für den Kunden. */
