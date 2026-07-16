@@ -63,6 +63,9 @@ final class ReportBuilder
 
         $md  = "# Visibility-Report: {$name}\n\n";
         $md .= "**Domain:** {$domain}  \n";
+        if ($handles = $this->socialHandles($cfg)) {
+            $md .= "**Social Media:** {$handles}  \n";
+        }
         $md .= "**Berichtsmonat:** " . $this->monthLabel($period) . "  \n";
         $md .= "**Erstellt:** " . date('d.m.Y') . "\n\n";
         $md .= "---\n\n";
@@ -129,6 +132,24 @@ final class ReportBuilder
         } catch (\Throwable $e) {
             return null;
         }
+    }
+
+    /**
+     * Social-Media-Handles des Kunden für den Report-Kopf, aus der Config (`social:`).
+     * Zeigt nur Plattformen mit hinterlegtem Handle. Gibt '' zurück, wenn keine da sind.
+     * @param array<string,mixed> $cfg
+     */
+    private function socialHandles(array $cfg): string
+    {
+        $labels = ['youtube' => 'YouTube', 'tiktok' => 'TikTok', 'instagram' => 'Instagram'];
+        $parts = [];
+        foreach ($labels as $key => $label) {
+            $handles = array_values(array_filter((array) ($cfg['social'][$key] ?? [])));
+            if ($handles) {
+                $parts[] = $label . ': ' . implode(', ', $handles);
+            }
+        }
+        return implode(' · ', $parts);
     }
 
     /** Kurze „Was ist das?"-Einordnung für den Kunden. */
