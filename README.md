@@ -777,48 +777,45 @@ Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
       Video-Anzahl. Löst Kanal-ID/URL/@handle auf (`resolve()`, getestet). **Live-Test
       offen bis YOUTUBE_API_KEY gesetzt.** *(Optional später: Analytics API mit OAuth für
       echte Monats-Views + Shorts-Split.)*
-- [x] 🟡 **TikTok + Instagram** (`TikTokProvider`/`InstagramProvider` via `ApifyClient`):
-      gebaut, aber **durch OAuth ersetzt** (Apify liefert Monats-Views nicht zuverlässig;
-      IG öffentlich gar keine). Code bleibt vorerst als Fallback/Referenz, wird durch die
-      OAuth-Provider (s. Phase 2.6) abgelöst. Kein Apify-Token nötig.
-- [x] **Monats-Views je Kanal** aus wöchentlichen `views_total`-Ständen (Differenz,
-      clamp ≥0) — `ClientRepository::socialMonthly()`. Report-getestet. *(Bei OAuth-
-      Providern später durch echte Monatswerte ersetzbar.)*
+- [x] **Apify komplett entfernt** (TikTok/Instagram-Scraping): lieferte Monats-Views nicht
+      zuverlässig → durch OAuth ersetzt (s. Phase 2.6). Kein Apify-Code/-Token mehr.
+- [x] **Monats-Views je Kanal** — `socialMonthly()` bevorzugt echte OAuth-Monatswerte,
+      fällt sonst auf das `views_total`-Delta (clamp ≥0) der Data API zurück. Getestet.
 - [ ] LinkedIn: **vorerst weggelassen** (kein öffentlicher View-Zugang ohne Admin-OAuth).
-- [ ] **`NewsletterProvider`-Interface** + `newsletter_stats` (Zeitreihe): je Ausgabe
-      Öffnungs-/Klickrate, Bounces, Abmeldungen, Listen-Wachstum. Tool je Kunde in der
-      Config gewählt, API-Key je Kunde aus `.env` (Suffix = Slug). Nur aggregierte Raten,
-      keine Empfänger-Adressen.
-  - [ ] **`MailchimpProvider`** via offizielle Marketing API (`/reports`, `/lists`).
-  - [ ] **`SendyProvider`** via Sendy-API bzw. read-only aus Sendys MySQL-DB (beim Bau
-        prüfen, was die installierte Version hergibt). openstream nutzt Sendy.
-- [ ] **Openstream Visibility Score (OVS):** monatliche „aktive Sichtkontakte"
-      plattformübergreifend berechnen (Formel s. „Openstream Visibility Score") → als
-      Zeitreihe speichern. Formel zentral im Code + dokumentiert.
-- [ ] **Grundsatz:** nur aggregierte Account-/Kampagnen-Stats des **eigenen** Kunden-Kanals,
+- [x] **`NewsletterProvider`-Interface** + `newsletter_stats` (Zeitreihe): `collect
+      --newsletter`, Tool je Kunde in der Config, Key je Kunde aus `.env` (Suffix). Nur
+      aggregierte Raten. Report-Abschnitt „6. Newsletter". Report-getestet.
+  - [x] **`MailchimpProvider`** (Marketing API; Datacenter aus Key-Suffix; `parseCampaigns`
+        unit-getestet). **Live-Lauf offen bis Mailchimp-Key.**
+  - [x] **`SendyProvider`** (aktive Abonnenten-Zahl für Listen-Wachstum; ehrlich: Sendy-API
+        liefert keine Opens/Clicks, DB-Pfad später). **Live-Lauf offen bis Sendy-Key.**
+- [x] **Openstream Visibility Score (OVS):** `VisibilityScore` (rein, unit-getestet:
+      Impressionen × reale CTR statt roh), `visibility_score`-Zeitreihe, Report-Dachzahl
+      mit offener Zusammensetzung + Trend-Chart, Executive Summary führt mit OVS. Getestet.
+- [x] **Grundsatz:** nur aggregierte Account-/Kampagnen-Stats des **eigenen** Kunden-Kanals,
       keine Personen-/Follower-/Empfänger-Listen, kein Wettbewerber-Tracking (DSG/DSGVO).
 
 ### Phase 2.6 — Social via OAuth (exakte Monats-Views, minimale Web-Komponente)
 Kurskorrektur: Apify liefert Monats-Views nicht zuverlässig → **offizielle APIs mit OAuth**,
 der Kunde verbindet seine Kanäle selbst. Bewusste, minimale Web-Erweiterung (kein
 Kundenportal). Details s. „Social via OAuth — Architektur". **Erst Infrastruktur, dann Provider.**
-- [ ] **OAuth-Apps registrieren:** Google Cloud (YouTube Analytics, Scope
+- [ ] **Offen (Nick): OAuth-Apps registrieren** — Google Cloud (YouTube Analytics, Scope
       `yt-analytics.readonly`), Meta (Instagram Graph + App-Review), TikTok Developer.
-      Callback-URLs auf `visibility.openstream.ch` (+ DDEV-URL fürs lokale Testen).
-- [ ] **DB `social_connections`** (client_id, platform, account_ref, refresh_token
-      **verschlüsselt**, scopes, connected_at, status) + App-Verschlüsselungs-Key in `.env`.
-- [ ] **`OAuthTokenStore`**: Refresh-Token ver-/entschlüsseln, gegen Access-Token tauschen
-      (gecacht), Providern bereitstellen.
-- [ ] **Verbindungsseite (Web):** `/connect/<platform>?client=<slug>` → Consent → Callback
-      speichert verschlüsselten Refresh-Token. Schlank, kein Login/Session darüber hinaus.
-- [ ] **`YouTubeAnalyticsProvider`** (`youtubeAnalytics.reports.query`): echte Monats-`views`
-      + Shorts-vs-Video-Split. Baut auf dem bestehenden `YouTubeProvider` auf.
+      Callback-URLs auf `visibility.openstream.ch` (+ DDEV-URL). Credentials → `.env`.
+- [x] **DB `social_connections` + `oauth_states`** — Refresh-Token **verschlüsselt**
+      (`Crypto`, AES-256-GCM, unit-getestet: Manipulation/falscher Key scheitern).
+- [x] **`OAuthTokenStore`** — Refresh-Token ver-/entschlüsseln, Refresh→Access (gecacht),
+      Code→Token (Callback). `OAuthProviderConfig` (Google/Meta/TikTok Endpunkte/Scopes).
+- [x] **Verbindungsseite (Web):** `/connect/<platform>?client=<slug>` → Consent-Redirect;
+      `/callback` speichert verschlüsselten Token. CSRF-State. Lokal getestet (Fehlerpfade +
+      Redirect-Konstruktion mit Dummy-Creds). **Live-Consent offen bis echte Credentials.**
+- [x] **`YouTubeAnalyticsProvider`** (`youtubeAnalytics.reports.query`): echte Monats-`views`.
+      In `collect --social` eingebunden. **Live-Test offen bis Google-OAuth-Client.**
 - [ ] **`InstagramInsightsProvider`** (Graph API Insights): echte Reichweite/Impressions/Views.
 - [ ] **`TikTokProvider` (OAuth)** (Display/Business API): echte Video-Views des eigenen Kontos.
-- [ ] **Lokal testen (DDEV):** OAuth-Flow gegen Nicks openstream-Konten, bevor
-      `visibility.openstream.ch` produktiv steht (s. Phase 6).
-- [ ] Echte Monatswerte → `social_metrics` (bzw. eigene Monatstabelle), ersetzen die
-      Apify-Deltas. Report-Abschnitt „Social Media" nutzt dann die exakten Zahlen.
+- [ ] **Live testen (DDEV):** OAuth-Flow gegen Nicks openstream-Konten, sobald die Apps
+      registriert sind — dann echte Monatswerte → `social_metrics` (`socialMonthly` nutzt sie
+      bereits bevorzugt gegenüber dem Data-API-Delta).
 
 ### Phase 3 — Report-Generierung (inkl. Diagramme)
 - [ ] Report-Datenmodell: aktueller Monat vs. Vormonat (Deltas!) **plus Zeitreihe

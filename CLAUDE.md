@@ -20,11 +20,11 @@ und misst zusätzlich den **Zustand der Website selbst**:
 - **Onsite/technisches SEO** (Audit der Kundenseite),
 - **Offsite SEO** (Backlink-/Autoritätsprofil).
 
-**Social Media** (Roadmap, s. README): YouTube, TikTok, Instagram (LinkedIn vorerst weg).
-Fokus **monatliche Views/Follower der EIGENEN Kunden-Kanäle**. **YouTube** offiziell via
-Data API (API-Key, kein OAuth, Views inkl. Shorts). **TikTok/Instagram:** Gesamt-Views nur
-des **eigenen** Kunden-Accounts via **Apify** (kein OAuth). **Kein Wettbewerber-Tracking**
-(Nick-Entscheidung Juli 2026). Ethische Linie: eigene Accounts scrapen ≠ fremde scrapen.
+**Social Media** (teils gebaut): YouTube, Instagram, TikTok (LinkedIn vorerst weg). Fokus
+**echte monatliche Views der EIGENEN Kunden-Kanäle** via **OAuth** — der Kunde verbindet
+seine Kanäle selbst über die Web-App (`/connect/<platform>`), Refresh-Token verschlüsselt
+in der DB. **YouTube Data API** (API-Key, kein OAuth) bleibt als öffentlicher Fallback.
+**Kein Scraping (Apify ist raus), kein Wettbewerber-Tracking** (Nick-Entscheidung Juli 2026).
 
 **Newsletter** (Roadmap, s. README, Owned Media): Öffnungs-/Klickraten, Bounces,
 Abmeldungen, Listen-Wachstum. Tool je Kunde verschieden — **Mailchimp** (viele Kunden,
