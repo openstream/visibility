@@ -20,6 +20,49 @@ final class BingAiImporter
     /** Mögliche Header-Namen für die Grounding-Query-Spalte (case-insensitive, Teilstring). */
     private const QUERY_HEADERS = ['grounding quer', 'query', 'anfrage', 'frage', 'suchanfrage'];
 
+    /** Header-Kandidaten für die Zitations-Anzahl bzw. den Zitations-Anteil. */
+    private const CITATION_HEADERS = ['citation', 'zitat'];
+    private const SHARE_HEADERS    = ['share', 'anteil'];
+
+    /**
+     * Liest die Bing-AI-CSV als Zitations-Datensätze für die laufende GEO-Messung.
+     * Jede Zeile ist eine Grounding Query, bei der die Domain in Copilot/Bing-AI
+     * ZITIERT wurde (Microsoft liefert keine „nicht zitiert"-Zeilen). Entsprechend
+     * ist jede Zeile mentioned=cited=true; eine Sichtbarkeits-RATE gibt es hier nicht.
+     *
+     * @return array<int,array{query:string,citations:int,share:?string}>
+     */
+    public function citations(string $csvPath): array
+    {
+        $rows = $this->readCsv($csvPath);
+        if (!$rows) {
+            return [];
+        }
+        $header = array_shift($rows);
+        $qCol = $this->findColumn($header, self::QUERY_HEADERS);
+        if ($qCol === null) {
+            throw new \RuntimeException(
+                'Keine Grounding-Query-Spalte in der CSV gefunden. Header: ' . implode(', ', $header)
+            );
+        }
+        $cCol = $this->findColumn($header, self::CITATION_HEADERS);
+        $sCol = $this->findColumn($header, self::SHARE_HEADERS);
+
+        $out = [];
+        foreach ($rows as $r) {
+            $q = trim((string) ($r[$qCol] ?? ''));
+            if ($q === '') {
+                continue;
+            }
+            $out[] = [
+                'query'     => $q,
+                'citations' => $cCol !== null ? (int) preg_replace('/\D/', '', (string) ($r[$cCol] ?? '')) : 0,
+                'share'     => $sCol !== null ? (trim((string) ($r[$sCol] ?? '')) ?: null) : null,
+            ];
+        }
+        return $out;
+    }
+
     /**
      * Extrahiert die Grounding Queries aus einer Bing-AI-CSV.
      *

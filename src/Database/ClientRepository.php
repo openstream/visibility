@@ -225,6 +225,50 @@ final class ClientRepository
     }
 
     /**
+     * Speichert einen Satz gleichartiger GEO-Messwerte, die NICHT an einzelne Prompts
+     * gebunden sind (prompt_id=null), z.B. den Bing-AI-CSV-Import: eine Zeile je zitierter
+     * Query. Idempotent auf Batch-Ebene — löscht EINMAL alle Zeilen des Monats für
+     * (engine, source) und fügt dann alle neu ein. (saveGeoMentions löscht pro Zeile über
+     * prompt_id und würde bei durchweg NULL-prompt_id alle bis auf die letzte wieder killen.)
+     *
+     * @param array<int,\Openstream\Visibility\Provider\GeoMention> $mentions
+     * @return int Anzahl geschriebener Zeilen
+     */
+    public function saveGeoBatch(int $clientId, array $mentions, string $measuredAt): int
+    {
+        if (!$mentions) {
+            return 0;
+        }
+        $engine = $mentions[0]->engine;
+        $source = $mentions[0]->source;
+
+        $this->db->prepare(
+            'DELETE FROM ai_mentions
+             WHERE client_id=:cid AND engine=:engine AND source=:source AND measured_at=:mdate'
+        )->execute(['cid' => $clientId, 'engine' => $engine, 'source' => $source, 'mdate' => $measuredAt]);
+
+        $ins = $this->db->prepare(
+            'INSERT INTO ai_mentions
+               (client_id, prompt_id, engine, mentioned, position, cited, citations, competitors, source, measured_at)
+             VALUES
+               (:cid, :pid, :engine, :mentioned, :position, :cited, :citations, :competitors, :source, :mdate)'
+        );
+        $n = 0;
+        foreach ($mentions as $m) {
+            $ins->execute([
+                'cid' => $clientId, 'pid' => $m->promptId, 'engine' => $m->engine,
+                'mentioned' => $m->mentioned ? 1 : 0, 'position' => $m->position,
+                'cited' => $m->cited ? 1 : 0,
+                'citations' => $this->json($m->citations),
+                'competitors' => $this->json($m->competitors),
+                'source' => $m->source, 'mdate' => $measuredAt,
+            ]);
+            $n++;
+        }
+        return $n;
+    }
+
+    /**
      * Speichert GEO-Messwerte (idempotent pro Tag/Engine/Prompt/Quelle).
      * @param array<int,\Openstream\Visibility\Provider\GeoMention> $mentions
      * @return int Anzahl geschriebener Zeilen
@@ -259,6 +303,32 @@ final class ClientRepository
             $n++;
         }
         return $n;
+    }
+
+    /**
+     * Bing-AI/Copilot-Kennzahlen für einen Monat: Anzahl zitierter Grounding Queries
+     * und Summe der Zitationen (position-Feld trägt bei bing_ai die Zitations-Anzahl).
+     * Anders als die Chat-Kanäle gibt es hier keine „nicht zitiert"-Grundgesamtheit,
+     * also KEINE Rate. Nutzt den jüngsten Stand im Monat.
+     * @return array{queries:int,citations:int}|null
+     */
+    public function bingAiSummary(int $clientId, string $period): ?array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) queries, COALESCE(SUM(position),0) citations
+             FROM ai_mentions
+             WHERE client_id = ? AND engine = 'bing_ai' AND measured_at BETWEEN ? AND ?
+               AND measured_at = (SELECT MAX(measured_at) FROM ai_mentions a2
+                                  WHERE a2.client_id = ai_mentions.client_id
+                                    AND a2.engine = 'bing_ai' AND a2.measured_at BETWEEN ? AND ?)"
+        );
+        $stmt->execute([$clientId, $start, $end, $start, $end]);
+        $r = $stmt->fetch();
+        if (!$r || (int) $r['queries'] === 0) {
+            return null;
+        }
+        return ['queries' => (int) $r['queries'], 'citations' => (int) $r['citations']];
     }
 
     /**

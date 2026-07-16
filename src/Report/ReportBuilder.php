@@ -649,13 +649,18 @@ final class ReportBuilder
             . "Pro Kanal: Anteil der Anfragen mit Erwähnung._\n\n";
         $md .= "| KI-Kanal | Anfragen | Erwähnt | Zitiert | Sichtbarkeit |\n|---|---:|---:|---:|---:|\n";
 
+        // Prompt-basierte Kanäle: echte Erwähnungs-Rate (erwähnt/getestete Anfragen).
+        // Bing-AI läuft NICHT über eigene Prompts, sondern über Microsofts Zitations-Export
+        // (nur zitierte Queries) → keine Rate, separater Absatz weiter unten.
         $labels = ['chatgpt' => 'ChatGPT', 'gemini' => 'Gemini', 'claude' => 'Claude',
-            'perplexity' => 'Perplexity', 'ai_overview' => 'Google AI Overview', 'bing_ai' => 'Copilot / Bing-AI'];
+            'perplexity' => 'Perplexity', 'ai_overview' => 'Google AI Overview'];
+        $rateSummary = [];
         foreach ($labels as $engine => $label) {
             if (!isset($summary[$engine])) {
                 continue;
             }
             $s = $summary[$engine];
+            $rateSummary[$engine] = $s;
             $rate = $s['prompts'] > 0 ? round($s['mentioned'] / $s['prompts'] * 100) : 0;
             $md .= "| {$label} | {$s['prompts']} | {$s['mentioned']} | {$s['cited']} | {$rate} % |\n";
         }
@@ -663,17 +668,28 @@ final class ReportBuilder
 
         // Balkendiagramm der Erwähnungsrate je Kanal (Momentaufnahme).
         if ($this->charts !== null) {
-            $md .= $this->charts->geoVisibility($summary);
+            $md .= $this->charts->geoVisibility($rateSummary);
         }
 
         $md .= $this->gray('Hinweis: Bei Google AI Overview zählt eine Zitierung als Quelle in der '
             . 'KI-Zusammenfassung (geprüft je Keyword). Bei den Chat-Assistenten zählt die Erwähnung '
             . 'der Marke in der Antwort auf die definierten Prompts.') . "\n\n";
 
-        // Copilot / Bing-AI: kommt aus dem separaten Bing-CSV-Import (falls noch nicht erhoben).
-        if (!isset($summary['bing_ai'])) {
-            $md .= $this->gray('Copilot / Bing-AI (Microsoft) wird über den Bing-AI-Performance-Export '
-                . 'erfasst und ist hier noch nicht enthalten.') . "\n\n";
+        // Copilot / Bing-AI (Microsoft): eigene Kennzahlen, KEINE Rate. Microsofts
+        // AI-Performance-Export listet nur Anfragen, bei denen die Domain zitiert wurde
+        // (eine Stichprobe), nicht die Grundgesamtheit aller Anfragen.
+        $bingAi = $this->repo->bingAiSummary($clientId, $period);
+        $md .= "### Copilot / Bing-AI (Microsoft)\n\n";
+        if ($bingAi) {
+            $md .= '- Anfragen mit Zitierung: ' . number_format($bingAi['queries'], 0, ',', '\'') . "\n";
+            $md .= '- Zitationen gesamt: ' . number_format($bingAi['citations'], 0, ',', '\'') . "\n\n";
+            $md .= $this->gray('Quelle: Bing-AI-Performance-Report (Copilot & Bing-KI-Antworten). '
+                . 'Microsoft liefert nur die Anfragen, bei denen die Domain zitiert wurde, plus die '
+                . 'Anzahl Zitationen. Eine Erwähnungs-Rate wie bei den Chat-Assistenten ist daher '
+                . 'nicht möglich; die Werte sind laut Microsoft eine Stichprobe.') . "\n\n";
+        } else {
+            $md .= $this->gray('Noch nicht importiert. Export unter bing.com/webmasters (AI Performance, '
+                . 'Beta, ohne API) als CSV, dann `import-bing-ai`.') . "\n\n";
         }
 
         return $md;

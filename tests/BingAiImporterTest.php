@@ -67,4 +67,40 @@ final class BingAiImporterTest extends TestCase
         unlink($csv);
         $this->assertSame([], $out);
     }
+
+    public function testCitationsParsesRealExportFormat(): void
+    {
+        // Echtes Export-Format: BOM, gequotete Felder, Prozent-Anteil mit Komma.
+        $csv = $this->tmpCsv(
+            "\xEF\xBB\xBF\"Grounding Query\",\"Intent\",\"Topic\",\"Citations\",\"Citation Share\"\n"
+            . "\"stablecoins kaufen schweiz\",\"Commercial\",\"Crypto\",\"46\",\"35,38%\"\n"
+            . "\"ai plattformen\",\"Informational\",\"AI\",\"42\",\"14,19%\"\n"
+        );
+        $out = (new BingAiImporter())->citations($csv);
+        unlink($csv);
+
+        $this->assertCount(2, $out);
+        $this->assertSame('stablecoins kaufen schweiz', $out[0]['query']);
+        $this->assertSame(46, $out[0]['citations']);
+        $this->assertSame('35,38%', $out[0]['share']);
+        $this->assertSame(42, $out[1]['citations']);
+    }
+
+    public function testCitationsStripsThousandSeparators(): void
+    {
+        // "1.234" bzw. "1'234" Citations müssen als 1234 gelesen werden.
+        $csv = $this->tmpCsv("Grounding Query,Citations\nviel zitierte frage,\"1'234\"\n");
+        $out = (new BingAiImporter())->citations($csv);
+        unlink($csv);
+        $this->assertSame(1234, $out[0]['citations']);
+    }
+
+    public function testCitationsWithoutCountColumnDefaultsToZero(): void
+    {
+        $csv = $this->tmpCsv("Grounding Query\nnur eine frage\n");
+        $out = (new BingAiImporter())->citations($csv);
+        unlink($csv);
+        $this->assertSame(0, $out[0]['citations']);
+        $this->assertNull($out[0]['share']);
+    }
 }
