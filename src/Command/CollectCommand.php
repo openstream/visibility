@@ -217,7 +217,10 @@ final class CollectCommand extends Command
             $io->section('Offsite / Backlinks');
             $dfsOff = new DataForSeoClient();
             try {
-                $summary = (new \Openstream\Visibility\Provider\OffsiteProvider($dfsOff, $domain))->summary();
+                $offsite = new \Openstream\Visibility\Provider\OffsiteProvider($dfsOff, $domain);
+                $summary = $offsite->summary();
+                // Beispiel-Backlinks (stärkste verweisende Domains) für den Report.
+                $summary['top_domains'] = $offsite->topReferringDomains(10);
                 $repo->saveBacklinks($clientId, $summary, $measuredAt);
                 $io->success(sprintf('Offsite: Domain Rank %s, %s Backlinks, %s Referring Domains.',
                     $summary['domain_rank'] ?? '?', $summary['backlinks'] ?? '?', $summary['referring_domains'] ?? '?'));

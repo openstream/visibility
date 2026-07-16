@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS backlinks (
     new_last_period   INT          NULL,
     lost_last_period  INT          NULL,
     top_anchors       JSON         NULL,
+    top_referring_domains JSON     NULL,           -- stärkste verweisende Domains (Beispiele)
     source            VARCHAR(64)  NOT NULL DEFAULT 'dataforseo_backlinks',
     measured_at       DATE         NOT NULL,
     PRIMARY KEY (id),

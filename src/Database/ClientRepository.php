@@ -362,6 +362,66 @@ final class ClientRepository
     }
 
     /**
+     * Konkrete GEO-Beispiele je Engine für den Report: pro Kanal eine Beispiel-Anfrage
+     * mit Erwähnungs-/Zitierungs-Status, plus aggregierte Beispiele der in KI-Antworten
+     * zitierten Quellen und genannten Wettbewerber (über alle Anfragen des Kanals).
+     *
+     * @return array<string,array{example_prompt:?string,example_mentioned:bool,
+     *   example_cited:bool,citations:array<int,string>,competitors:array<int,string>}>
+     */
+    public function geoExamples(int $clientId, string $period): array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT a.engine, a.mentioned, a.cited, a.citations, a.competitors, p.prompt
+             FROM ai_mentions a
+             LEFT JOIN geo_prompts p ON p.id = a.prompt_id
+             WHERE a.client_id = ? AND a.measured_at BETWEEN ? AND ?
+               AND a.measured_at = (SELECT MAX(measured_at) FROM ai_mentions a2
+                                    WHERE a2.client_id = a.client_id AND a2.engine = a.engine
+                                      AND a2.measured_at BETWEEN ? AND ?)
+             ORDER BY a.mentioned DESC, a.cited DESC"
+        );
+        $stmt->execute([$clientId, $start, $end, $start, $end]);
+
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $engine = (string) $r['engine'];
+            if (!isset($out[$engine])) {
+                $out[$engine] = [
+                    'example_prompt'    => null,
+                    'example_mentioned' => false,
+                    'example_cited'     => false,
+                    'citations'         => [],
+                    'competitors'       => [],
+                ];
+            }
+            // Erste (durch ORDER BY: erwähnte/zitierte zuerst) Zeile mit Prompt als Beispiel.
+            if ($out[$engine]['example_prompt'] === null && !empty($r['prompt'])) {
+                $out[$engine]['example_prompt']    = (string) $r['prompt'];
+                $out[$engine]['example_mentioned'] = (bool) $r['mentioned'];
+                $out[$engine]['example_cited']     = (bool) $r['cited'];
+            }
+            foreach ((json_decode((string) ($r['citations'] ?? '[]'), true) ?: []) as $c) {
+                if (is_string($c) && $c !== '') {
+                    $out[$engine]['citations'][] = $c;
+                }
+            }
+            foreach ((json_decode((string) ($r['competitors'] ?? '[]'), true) ?: []) as $c) {
+                if (is_string($c) && $c !== '') {
+                    $out[$engine]['competitors'][] = $c;
+                }
+            }
+        }
+        // Deduplizieren + begrenzen.
+        foreach ($out as $engine => &$e) {
+            $e['citations']   = array_values(array_slice(array_unique($e['citations']), 0, 5));
+            $e['competitors'] = array_values(array_slice(array_unique($e['competitors']), 0, 5));
+        }
+        return $out;
+    }
+
+    /**
      * Schreibt Ranking-Messwerte mit measured_at (Zeitreihe). Idempotent pro
      * (client, keyword, engine, source, Tag): vorhandene Zeilen desselben Tages
      * werden ersetzt, damit ein erneuter collect-Lauf keine Dubletten erzeugt.
@@ -589,11 +649,13 @@ final class ClientRepository
             ->execute([$clientId, $measuredAt]);
         $this->db->prepare(
             'INSERT INTO backlinks (client_id, referring_domains, backlinks_total, domain_rank,
-                new_last_period, lost_last_period, source, measured_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                new_last_period, lost_last_period, top_referring_domains, source, measured_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
         )->execute([
             $clientId, $s['referring_domains'], $s['backlinks'], $s['domain_rank'],
-            $s['new'], $s['lost'], 'dataforseo_backlinks', $measuredAt,
+            $s['new'], $s['lost'],
+            isset($s['top_domains']) ? $this->json($s['top_domains']) : null,
+            'dataforseo_backlinks', $measuredAt,
         ]);
     }
 
@@ -602,13 +664,20 @@ final class ClientRepository
     {
         [$start, $end] = $this->monthRange($period);
         $stmt = $this->db->prepare(
-            'SELECT referring_domains, backlinks_total, domain_rank, new_last_period, lost_last_period
+            'SELECT referring_domains, backlinks_total, domain_rank, new_last_period, lost_last_period,
+                    top_referring_domains
              FROM backlinks WHERE client_id=? AND measured_at BETWEEN ? AND ?
              ORDER BY measured_at DESC LIMIT 1'
         );
         $stmt->execute([$clientId, $start, $end]);
         $row = $stmt->fetch();
-        return $row ?: null;
+        if (!$row) {
+            return null;
+        }
+        $row['top_referring_domains'] = $row['top_referring_domains']
+            ? (json_decode((string) $row['top_referring_domains'], true) ?: [])
+            : [];
+        return $row;
     }
 
     /**

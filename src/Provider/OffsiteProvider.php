@@ -39,6 +39,38 @@ final class OffsiteProvider
         ];
     }
 
+    /**
+     * Stärkste verweisende Domains (für konkrete Beispiel-Backlinks im Report).
+     * Sortiert nach Domain-Rank absteigend. Quelle: DataForSEO backlinks/referring_domains.
+     *
+     * @return array<int,array{domain:string,rank:?int,backlinks:?int,dofollow:?int}>
+     */
+    public function topReferringDomains(int $limit = 10): array
+    {
+        $res = $this->dfs->post('backlinks/referring_domains/live', [[
+            'target'             => $this->normalizeDomain($this->domain),
+            'limit'              => $limit,
+            'include_subdomains' => true,
+            'order_by'           => ['rank,desc'],
+        ]]);
+        $items = $res['tasks'][0]['result'][0]['items'] ?? [];
+
+        $out = [];
+        foreach ($items as $it) {
+            $domain = (string) ($it['domain'] ?? '');
+            if ($domain === '') {
+                continue;
+            }
+            $out[] = [
+                'domain'    => $domain,
+                'rank'      => isset($it['rank']) ? (int) $it['rank'] : null,
+                'backlinks' => isset($it['backlinks']) ? (int) $it['backlinks'] : null,
+                'dofollow'  => isset($it['dofollow']) ? (int) $it['dofollow'] : null,
+            ];
+        }
+        return $out;
+    }
+
     private function normalizeDomain(string $domain): string
     {
         $d = strtolower($domain);

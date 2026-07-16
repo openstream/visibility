@@ -57,7 +57,7 @@ final class ReportBuilder
         $sections .= $this->visibilityTrend($clientId, $period);
         $sections .= $this->searchRankings($clientId, $period, $prevPeriod, $gscTotals, $gscDist);
         $sections .= $this->onsiteOffsite($clientId, $period);
-        $sections .= $this->geoSection($clientId, $period);
+        $sections .= $this->geoSection($clientId, $period, $name);
         $sections .= $this->socialSection($clientId, $period);
         $sections .= $this->newsletterSection($clientId, $period);
 
@@ -151,6 +151,28 @@ final class ReportBuilder
         $region = trim((string) ($cfg['locale']['region'] ?? ''));
         $suffix = $region !== '' ? " in {$region}" : '';
         return "Visibility Report für {$name}{$suffix}";
+    }
+
+    /**
+     * Kürzt eine URL für Tabellen auf den Pfad (verlinkt auf die volle URL).
+     * „https://www.x.ch/foo/bar/" → „[/foo/bar/](https://www.x.ch/foo/bar/)"; „/" → „Startseite".
+     */
+    private function shortUrl(string $url): string
+    {
+        if ($url === '') {
+            return '—';
+        }
+        $path = (string) (parse_url($url, PHP_URL_PATH) ?: '/');
+        $label = $path === '/' || $path === '' ? 'Startseite' : $path;
+        return "[{$label}]({$url})";
+    }
+
+    /** Host einer zitierten Quelle (ohne Schema/www/Tracking), verlinkt auf die volle URL. */
+    private function citationHost(string $url): string
+    {
+        $host = (string) (parse_url($url, PHP_URL_HOST) ?: $url);
+        $host = preg_replace('#^www\.#', '', $host);
+        return "[{$host}]({$url})";
     }
 
     /** Website als Markdown-Link mit www-Präfix (ohne Schema in der Anzeige). */
@@ -622,8 +644,9 @@ final class ReportBuilder
             return $md;
         }
 
-        // Problem-Häufigkeit über alle Seiten aggregieren.
+        // Problem-Häufigkeit + betroffene Beispielseiten je Problem aggregieren.
         $problemCounts = [];
+        $problemPages = [];
         $pagesWithProblems = 0;
         foreach ($audit as $p) {
             if (!empty($p['problems'])) {
@@ -631,6 +654,7 @@ final class ReportBuilder
             }
             foreach ($p['problems'] ?? [] as $prob) {
                 $problemCounts[$prob] = ($problemCounts[$prob] ?? 0) + 1;
+                $problemPages[$prob][] = (string) ($p['url'] ?? '');
             }
         }
         arsort($problemCounts);
@@ -641,14 +665,41 @@ final class ReportBuilder
         $md .= '- Seiten mit Auffälligkeiten: ' . $pagesWithProblems . "\n\n";
 
         if ($problemCounts) {
-            $md .= "**Häufigste technische Auffälligkeiten:**\n\n";
-            $md .= "| Auffälligkeit | Betroffene Seiten |\n|---|---:|\n";
+            $md .= "**Häufigste technische Auffälligkeiten (mit Beispielseiten):**\n\n";
+            $md .= "| Auffälligkeit | Seiten | Beispiele |\n|---|---:|---|\n";
             foreach (array_slice($problemCounts, 0, 8, true) as $prob => $cnt) {
-                $md .= "| {$prob} | {$cnt} |\n";
+                $examples = array_slice(array_filter($problemPages[$prob] ?? []), 0, 2);
+                $examples = array_map(fn($u) => $this->shortUrl($u), $examples);
+                $md .= "| {$prob} | {$cnt} | " . implode(', ', $examples) . " |\n";
             }
             $md .= "\n";
         } else {
             $md .= "Keine technischen Auffälligkeiten auf den geprüften Seiten. Sehr gut.\n\n";
+        }
+
+        // Meta-Übersicht: konkrete Titel-/Description-Längen der Seiten mit Auffälligkeiten
+        // bei Titel/Beschreibung (der Kunde sieht, WO genau nachgebessert werden sollte).
+        $metaRows = [];
+        foreach ($audit as $p) {
+            $tl = (int) ($p['title_len'] ?? 0);
+            $dl = (int) ($p['desc_len'] ?? 0);
+            $flag = ($tl > 0 && ($tl < 30 || $tl > 60)) || ($dl > 0 && ($dl < 70 || $dl > 160)) || $dl === 0;
+            if ($flag) {
+                $metaRows[] = ['url' => (string) ($p['url'] ?? ''), 'title_len' => $tl, 'desc_len' => $dl];
+            }
+        }
+        if ($metaRows) {
+            $md .= "**Meta-Angaben zum Nachbessern (Auswahl):**\n\n";
+            $md .= "| Seite | Titel-Länge | Beschreibung-Länge |\n|---|---:|---:|\n";
+            foreach (array_slice($metaRows, 0, 6) as $r) {
+                $tl = $r['title_len'] > 0 ? $r['title_len'] . ' Z.' : 'fehlt';
+                $dl = $r['desc_len'] > 0 ? $r['desc_len'] . ' Z.' : 'fehlt';
+                $md .= '| ' . $this->shortUrl($r['url']) . " | {$tl} | {$dl} |\n";
+            }
+            $md .= "\n";
+            $md .= $this->gray('Empfehlung: Seitentitel 30–60 Zeichen, Meta-Beschreibung 70–160 '
+                . 'Zeichen. Zu kurze, zu lange oder fehlende Angaben verschenken Klickpotenzial in '
+                . 'den Suchergebnissen.') . "\n\n";
         }
 
         return $md;
@@ -678,11 +729,28 @@ final class ReportBuilder
         }
         $md .= "\n";
 
+        // Konkrete Beispiele: die stärksten verweisenden Domains (nach Domain-Rank).
+        $top = $b['top_referring_domains'] ?? [];
+        if ($top) {
+            $md .= "**Stärkste verweisende Domains (Beispiele):**\n\n";
+            $md .= "| Domain | Rang | Backlinks | davon dofollow |\n|---|---:|---:|---:|\n";
+            foreach (array_slice($top, 0, 10) as $d) {
+                $rank = $d['rank'] !== null ? (string) $d['rank'] : '—';
+                $bl = $d['backlinks'] !== null ? number_format((int) $d['backlinks'], 0, ',', '\'') : '—';
+                $df = $d['dofollow'] !== null ? number_format((int) $d['dofollow'], 0, ',', '\'') : '—';
+                $md .= "| {$d['domain']} | {$rank} | {$bl} | {$df} |\n";
+            }
+            $md .= "\n";
+            $md .= $this->gray('Diese Domains verlinken auf die Website. Ein Link von einer Domain '
+                . 'mit hohem Rang wiegt schwerer als viele Links von schwachen Seiten. „dofollow" '
+                . 'bedeutet, dass der Link Autorität weitergibt (im Gegensatz zu „nofollow").') . "\n\n";
+        }
+
         return $md;
     }
 
     /** GEO — Sichtbarkeit in KI-Antworten (ChatGPT/Gemini/Claude + Bing-AI/Copilot). */
-    private function geoSection(int $clientId, string $period): string
+    private function geoSection(int $clientId, string $period, string $name = ''): string
     {
         $summary = $this->repo->geoSummary($clientId, $period);
         $md = "## 4. GEO: Sichtbarkeit in KI-Antworten\n\n";
@@ -722,6 +790,38 @@ final class ReportBuilder
         $md .= $this->gray('Hinweis: Bei Google AI Overview zählt eine Zitierung als Quelle in der '
             . 'KI-Zusammenfassung (geprüft je Keyword). Bei den Chat-Assistenten zählt die Erwähnung '
             . 'der Marke in der Antwort auf die definierten Prompts.') . "\n\n";
+
+        // Konkrete Beispiele je Kanal: getestete Anfrage + in KI-Antworten zitierte Quellen.
+        $examples = $this->repo->geoExamples($clientId, $period);
+        $exampleMd = '';
+        foreach ($labels as $engine => $label) {
+            $e = $examples[$engine] ?? null;
+            if (!$e || ($e['example_prompt'] === null && !$e['citations'] && !$e['competitors'])) {
+                continue;
+            }
+            $exampleMd .= "**{$label}**  \n";
+            if ($e['example_prompt'] !== null) {
+                $status = $e['example_mentioned']
+                    ? ($e['example_cited'] ? 'erwähnt und als Quelle zitiert' : 'erwähnt')
+                    : 'nicht erwähnt';
+                $exampleMd .= '- Beispiel-Anfrage: „' . $e['example_prompt'] . '" (' . $status . ")\n";
+            }
+            if ($e['citations']) {
+                $cites = array_map(fn($u) => $this->citationHost($u), $e['citations']);
+                $exampleMd .= '- In den Antworten zitierte Quellen: ' . implode(', ', $cites) . "\n";
+            }
+            if ($e['competitors']) {
+                $exampleMd .= '- Genannte andere Anbieter: ' . implode(', ', $e['competitors']) . "\n";
+            }
+            $exampleMd .= "\n";
+        }
+        if ($exampleMd !== '') {
+            $md .= "**Beispiele aus den KI-Antworten:**\n\n" . $exampleMd;
+            $who = $name !== '' ? $name : 'der eigenen Marke';
+            $md .= $this->gray('Die zitierten Quellen zeigen, welche Websites die KI-Assistenten '
+                . 'aktuell als Antwort auf diese Fragen heranziehen. Wo dort andere Anbieter statt '
+                . $who . ' stehen, liegt konkretes GEO-Potenzial.') . "\n\n";
+        }
 
         // Copilot / Bing-AI (Microsoft): eigene Kennzahlen, KEINE Rate. Microsofts
         // AI-Performance-Export listet nur Anfragen, bei denen die Domain zitiert wurde
