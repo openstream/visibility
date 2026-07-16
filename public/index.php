@@ -3,6 +3,8 @@
 declare(strict_types=1);
 
 use Openstream\Visibility\App;
+use Openstream\Visibility\Database\ClientRepository;
+use Openstream\Visibility\Web\OAuthController;
 
 $root = dirname(__DIR__);
 
@@ -15,8 +17,31 @@ if (!is_file($root . '/vendor/autoload.php')) {
 require $root . '/vendor/autoload.php';
 App::boot($root);
 
-// Minimaler Platzhalter. Das Web-Dashboard (Kundenliste, Charts, Report-Ansicht)
-// entsteht in Phase 5. UI liest ausschliesslich aus der DB — keine Live-API-Calls.
+$path = rtrim(parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/', '/') ?: '/';
+
+// --- OAuth-Verbindungsflow (die einzige Kundeninteraktion, s. CLAUDE.md) ---
+// GET /connect/<platform>?client=<slug>   → Redirect zum Provider
+// GET /connect/<platform>/callback         → Token speichern
+if (preg_match('#^/connect/([a-z]+)(/callback)?$#', $path, $m)) {
+    $platform = $m[1];
+    $isCallback = isset($m[2]);
+    $controller = new OAuthController(new ClientRepository());
+
+    $result = $isCallback
+        ? $controller->callback($platform, $_GET)
+        : $controller->start($platform, $_GET['client'] ?? null);
+
+    if (isset($result['redirect'])) {
+        header('Location: ' . $result['redirect'], true, 302);
+        return;
+    }
+    http_response_code($result['status']);
+    header('Content-Type: text/html; charset=utf-8');
+    echo $result['html'];
+    return;
+}
+
+// --- Platzhalter-Startseite (Web-Dashboard folgt in Phase 5) ---
 header('Content-Type: text/html; charset=utf-8');
 ?>
 <!doctype html>
