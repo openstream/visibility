@@ -185,14 +185,50 @@ CREATE TABLE IF NOT EXISTS social_metrics (
     platform     ENUM('youtube','tiktok','instagram') NOT NULL,
     account      VARCHAR(255) NOT NULL,           -- Kanal-ID/Handle/URL (Anzeige + Zuordnung)
     followers    BIGINT UNSIGNED NULL,            -- Subscriber/Follower
-    views_total  BIGINT UNSIGNED NULL,            -- kumulierte Lifetime-Views (Basis für Monats-Delta)
+    views_total  BIGINT UNSIGNED NULL,            -- kumulierte Lifetime-Views (Data API; Basis für Monats-Delta)
+    monthly_views BIGINT UNSIGNED NULL,           -- echte Monats-Views (Analytics/Insights via OAuth); sonst NULL
     posts_total  INT UNSIGNED NULL,               -- Anzahl Videos/Posts (falls verfügbar)
-    source       VARCHAR(64)  NOT NULL,           -- youtube_data_api | apify
+    source       VARCHAR(64)  NOT NULL,           -- youtube_data_api | youtube_analytics | instagram_graph | tiktok_api
     measured_at  DATE         NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uq_social (client_id, platform, account, measured_at),
     KEY idx_social_client_date (client_id, measured_at),
     CONSTRAINT fk_social_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Nachträglich ergänzte Spalte (falls social_metrics schon ohne monthly_views existiert).
+ALTER TABLE social_metrics ADD COLUMN IF NOT EXISTS monthly_views BIGINT UNSIGNED NULL AFTER views_total;
+
+-- OAuth-Verbindungen der Kunden zu ihren eigenen Social-Kanälen. Der Kunde verbindet
+-- sich selbst über die Web-App (visibility.openstream.ch/connect/<platform>); wir speichern
+-- den Refresh-Token VERSCHLÜSSELT (AES via APP_ENCRYPTION_KEY, nie im Klartext).
+-- collect nutzt den Token headless für die Analytics-APIs (echte Monats-Views).
+CREATE TABLE IF NOT EXISTS social_connections (
+    id                 BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id          INT UNSIGNED NOT NULL,
+    platform           ENUM('youtube','instagram','tiktok') NOT NULL,
+    account_ref        VARCHAR(255) NULL,           -- Kanal-/Account-ID beim Provider (Anzeige)
+    account_label      VARCHAR(255) NULL,           -- menschenlesbarer Name (z.B. Kanaltitel)
+    refresh_token_enc  TEXT         NOT NULL,       -- verschlüsselt (base64(iv+tag+cipher))
+    scopes             VARCHAR(512) NULL,
+    status             ENUM('active','revoked','error') NOT NULL DEFAULT 'active',
+    connected_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used_at       DATETIME     NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_social_conn (client_id, platform, account_ref),
+    KEY idx_social_conn_client (client_id),
+    CONSTRAINT fk_social_conn_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Kurzlebige OAuth-State-Tokens (CSRF-Schutz im Authorization-Code-Flow).
+CREATE TABLE IF NOT EXISTS oauth_states (
+    state       CHAR(64)     NOT NULL,
+    client_id   INT UNSIGNED NOT NULL,
+    platform    ENUM('youtube','instagram','tiktok') NOT NULL,
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (state),
+    KEY idx_oauth_states_created (created_at),
+    CONSTRAINT fk_oauth_states_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Erzeugte Monatsberichte (Metadaten; die .md/Charts liegen im Dateisystem).

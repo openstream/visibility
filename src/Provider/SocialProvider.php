@@ -6,8 +6,9 @@ namespace Openstream\Visibility\Provider;
 
 /**
  * Erhebt Social-Media-Kennzahlen (Follower, Views) der EIGENEN Kunden-Kanäle einer
- * Plattform. Implementierungen: YouTube (offizielle Data API), TikTok/Instagram (Apify,
- * nur eigene Accounts). Kein Wettbewerber-Tracking.
+ * Plattform über einen öffentlichen Zugang (ohne OAuth). Implementierung: YouTube
+ * (Data API, API-Key). Für echte Monats-Views der verbundenen Kanäle s.
+ * ConnectedSocialProvider (OAuth). Kein Wettbewerber-Tracking.
  */
 interface SocialProvider
 {

@@ -550,18 +550,18 @@ final class ClientRepository
     {
         $stmt = $this->db->prepare(
             'INSERT INTO social_metrics
-               (client_id, platform, account, followers, views_total, posts_total, source, measured_at)
-             VALUES (:cid, :platform, :account, :followers, :views, :posts, :source, :mdate)
+               (client_id, platform, account, followers, views_total, monthly_views, posts_total, source, measured_at)
+             VALUES (:cid, :platform, :account, :followers, :views, :mviews, :posts, :source, :mdate)
              ON DUPLICATE KEY UPDATE
                followers=VALUES(followers), views_total=VALUES(views_total),
-               posts_total=VALUES(posts_total), source=VALUES(source)'
+               monthly_views=VALUES(monthly_views), posts_total=VALUES(posts_total), source=VALUES(source)'
         );
         $n = 0;
         foreach ($metrics as $m) {
             $stmt->execute([
                 'cid' => $clientId, 'platform' => $m->platform, 'account' => $m->account,
-                'followers' => $m->followers, 'views' => $m->viewsTotal, 'posts' => $m->postsTotal,
-                'source' => $m->source, 'mdate' => $measuredAt,
+                'followers' => $m->followers, 'views' => $m->viewsTotal, 'mviews' => $m->monthlyViews,
+                'posts' => $m->postsTotal, 'source' => $m->source, 'mdate' => $measuredAt,
             ]);
             $n++;
         }
@@ -569,12 +569,13 @@ final class ClientRepository
     }
 
     /**
-     * Social-Kennzahlen je Kanal für einen Monat (für den Report). Monats-Views =
-     * jüngster views_total-Stand im Monat minus jüngster Stand im Vormonat (Lifetime-Delta,
-     * geclampt auf ≥0 gegen rückwirkende Zähler-Korrekturen). Ohne Vormonatswert: null.
+     * Social-Kennzahlen je Kanal für einen Monat (für den Report). Monats-Views:
+     *  - falls echte `monthly_views` vorliegen (OAuth/Analytics): diese direkt nutzen.
+     *  - sonst: jüngster views_total-Stand im Monat minus jüngster Stand im Vormonat
+     *    (Lifetime-Delta, geclampt auf ≥0 gegen rückwirkende Zähler-Korrekturen).
      *
      * @return array<int,array{platform:string,account:string,followers:?int,views_total:?int,
-     *         monthly_views:?int,posts_total:?int}>
+     *         monthly_views:?int,posts_total:?int,source:string}>
      */
     public function socialMonthly(int $clientId, string $period): array
     {
@@ -584,14 +585,17 @@ final class ClientRepository
 
         // Jüngster Stand je (platform, account) im Zielmonat.
         $latest = $this->latestSocialInRange($clientId, $start, $end);
-        // Jüngster Stand je (platform, account) im Vormonat (für das Delta).
+        // Jüngster Stand je (platform, account) im Vormonat (für das Delta-Fallback).
         $prev = $this->latestSocialInRange($clientId, $pStart, $pEnd);
 
         $out = [];
         foreach ($latest as $key => $row) {
-            $mv = null;
-            if ($row['views_total'] !== null && isset($prev[$key]) && $prev[$key]['views_total'] !== null) {
-                $mv = max(0, (int) $row['views_total'] - (int) $prev[$key]['views_total']);
+            if ($row['monthly_views'] !== null) {
+                $mv = (int) $row['monthly_views']; // echter Monatswert (OAuth)
+            } elseif ($row['views_total'] !== null && isset($prev[$key]) && $prev[$key]['views_total'] !== null) {
+                $mv = max(0, (int) $row['views_total'] - (int) $prev[$key]['views_total']); // Delta-Fallback
+            } else {
+                $mv = null;
             }
             $out[] = [
                 'platform'      => $row['platform'],
@@ -600,6 +604,7 @@ final class ClientRepository
                 'views_total'   => $row['views_total'] !== null ? (int) $row['views_total'] : null,
                 'monthly_views' => $mv,
                 'posts_total'   => $row['posts_total'] !== null ? (int) $row['posts_total'] : null,
+                'source'        => (string) ($row['source'] ?? ''),
             ];
         }
         return $out;
@@ -612,7 +617,8 @@ final class ClientRepository
     private function latestSocialInRange(int $clientId, string $start, string $end): array
     {
         $stmt = $this->db->prepare(
-            'SELECT s.platform, s.account, s.followers, s.views_total, s.posts_total, s.measured_at
+            'SELECT s.platform, s.account, s.followers, s.views_total, s.monthly_views,
+                    s.posts_total, s.source, s.measured_at
              FROM social_metrics s
              WHERE s.client_id = :cid AND s.measured_at BETWEEN :start AND :end
                AND s.measured_at = (
@@ -630,6 +636,67 @@ final class ClientRepository
             $out[$r['platform'] . '|' . $r['account']] = $r;
         }
         return $out;
+    }
+
+    /**
+     * Aktive OAuth-Verbindungen eines Kunden (für collect). @return array<int,array<string,mixed>>
+     */
+    public function socialConnections(int $clientId): array
+    {
+        $stmt = $this->db->prepare(
+            "SELECT id, client_id, platform, account_ref, account_label, refresh_token_enc, scopes
+             FROM social_connections WHERE client_id = ? AND status = 'active'"
+        );
+        $stmt->execute([$clientId]);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Speichert/aktualisiert eine OAuth-Verbindung (Refresh-Token bereits verschlüsselt).
+     */
+    public function saveSocialConnection(
+        int $clientId,
+        string $platform,
+        ?string $accountRef,
+        ?string $accountLabel,
+        string $refreshTokenEnc,
+        ?string $scopes,
+    ): void {
+        $this->db->prepare(
+            "INSERT INTO social_connections
+               (client_id, platform, account_ref, account_label, refresh_token_enc, scopes, status)
+             VALUES (:cid, :platform, :ref, :label, :tok, :scopes, 'active')
+             ON DUPLICATE KEY UPDATE
+               account_label=VALUES(account_label), refresh_token_enc=VALUES(refresh_token_enc),
+               scopes=VALUES(scopes), status='active'"
+        )->execute([
+            'cid' => $clientId, 'platform' => $platform, 'ref' => $accountRef,
+            'label' => $accountLabel, 'tok' => $refreshTokenEnc, 'scopes' => $scopes,
+        ]);
+    }
+
+    /** Erzeugt und speichert ein OAuth-State-Token (CSRF-Schutz). */
+    public function createOAuthState(string $state, int $clientId, string $platform): void
+    {
+        $this->db->prepare(
+            'INSERT INTO oauth_states (state, client_id, platform) VALUES (?, ?, ?)'
+        )->execute([$state, $clientId, $platform]);
+    }
+
+    /**
+     * Verbraucht ein State-Token (einmalig): gibt client_id+platform zurück und löscht es.
+     * @return array{client_id:int,platform:string}|null
+     */
+    public function consumeOAuthState(string $state): ?array
+    {
+        $stmt = $this->db->prepare('SELECT client_id, platform FROM oauth_states WHERE state = ?');
+        $stmt->execute([$state]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            return null;
+        }
+        $this->db->prepare('DELETE FROM oauth_states WHERE state = ?')->execute([$state]);
+        return ['client_id' => (int) $row['client_id'], 'platform' => (string) $row['platform']];
     }
 
     /** Erster/letzter Tag eines Monats (YYYY-MM). @return array{0:string,1:string} */

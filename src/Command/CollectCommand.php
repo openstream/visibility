@@ -246,52 +246,81 @@ final class CollectCommand extends Command
     {
         $social = $cfg['social'] ?? [];
         $yt = array_values(array_filter((array) ($social['youtube'] ?? [])));
-        $tt = array_values(array_filter((array) ($social['tiktok'] ?? [])));
-        $ig = array_values(array_filter((array) ($social['instagram'] ?? [])));
-
-        if (!$yt && !$tt && !$ig) {
-            $io->text('Keine Social-Kanäle in der Config — überspringe Social.');
-            return 0;
-        }
 
         $io->section('Social Media (eigene Kanäle)');
         $written = 0;
 
-        // YouTube — offiziell, gratis, kein OAuth.
+        // YouTube (öffentlich, Data API, nur API-Key) — Fallback ohne OAuth für Kunden,
+        // die (noch) nicht per OAuth verbunden sind. Liefert Lifetime-viewCount inkl. Shorts.
         if ($yt) {
             try {
                 $provider = \Openstream\Visibility\Provider\YouTubeProvider::fromEnv();
                 $metrics = $provider->collect($yt);
                 $n = $repo->saveSocialMetrics($clientId, $metrics, $measuredAt);
-                $io->success("YouTube: {$n} Kanal/Kanäle erhoben.");
+                $io->success("YouTube (Data API): {$n} Kanal/Kanäle erhoben.");
                 $written += $n;
             } catch (\Throwable $e) {
-                $io->warning('YouTube fehlgeschlagen: ' . $e->getMessage());
+                $io->warning('YouTube (Data API) fehlgeschlagen: ' . $e->getMessage());
             }
         }
 
-        // TikTok/Instagram — via Apify (nur eigene Accounts). Nur wenn Token gesetzt.
-        if ($tt || $ig) {
-            try {
-                $apify = new \Openstream\Visibility\Provider\ApifyClient();
-                if ($tt) {
-                    $metrics = (new \Openstream\Visibility\Provider\TikTokProvider($apify))->collect($tt);
-                    $n = $repo->saveSocialMetrics($clientId, $metrics, $measuredAt);
-                    $io->success("TikTok: {$n} Account(s) erhoben.");
-                    $written += $n;
-                }
-                if ($ig) {
-                    $metrics = (new \Openstream\Visibility\Provider\InstagramProvider($apify))->collect($ig);
-                    $n = $repo->saveSocialMetrics($clientId, $metrics, $measuredAt);
-                    $io->success("Instagram: {$n} Account(s) erhoben.");
-                    $written += $n;
-                }
-            } catch (\Throwable $e) {
-                $io->warning('TikTok/Instagram (Apify) übersprungen: ' . $e->getMessage());
-            }
-        }
+        // Verbundene Kanäle (YouTube Analytics / Instagram / TikTok) via OAuth: echte
+        // Monats-Views. Nutzt die in `social_connections` gespeicherten Tokens.
+        $written += $this->collectOauthSocial($io, $repo, $clientId, $measuredAt);
 
+        if ($written === 0) {
+            $io->text('Keine Social-Daten erhoben (keine Kanäle in Config, keine OAuth-Verbindungen).');
+        }
         return $written;
+    }
+
+    /**
+     * Erhebt Social-Kennzahlen der per OAuth verbundenen Kanäle (echte Monats-Views).
+     * Läuft nur, wenn Verbindungen existieren; überspringt sonst geräuschlos.
+     * @return int Anzahl geschriebener Zeilen
+     */
+    private function collectOauthSocial(SymfonyStyle $io, ClientRepository $repo, int $clientId, string $measuredAt): int
+    {
+        $connections = $repo->socialConnections($clientId);
+        if (!$connections) {
+            return 0;
+        }
+
+        try {
+            $store = new \Openstream\Visibility\OAuth\OAuthTokenStore($repo);
+        } catch (\Throwable $e) {
+            $io->warning('OAuth-Token-Store nicht verfügbar: ' . $e->getMessage());
+            return 0;
+        }
+
+        $written = 0;
+        foreach ($connections as $conn) {
+            $provider = $this->oauthProviderFor($conn['platform'], $store);
+            if ($provider === null) {
+                continue; // Plattform-Provider noch nicht implementiert (z.B. IG/TikTok)
+            }
+            try {
+                $metrics = $provider->collectConnected($conn, $measuredAt);
+                $n = $repo->saveSocialMetrics($clientId, $metrics, $measuredAt);
+                $io->success(sprintf('%s (OAuth): %d Kanal/Kanäle erhoben.', $conn['platform'], $n));
+                $written += $n;
+            } catch (\Throwable $e) {
+                $io->warning(sprintf('%s (OAuth) fehlgeschlagen: %s', $conn['platform'], $e->getMessage()));
+            }
+        }
+        return $written;
+    }
+
+    /**
+     * Wählt den OAuth-Provider für eine Plattform. Null, wenn noch nicht implementiert.
+     * @param array<string,mixed> $store nicht genutzt hier, an Provider durchgereicht
+     */
+    private function oauthProviderFor(string $platform, \Openstream\Visibility\OAuth\OAuthTokenStore $store): ?\Openstream\Visibility\Provider\ConnectedSocialProvider
+    {
+        return match ($platform) {
+            'youtube' => new \Openstream\Visibility\Provider\YouTubeAnalyticsProvider($store),
+            default   => null, // instagram/tiktok folgen
+        };
     }
 
     /**
