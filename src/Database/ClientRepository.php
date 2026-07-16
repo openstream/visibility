@@ -839,6 +839,20 @@ final class ClientRepository
         ]);
     }
 
+    /**
+     * Aktualisiert den (verschlüsselten) Token einer bestehenden Verbindung und markiert sie
+     * als zuletzt genutzt. Für Meta/Instagram, wo das rollierende Long-Lived-Token bei jedem
+     * Lauf erneuert und zurückgeschrieben wird.
+     */
+    public function updateSocialConnectionToken(int $connectionId, string $refreshTokenEnc): void
+    {
+        $this->db->prepare(
+            'UPDATE social_connections
+             SET refresh_token_enc = :tok, last_used_at = NOW()
+             WHERE id = :id'
+        )->execute(['tok' => $refreshTokenEnc, 'id' => $connectionId]);
+    }
+
     /** Erzeugt und speichert ein OAuth-State-Token (CSRF-Schutz). */
     public function createOAuthState(string $state, int $clientId, string $platform): void
     {

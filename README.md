@@ -149,11 +149,10 @@ skaliert (kein Setup-Aufwand für Nick pro Kunde) und liefert die genauesten Dat
 
 > **Kein Scraping, kein Wettbewerber-Tracking.** Nur die eigenen Kanäle des Kunden mit
 > seiner Einwilligung, nur aggregierte Account-Stats (keine Personendaten). Der frühere
-> Apify-Weg (heute als `TikTokProvider`/`InstagramProvider` im Code) wird durch OAuth
-> ersetzt; die Scraping-Anbieter-Recherche bleibt in Memory + Git-Historie dokumentiert.
-> DataForSEO deckt Social nicht ab (Pinterest-only).
+> Apify-Scraping-Weg ist entfernt; die Anbieter-Recherche bleibt in Memory + Git-Historie
+> dokumentiert. DataForSEO deckt Social nicht ab (Pinterest-only).
 
-### Social via OAuth — Architektur (Roadmap)
+### Social via OAuth — Architektur (gebaut)
 
 Bewusste Erweiterung um eine **minimale Web-Komponente** (bricht die „nur CLI/kein Login"-
 Leitplanke gezielt für genau diesen Zweck, s. CLAUDE.md). Kein Kundenportal, keine Reports
@@ -164,16 +163,35 @@ für Kunden — nur das Verbinden der Kanäle.
 - **OAuth-Flow** (Web): `/connect/<platform>?client=<slug>` → Provider-Consent → Callback
   speichert den Refresh-Token verschlüsselt. Pro Plattform eine registrierte OAuth-App
   (Google Cloud / Meta / TikTok Developer) mit Callback-URL auf `visibility.openstream.ch`.
-- **`OAuthTokenStore`**: entschlüsselt Refresh-Token, tauscht ihn gegen kurzlebiges
-  Access-Token (gecacht), stellt es den Providern bereit.
-- **Provider** (`YouTubeAnalyticsProvider`, `InstagramInsightsProvider`,
-  `TikTokProvider`): rufen die Analytics-Endpunkte mit dem Access-Token → echte Monats-Views
-  → `social_metrics` (bzw. eigene monatliche Tabelle, da hier echte Monatswerte statt Deltas).
-- **Lokal testbar (DDEV):** OAuth-Flow gegen Nicks eigene openstream-Konten lokal
-  entwickeln/testen (Callback auf die DDEV-URL registrieren), bevor `visibility.openstream.ch`
-  produktiv steht.
-- **Reihenfolge:** erst die gemeinsame Infrastruktur (Flow + `social_connections` +
-  `OAuthTokenStore` + Interface), dann die drei Provider nacheinander andocken.
+- **`OAuthTokenStore`**: entschlüsselt den gespeicherten Token, refresht **je Plattform
+  unterschiedlich** (`token_style` in `OAuthProviderConfig`) und stellt das Access-Token
+  gecacht bereit:
+  - *Google/YouTube* — Standard-OAuth2-`refresh_token`-Grant.
+  - *TikTok* — wie OAuth2, aber Client-Parameter heisst `client_key` statt `client_id`.
+  - *Meta/Instagram* — **kein** `refresh_token`-Grant: das langlebige Token (60 Tage) wird
+    per `fb_exchange_token` gegen ein frisches getauscht und **rollierend zurückgespeichert**
+    (`updateSocialConnectionToken`), damit die Frist nicht abläuft.
+- **Provider** (`ConnectedSocialProvider`), je Plattform:
+
+  | Provider | Endpunkt | Monats-Views | Follower |
+  |---|---|---|---|
+  | `YouTubeAnalyticsProvider` | YouTube Analytics `reports` | **echt** (month-to-date) | via Data API |
+  | `InstagramInsightsProvider` | Graph API `/{ig-id}/insights` (`views`,`reach`) | **echt** (Zeitraumswert) | `followers_count` |
+  | `TikTokProvider` | Display API `video/list` + `user/info` | **Delta** aus `viewsTotal` (Lifetime-Summe) | `follower_count` |
+
+  Ergebnis → `social_metrics`; `socialMonthly()` liefert je Kanal den echten Monatswert
+  bzw. das Delta zweier wöchentlicher Stände.
+- **Freischalt-Hürden (vor dem Live-Test):**
+  - *TikTok* — Display-API-Zugang + „Login Kit" in der App aktivieren
+    (https://developers.tiktok.com/apps/), Redirect-URI `.../connect/tiktok/callback`.
+  - *Meta* — App-Typ „Business", Produkt „Instagram" (https://developers.facebook.com/apps/);
+    `instagram_manage_insights` braucht **App-Review** für fremde Konten. Kunde braucht
+    Business-/Creator-Konto, verknüpft mit einer Facebook-Seite.
+- **Lokal testbar (DDEV):** OAuth-Flow gegen Nicks eigene openstream-Konten (Callback auf
+  die DDEV-URL registrieren), bevor `visibility.openstream.ch` produktiv steht.
+- **Status:** Infrastruktur (Flow + `social_connections` + `OAuthTokenStore`) und alle drei
+  Provider sind gebaut und gegen gemockte API-Antworten getestet. Ausstehend: die
+  Developer-Apps bei Meta/TikTok anlegen/freischalten und einen realen Connect durchspielen.
 
 ### Newsletter / E-Mail-Marketing (Owned Media)
 

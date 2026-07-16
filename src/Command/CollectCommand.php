@@ -342,8 +342,10 @@ final class CollectCommand extends Command
     private function oauthProviderFor(string $platform, \Openstream\Visibility\OAuth\OAuthTokenStore $store): ?\Openstream\Visibility\Provider\ConnectedSocialProvider
     {
         return match ($platform) {
-            'youtube' => new \Openstream\Visibility\Provider\YouTubeAnalyticsProvider($store),
-            default   => null, // instagram/tiktok folgen
+            'youtube'   => new \Openstream\Visibility\Provider\YouTubeAnalyticsProvider($store),
+            'tiktok'    => new \Openstream\Visibility\Provider\TikTokProvider($store),
+            'instagram' => new \Openstream\Visibility\Provider\InstagramInsightsProvider($store),
+            default     => null,
         };
     }
 

@@ -48,13 +48,17 @@ final class OAuthController
         $state = bin2hex(random_bytes(32));
         $this->repo->createOAuthState($state, $clientId, $platform);
 
-        $params = array_merge([
-            'client_id'     => $cfg['client_id'],
+        $base = [
             'redirect_uri'  => OAuthProviderConfig::redirectUri($platform),
             'response_type' => 'code',
             'scope'         => implode(' ', $cfg['scopes']),
             'state'         => $state,
-        ], $cfg['extra_auth']);
+        ];
+        // TikTok identifiziert die App über client_key (in extra_auth). Sonst: client_id.
+        if (!isset($cfg['extra_auth']['client_key'])) {
+            $base['client_id'] = $cfg['client_id'];
+        }
+        $params = array_merge($base, $cfg['extra_auth']);
 
         return ['redirect' => $cfg['auth_url'] . '?' . http_build_query($params)];
     }

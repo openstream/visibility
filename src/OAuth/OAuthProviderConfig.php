@@ -52,6 +52,8 @@ final class OAuthProviderConfig
             'scopes'        => ['https://www.googleapis.com/auth/yt-analytics.readonly'],
             // offline + consent erzwingt einen Refresh-Token (sonst nur beim ersten Consent).
             'extra_auth'    => ['access_type' => 'offline', 'prompt' => 'consent'],
+            // Standard-OAuth2: refresh_token-Grant mit client_id/client_secret.
+            'token_style'   => 'oauth2',
         ];
     }
 
@@ -70,6 +72,10 @@ final class OAuthProviderConfig
             'client_secret' => $secret,
             'scopes'        => ['instagram_basic', 'instagram_manage_insights', 'pages_read_engagement'],
             'extra_auth'    => [],
+            // Meta kennt keinen refresh_token-Grant: Das langlebige Token (60 Tage) wird per
+            // fb_exchange_token verlängert. Wir speichern das Long-Lived-Token als „refresh_token"
+            // und tauschen es bei jedem Lauf gegen ein frisches Long-Lived-Token (rollierend).
+            'token_style'   => 'meta_longlived',
         ];
     }
 
@@ -86,8 +92,11 @@ final class OAuthProviderConfig
             'token_url'     => 'https://open.tiktokapis.com/v2/oauth/token/',
             'client_id'     => $id,
             'client_secret' => $secret,
-            'scopes'        => ['user.info.basic', 'video.list'],
-            'extra_auth'    => [],
+            'scopes'        => ['user.info.basic', 'user.info.stats', 'video.list'],
+            // TikTok nennt den Client-Parameter in der Auth-URL client_key (nicht client_id).
+            'extra_auth'    => ['client_key' => $id],
+            // refresh_token-Grant, aber der Client-Parameter heisst client_key.
+            'token_style'   => 'tiktok',
         ];
     }
 }
