@@ -53,6 +53,7 @@ final class ReportBuilder
         $sections .= $this->onsiteOffsite($clientId, $period);
         $sections .= $this->geoSection($clientId, $period);
         $sections .= $this->socialSection($clientId, $period);
+        $sections .= $this->newsletterSection($clientId, $period);
 
         $md  = "# Visibility-Report: {$name}\n\n";
         $md .= "**Domain:** {$domain}  \n";
@@ -620,12 +621,65 @@ final class ReportBuilder
                 . number_format($totalViews, 0, ',', '\'') . "\n\n";
         }
 
-        $md .= $this->gray('Monatliche Views = Zuwachs der Gesamt-Views im Berichtsmonat '
-            . '(aus den wöchentlichen Messwerten). „—" bedeutet: für diesen Monat liegt noch '
-            . 'kein Vergleichswert des Vormonats vor. Instagram liefert öffentlich keine '
-            . 'aggregierten Account-Views (nur Follower).') . "\n\n";
+        $md .= $this->gray('Monatliche Views je Kanal. Bei per OAuth verbundenen Kanälen sind '
+            . 'es die exakten Monatswerte der offiziellen Analytics-APIs; sonst der Zuwachs der '
+            . 'Gesamt-Views im Monat. „—" bedeutet: noch kein Vergleichswert vorhanden.') . "\n\n";
 
         return $md;
+    }
+
+    /**
+     * Newsletter — Owned Media (Öffnungs-/Klickrate, Listen-Wachstum je Ausgabe).
+     * Blendet sich aus, wenn keine Newsletter-Daten erhoben wurden.
+     */
+    private function newsletterSection(int $clientId, string $period): string
+    {
+        $rows = $this->repo->newsletterCampaigns($clientId, $period, 6);
+        if (!$rows) {
+            return '';
+        }
+
+        $md = "## 6. Newsletter\n\n";
+        $md .= "_Reichweite des eigenen Newsletters: Öffnungs- und Klickrate je Ausgabe, "
+            . "plus Entwicklung der Listengrösse._\n\n";
+        $md .= "| Ausgabe | Datum | Empfänger | Öffnungsrate | Klickrate | Abmeldungen |\n"
+            . "|---|---|---:|---:|---:|---:|\n";
+
+        $latestListSize = null;
+        foreach ($rows as $r) {
+            $rec = $r['recipients'] !== null ? (int) $r['recipients'] : null;
+            $openRate = $rec ? round((int) ($r['opens'] ?? 0) / $rec * 100, 1) : null;
+            $clickRate = $rec ? round((int) ($r['clicks'] ?? 0) / $rec * 100, 1) : null;
+            if ($latestListSize === null && $r['list_size'] !== null) {
+                $latestListSize = (int) $r['list_size'];
+            }
+            $subject = $r['subject'] ? $this->cell((string) $r['subject']) : '—';
+            $md .= '| ' . $subject
+                . ' | ' . ($r['sent_at'] ? $this->dateDe((string) $r['sent_at']) : '—')
+                . ' | ' . ($rec !== null ? number_format($rec, 0, ',', '\'') : '—')
+                . ' | ' . ($openRate !== null ? number_format($openRate, 1, ',', '') . ' %' : '—')
+                . ' | ' . ($clickRate !== null ? number_format($clickRate, 1, ',', '') . ' %' : '—')
+                . ' | ' . ($r['unsubscribes'] !== null ? (int) $r['unsubscribes'] : '—')
+                . " |\n";
+        }
+        $md .= "\n";
+
+        if ($latestListSize !== null) {
+            $md .= "**Aktuelle Listengrösse:** " . number_format($latestListSize, 0, ',', '\'')
+                . " Abonnenten\n\n";
+        }
+
+        $md .= $this->gray('Nur aggregierte Kennzahlen des eigenen Newsletters; keine '
+            . 'Empfänger-Adressen. „—" = vom Versandtool nicht geliefert (z. B. Sendy liefert '
+            . 'Öffnungs-/Klickraten nicht über die Standard-API).') . "\n\n";
+
+        return $md;
+    }
+
+    private function dateDe(string $ymd): string
+    {
+        $t = strtotime($ymd);
+        return $t ? date('d.m.Y', $t) : $ymd;
     }
 
     private function positionDelta(?float $now, ?float $prev): string

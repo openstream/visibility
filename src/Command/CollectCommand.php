@@ -35,7 +35,8 @@ final class CollectCommand extends Command
         $this->addOption('geo', null, InputOption::VALUE_NONE, 'GEO-Sichtbarkeit erheben (ChatGPT/Gemini/Claude, kostet pro Prompt)');
         $this->addOption('onsite', null, InputOption::VALUE_NONE, 'Onsite-Audit der wichtigsten Seiten (DataForSEO OnPage)');
         $this->addOption('offsite', null, InputOption::VALUE_NONE, 'Offsite/Backlinks-Snapshot (DataForSEO)');
-        $this->addOption('social', null, InputOption::VALUE_NONE, 'Social-Kennzahlen der eigenen Kanäle (YouTube offiziell, TikTok/IG via Apify)');
+        $this->addOption('social', null, InputOption::VALUE_NONE, 'Social-Kennzahlen der eigenen Kanäle (YouTube + OAuth-Verbindungen)');
+        $this->addOption('newsletter', null, InputOption::VALUE_NONE, 'Newsletter-Kennzahlen (Sendy/Mailchimp je Kunden-Config)');
         $this->addOption('date', null, InputOption::VALUE_REQUIRED, 'measured_at überschreiben (Y-m-d, Default heute)');
     }
 
@@ -226,9 +227,14 @@ final class CollectCommand extends Command
             }
         }
 
-        // --- Social Media (eigene Kanäle: YouTube offiziell, TikTok/IG via Apify) ---
+        // --- Social Media (eigene Kanäle: YouTube Data API + OAuth-Verbindungen) ---
         if ($input->getOption('social')) {
             $total += $this->collectSocial($io, $repo, $clientId, $cfg, $measuredAt);
+        }
+
+        // --- Newsletter (Owned Media: Sendy/Mailchimp je Config) ---
+        if ($input->getOption('newsletter')) {
+            $total += $this->collectNewsletter($io, $repo, $clientId, $cfg, $measuredAt);
         }
 
         $io->success("Fertig. {$total} Messwerte für {$measuredAt} in der DB.");
@@ -321,6 +327,59 @@ final class CollectCommand extends Command
             'youtube' => new \Openstream\Visibility\Provider\YouTubeAnalyticsProvider($store),
             default   => null, // instagram/tiktok folgen
         };
+    }
+
+    /**
+     * Erhebt Newsletter-Kennzahlen (Sendy/Mailchimp je Kunden-Config). Keys aus .env
+     * (Suffix = env_suffix). @param array<string,mixed> $cfg
+     * @return int Anzahl geschriebener Zeilen
+     */
+    private function collectNewsletter(SymfonyStyle $io, ClientRepository $repo, int $clientId, array $cfg, string $measuredAt): int
+    {
+        $nl = $cfg['newsletter'] ?? null;
+        if (!$nl || empty($nl['provider'])) {
+            $io->text('Kein Newsletter in der Config — überspringe.');
+            return 0;
+        }
+        $io->section('Newsletter');
+        $app = App::get();
+        $suffix = strtoupper((string) ($nl['env_suffix'] ?? ''));
+        $provider = strtolower((string) $nl['provider']);
+
+        try {
+            $p = match ($provider) {
+                'mailchimp' => $this->mailchimpProvider($app, $suffix),
+                'sendy'     => $this->sendyProvider($app, $suffix, $nl),
+                default     => throw new \RuntimeException("Unbekannter Newsletter-Provider: {$provider}"),
+            };
+            $stats = $p->recentCampaigns(12);
+            $n = $repo->saveNewsletterStats($clientId, $stats, $measuredAt);
+            $io->success(sprintf('%s: %d Kampagne(n)/Snapshot(s) erhoben.', $provider, $n));
+            return $n;
+        } catch (\Throwable $e) {
+            $io->warning("Newsletter ({$provider}) fehlgeschlagen: " . $e->getMessage());
+            return 0;
+        }
+    }
+
+    private function mailchimpProvider(App $app, string $suffix): \Openstream\Visibility\Provider\MailchimpProvider
+    {
+        $key = $app->env("MAILCHIMP_API_KEY_{$suffix}");
+        if (!$key) {
+            throw new \RuntimeException("MAILCHIMP_API_KEY_{$suffix} fehlt in .env");
+        }
+        return new \Openstream\Visibility\Provider\MailchimpProvider($key);
+    }
+
+    /** @param array<string,mixed> $nl */
+    private function sendyProvider(App $app, string $suffix, array $nl): \Openstream\Visibility\Provider\SendyProvider
+    {
+        $key = $app->env("SENDY_API_KEY_{$suffix}");
+        $url = $app->env("SENDY_URL_{$suffix}");
+        if (!$key || !$url) {
+            throw new \RuntimeException("SENDY_API_KEY_{$suffix} / SENDY_URL_{$suffix} fehlen in .env");
+        }
+        return new \Openstream\Visibility\Provider\SendyProvider($key, $url, $nl['list_id'] ?? null);
     }
 
     /**

@@ -50,6 +50,7 @@ social:
 newsletter:
   provider: sendy
   env_suffix: OPENSTREAM
+  list_id: ""        # Sendy-Listen-ID (für aktive Abonnenten-Zahl); beim Setup eintragen
 
 report:
   recipient: nick@openstream.ch

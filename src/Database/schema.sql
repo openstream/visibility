@@ -199,6 +199,28 @@ CREATE TABLE IF NOT EXISTS social_metrics (
 -- Nachträglich ergänzte Spalte (falls social_metrics schon ohne monthly_views existiert).
 ALTER TABLE social_metrics ADD COLUMN IF NOT EXISTS monthly_views BIGINT UNSIGNED NULL AFTER views_total;
 
+-- Newsletter-Kennzahlen je Kampagne/Ausgabe (Owned Media). Provider: sendy | mailchimp.
+-- Eigene, private Daten des Kunden; nur aggregierte Raten, keine Empfänger-Adressen.
+CREATE TABLE IF NOT EXISTS newsletter_stats (
+    id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id    INT UNSIGNED NOT NULL,
+    campaign_ref VARCHAR(255) NOT NULL,           -- Kampagnen-ID beim Provider
+    subject      VARCHAR(512) NULL,
+    sent_at      DATE         NULL,               -- Versanddatum
+    recipients   INT UNSIGNED NULL,               -- Anzahl Empfänger
+    opens        INT UNSIGNED NULL,               -- eindeutige Öffnungen
+    clicks       INT UNSIGNED NULL,               -- eindeutige Klicks
+    bounces      INT UNSIGNED NULL,
+    unsubscribes INT UNSIGNED NULL,
+    list_size    INT UNSIGNED NULL,               -- aktuelle Listengrösse (Wachstum über Zeit)
+    provider     VARCHAR(32)  NOT NULL,           -- sendy | mailchimp
+    measured_at  DATE         NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_newsletter (client_id, provider, campaign_ref),
+    KEY idx_newsletter_client (client_id, sent_at),
+    CONSTRAINT fk_newsletter_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- OAuth-Verbindungen der Kunden zu ihren eigenen Social-Kanälen. Der Kunde verbindet
 -- sich selbst über die Web-App (visibility.openstream.ch/connect/<platform>); wir speichern
 -- den Refresh-Token VERSCHLÜSSELT (AES via APP_ENCRYPTION_KEY, nie im Klartext).

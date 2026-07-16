@@ -639,6 +639,56 @@ final class ClientRepository
     }
 
     /**
+     * Speichert Newsletter-Kampagnen-Kennzahlen (idempotent pro Kampagne).
+     * @param array<int,\Openstream\Visibility\Provider\NewsletterStat> $stats
+     * @return int Anzahl geschriebener Zeilen
+     */
+    public function saveNewsletterStats(int $clientId, array $stats, string $measuredAt): int
+    {
+        $stmt = $this->db->prepare(
+            'INSERT INTO newsletter_stats
+               (client_id, campaign_ref, subject, sent_at, recipients, opens, clicks,
+                bounces, unsubscribes, list_size, provider, measured_at)
+             VALUES (:cid, :ref, :subject, :sent, :rec, :opens, :clicks, :bounces, :unsub,
+                     :list, :provider, :mdate)
+             ON DUPLICATE KEY UPDATE
+               subject=VALUES(subject), sent_at=VALUES(sent_at), recipients=VALUES(recipients),
+               opens=VALUES(opens), clicks=VALUES(clicks), bounces=VALUES(bounces),
+               unsubscribes=VALUES(unsubscribes), list_size=VALUES(list_size), measured_at=VALUES(measured_at)'
+        );
+        $n = 0;
+        foreach ($stats as $s) {
+            $stmt->execute([
+                'cid' => $clientId, 'ref' => $s->campaignRef, 'subject' => $s->subject,
+                'sent' => $s->sentAt, 'rec' => $s->recipients, 'opens' => $s->opens,
+                'clicks' => $s->clicks, 'bounces' => $s->bounces, 'unsub' => $s->unsubscribes,
+                'list' => $s->listSize, 'provider' => $s->provider, 'mdate' => $measuredAt,
+            ]);
+            $n++;
+        }
+        return $n;
+    }
+
+    /**
+     * Newsletter-Kampagnen für den Report (bis einschliesslich Berichtsmonat, jüngste zuerst).
+     * @return array<int,array<string,mixed>>
+     */
+    public function newsletterCampaigns(int $clientId, string $period, int $limit = 6): array
+    {
+        [, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT campaign_ref, subject, sent_at, recipients, opens, clicks, bounces,
+                    unsubscribes, list_size, provider
+             FROM newsletter_stats
+             WHERE client_id = ? AND (sent_at IS NULL OR sent_at <= ?)
+             ORDER BY sent_at DESC, id DESC
+             LIMIT {$limit}"
+        );
+        $stmt->execute([$clientId, $end]);
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Aktive OAuth-Verbindungen eines Kunden (für collect). @return array<int,array<string,mixed>>
      */
     public function socialConnections(int $clientId): array
