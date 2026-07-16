@@ -15,7 +15,7 @@
 # Kunden bleiben durch /storage/reports/* oben komplett ignoriert.
 !/storage/reports/openstream/
 /storage/reports/openstream/*
-!/storage/reports/openstream/2026-07.md
+!/storage/reports/openstream/2*.md
 !/storage/reports/openstream/charts/
 !/storage/reports/openstream/charts/*.svg
 

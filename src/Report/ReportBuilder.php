@@ -43,8 +43,10 @@ final class ReportBuilder
         // Aktive GEO-Kanäle aus der Config (für die Grau-Darstellung im Markt-Kontext).
         $activeGeo = array_keys(array_filter($cfg['geo']['channels'] ?? ['chatgpt' => true, 'perplexity' => true]));
 
-        // Gesamt-Traffic der Google-Property live aus GSC (die echte, aussagekräftige Zahl).
-        $gscTotals = $this->gscTotals($cfg);
+        // Gesamt-Traffic der Google-Property aus GSC für den Berichtsmonat (echte Zahl).
+        $gscTotals = $this->gscTotals($cfg, $period);
+        // Echte GSC-Positions-Verteilung (alle Queries) — zeigt die realen #1/Top-Rankings.
+        $gscDist = $this->gscDistribution($cfg, $period);
 
         // OVS zuerst berechnen + speichern (Dach-Zahl; die Summary/der Abschnitt nutzen ihn).
         $ovs = $this->computeAndStoreOvs($clientId, $period, $gscTotals);
@@ -53,7 +55,7 @@ final class ReportBuilder
         $sections  = $this->ovsSection($clientId, $period, $ovs);
         $sections .= $this->marketContext($activeGeo);
         $sections .= $this->visibilityTrend($clientId, $period);
-        $sections .= $this->searchRankings($clientId, $period, $prevPeriod, $gscTotals);
+        $sections .= $this->searchRankings($clientId, $period, $prevPeriod, $gscTotals, $gscDist);
         $sections .= $this->onsiteOffsite($clientId, $period);
         $sections .= $this->geoSection($clientId, $period);
         $sections .= $this->socialSection($clientId, $period);
@@ -81,7 +83,7 @@ final class ReportBuilder
      * Gesamt-Traffic der Google-Property live aus GSC. @return ?array{clicks:int,impressions:int,ctr:float,position:float}
      * @param array<string,mixed> $cfg
      */
-    private function gscTotals(array $cfg): ?array
+    private function gscTotals(array $cfg, string $period): ?array
     {
         $siteUrl = $cfg['gsc']['site_url'] ?? null;
         if (!$siteUrl) {
@@ -89,9 +91,41 @@ final class ReportBuilder
         }
         try {
             $gsc = \Openstream\Visibility\Provider\GscClient::fromEnv();
-            $end = date('Y-m-d', strtotime('-3 days'));
-            $start = date('Y-m-d', strtotime('-28 days'));
+            // Genau den Berichtsmonat auswerten (unabhängig vom Erstellungsdatum). Falls der
+            // Monat noch läuft, endet der Zeitraum beim letzten GSC-verfügbaren Tag (heute -3).
+            [$start, $monthEnd] = [$period . '-01', date('Y-m-t', strtotime($period . '-01'))];
+            $gscLatest = date('Y-m-d', strtotime('-3 days'));
+            $end = min($monthEnd, $gscLatest);
+            if ($end < $start) {
+                return null; // Monat liegt komplett in der Zukunft / vor GSC-Daten
+            }
             return $gsc->totals($siteUrl, $start, $end);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * ECHTE GSC-Positions-Verteilung für den Berichtsmonat (alle Queries, nicht nur getrackte).
+     * @param array<string,mixed> $cfg
+     * @return array<string,int>|null
+     */
+    private function gscDistribution(array $cfg, string $period): ?array
+    {
+        $siteUrl = $cfg['gsc']['site_url'] ?? null;
+        if (!$siteUrl) {
+            return null;
+        }
+        try {
+            $gsc = \Openstream\Visibility\Provider\GscClient::fromEnv();
+            $start = $period . '-01';
+            $end = min(date('Y-m-t', strtotime($start)), date('Y-m-d', strtotime('-3 days')));
+            if ($end < $start) {
+                return null;
+            }
+            // Schwelle 3 Impressionen: filtert reine Einzeltreffer (1-2 Impressionen), zeigt
+            // aber Suchanfragen mit echtem Volumen. Guter Kompromiss (ehrlich, nicht aufgebläht).
+            return $gsc->positionDistribution($siteUrl, $start, $end, 3);
         } catch (\Throwable $e) {
             return null;
         }
@@ -195,12 +229,12 @@ final class ReportBuilder
 
         // Gesamt-Traffic der Website (die massgebliche Zahl für Klicks/Impressionen).
         if ($gscTotals) {
-            $facts['gsc_gesamt_letzte_28_tage'] = [
+            $facts['gsc_gesamt_berichtsmonat'] = [
                 'klicks' => $gscTotals['clicks'],
                 'impressionen' => $gscTotals['impressions'],
                 'klickrate_prozent' => $gscTotals['ctr'],
                 'durchschnittsposition' => $gscTotals['position'],
-                'hinweis' => 'gesamter organischer Google-Traffic der Website',
+                'hinweis' => 'gesamter organischer Google-Traffic der Website im Berichtsmonat',
             ];
         }
 
@@ -414,7 +448,7 @@ final class ReportBuilder
      * @param ?array{clicks:int,impressions:int,ctr:float,position:float} $gscTotals
      *        Gesamt-Traffic der Google-Property (live aus GSC) — die aussagekräftige Zahl.
      */
-    private function searchRankings(int $clientId, string $period, string $prevPeriod, ?array $gscTotals): string
+    private function searchRankings(int $clientId, string $period, string $prevPeriod, ?array $gscTotals, ?array $gscDist = null): string
     {
         $summary = $this->repo->rankingSummary($clientId, $period);
 
@@ -423,12 +457,36 @@ final class ReportBuilder
         // (a) Gesamt-Traffic der Website bei Google (echte Property-Zahlen, kein getracktes Subset).
         if ($gscTotals) {
             $md .= "### Google gesamt (ganze Website)\n\n";
-            $md .= "_Der gesamte organische Google-Traffic der Website in den letzten 28 Tagen "
-                . "(Quelle: Google Search Console)._\n\n";
+            $md .= "_Der gesamte organische Google-Traffic der Website im " . $this->monthLabel($period)
+                . " (Quelle: Google Search Console)._\n\n";
             $md .= '- Klicks: ' . number_format($gscTotals['clicks'], 0, ',', '\'') . "\n";
             $md .= '- Impressionen: ' . number_format($gscTotals['impressions'], 0, ',', '\'') . "\n";
             $md .= '- Ø-Position: ' . $this->fmtPos($gscTotals['position'])
                 . ' · Klickrate: ' . number_format($gscTotals['ctr'], 1, ',', '') . " %\n\n";
+        }
+
+        // (a2) ECHTE Positions-Verteilung aus GSC — wie viele Suchanfragen tatsächlich auf
+        //      #1/Top-3/… ranken (alle Queries der Website, nicht nur die getrackten Keywords).
+        if ($gscDist && $gscDist['relevant'] > 0) {
+            $md .= "### Google-Rankings (echt, aus GSC)\n\n";
+            $md .= "_Auf welchen Positionen die Website im " . $this->monthLabel($period)
+                . " tatsächlich rankt, über alle Suchanfragen (nicht nur die getrackten Keywords). "
+                . "Nur Anfragen mit mindestens 3 Impressionen, um reine Einzeltreffer herauszufiltern._\n\n";
+            $md .= "| Position | Anzahl Suchanfragen |\n|---|---:|\n";
+            $md .= '| **Platz 1** | ' . number_format($gscDist['pos_1'], 0, ',', '\'') . " |\n";
+            $md .= '| Platz 2–3 | ' . number_format($gscDist['pos_2_3'], 0, ',', '\'') . " |\n";
+            $md .= '| Platz 4–10 | ' . number_format($gscDist['pos_4_10'], 0, ',', '\'') . " |\n";
+            $md .= '| Platz 11–20 | ' . number_format($gscDist['pos_11_20'], 0, ',', '\'') . " |\n";
+            $md .= '| Platz 21–50 | ' . number_format($gscDist['pos_21_50'], 0, ',', '\'') . " |\n";
+            $top10 = $gscDist['pos_1'] + $gscDist['pos_2_3'] + $gscDist['pos_4_10'];
+            $md .= "\n";
+            $md .= "> **" . number_format($gscDist['pos_1'], 0, ',', '\'') . " Suchanfragen auf Platz 1**, "
+                . number_format($top10, 0, ',', '\'') . " in den Top 10 (von "
+                . number_format($gscDist['relevant'], 0, ',', '\'') . " relevanten Suchanfragen).\n\n";
+            $md .= $this->gray('Diese Zahlen kommen direkt aus Google (Search Console) und zeigen '
+                . 'die echten Platzierungen. Der Sichtbarkeits-Verlauf weiter oben misst dagegen eine '
+                . 'Auswahl strategischer Keywords im gesamten Schweizer Google-Wettbewerb (DataForSEO) '
+                . 'und fällt daher konservativer aus. Beide Sichten ergänzen sich.') . "\n\n";
         }
 
         // Verteilungs-Chart (Momentaufnahme) aus der jüngsten Historie-Zeile des Monats.

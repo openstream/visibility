@@ -109,4 +109,53 @@ class GscClient
             'position'    => round((float) ($r['position'] ?? 0), 1),
         ];
     }
+
+    /**
+     * ECHTE Positions-Verteilung aus GSC (alle Queries des Zeitraums nach Position gebucketet).
+     * Zeigt, für wie viele Suchanfragen die Website tatsächlich auf #1 / Top-3 / … rankt —
+     * anders als DataForSEO, das nur die getrackten Keywords im Gesamtmarkt misst.
+     *
+     * $minImpressions filtert Long-Tail-Rauschen (viele #1-Treffer haben nur 1 Impression);
+     * die relevante Verteilung nutzt eine sinnvolle Schwelle, die Gesamtzahl bleibt daneben.
+     *
+     * @return array{total:int,relevant:int,pos_1:int,pos_2_3:int,pos_4_10:int,pos_11_20:int,pos_21_50:int,pos_51_100:int}
+     */
+    public function positionDistribution(string $siteUrl, string $startDate, string $endDate, int $minImpressions = 0): array
+    {
+        $rows = $this->searchAnalytics($siteUrl, $startDate, $endDate, ['query'], 25000);
+        return self::bucketByPosition($rows, $minImpressions);
+    }
+
+    /**
+     * Bucketet GSC-Query-Zeilen nach Position. Rein (testbar).
+     * @param array<int,array<string,mixed>> $rows
+     * @return array{total:int,relevant:int,pos_1:int,pos_2_3:int,pos_4_10:int,pos_11_20:int,pos_21_50:int,pos_51_100:int}
+     */
+    public static function bucketByPosition(array $rows, int $minImpressions = 0): array
+    {
+        $b = ['total' => 0, 'relevant' => 0, 'pos_1' => 0, 'pos_2_3' => 0, 'pos_4_10' => 0,
+            'pos_11_20' => 0, 'pos_21_50' => 0, 'pos_51_100' => 0];
+        foreach ($rows as $r) {
+            $b['total']++;
+            if ((int) ($r['impressions'] ?? 0) < $minImpressions) {
+                continue;
+            }
+            $p = (float) ($r['position'] ?? 999);
+            $b['relevant']++;
+            if ($p < 1.5) {
+                $b['pos_1']++;
+            } elseif ($p < 3.5) {
+                $b['pos_2_3']++;
+            } elseif ($p <= 10.5) {
+                $b['pos_4_10']++;
+            } elseif ($p <= 20.5) {
+                $b['pos_11_20']++;
+            } elseif ($p <= 50.5) {
+                $b['pos_21_50']++;
+            } elseif ($p <= 100.5) {
+                $b['pos_51_100']++;
+            }
+        }
+        return $b;
+    }
 }
