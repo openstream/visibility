@@ -31,3 +31,8 @@
 .idea/
 .vscode/
 *.log
+
+# Editor-Swap-/Backup-Dateien (können Secrets aus .env-Bearbeitung enthalten)
+*.swp
+*.swo
+*~

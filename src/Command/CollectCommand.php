@@ -299,13 +299,16 @@ final class CollectCommand extends Command
         if (!$connections) {
             return 0;
         }
-        // Config-Handle je Verbindung als account_ref setzen, damit OAuth-Metriken unter
-        // demselben Account-Namen wie die Data-API-Zeile laufen (eine Report-Zeile).
+        // Config-Handle je Verbindung anwenden: als lesbares account_label (Anzeige im
+        // Report) IMMER, als account_ref nur wenn noch keine technische ID gespeichert ist
+        // (bei Instagram ist account_ref bereits die IG user_id — die nicht überschreiben).
         foreach ($connections as &$conn) {
             $h = $handles[$conn['platform']] ?? null;
-            if ($h && empty($conn['account_ref'])) {
-                $conn['account_ref'] = $h;
+            if ($h) {
                 $conn['account_label'] = $h;
+                if (empty($conn['account_ref'])) {
+                    $conn['account_ref'] = $h;
+                }
             }
         }
         unset($conn);

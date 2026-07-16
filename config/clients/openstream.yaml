@@ -43,7 +43,7 @@ geo:
 social:
   youtube: ["@OpenstreamCH"]
   tiktok: ["@openstream.ch"]
-  instagram: []
+  instagram: ["@openstream"]
 
 # Newsletter (Owned Media). provider: sendy | mailchimp. env_suffix = Slug in GROSSBUCHSTABEN
 # → Keys SENDY_API_KEY_<SUFFIX>/SENDY_URL_<SUFFIX> bzw. MAILCHIMP_API_KEY_<SUFFIX> aus .env.
