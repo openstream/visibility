@@ -271,8 +271,15 @@ final class CollectCommand extends Command
         }
 
         // Verbundene Kanäle (YouTube Analytics / Instagram / TikTok) via OAuth: echte
-        // Monats-Views. Nutzt die in `social_connections` gespeicherten Tokens.
-        $written += $this->collectOauthSocial($io, $repo, $clientId, $measuredAt);
+        // Monats-Views. Nutzt die in `social_connections` gespeicherten Tokens. Der erste
+        // Config-Handle je Plattform dient als Account-Label, damit OAuth- und Data-API-
+        // Zeile denselben Kanal betreffen (eine Zeile im Report).
+        $handles = [
+            'youtube'   => $yt[0] ?? null,
+            'instagram' => (array_values(array_filter((array) ($social['instagram'] ?? [])))[0] ?? null),
+            'tiktok'    => (array_values(array_filter((array) ($social['tiktok'] ?? [])))[0] ?? null),
+        ];
+        $written += $this->collectOauthSocial($io, $repo, $clientId, $measuredAt, $handles);
 
         if ($written === 0) {
             $io->text('Keine Social-Daten erhoben (keine Kanäle in Config, keine OAuth-Verbindungen).');
@@ -285,12 +292,23 @@ final class CollectCommand extends Command
      * Läuft nur, wenn Verbindungen existieren; überspringt sonst geräuschlos.
      * @return int Anzahl geschriebener Zeilen
      */
-    private function collectOauthSocial(SymfonyStyle $io, ClientRepository $repo, int $clientId, string $measuredAt): int
+    /** @param array<string,?string> $handles Config-Handle je Plattform (für einheitliche Account-Labels) */
+    private function collectOauthSocial(SymfonyStyle $io, ClientRepository $repo, int $clientId, string $measuredAt, array $handles = []): int
     {
         $connections = $repo->socialConnections($clientId);
         if (!$connections) {
             return 0;
         }
+        // Config-Handle je Verbindung als account_ref setzen, damit OAuth-Metriken unter
+        // demselben Account-Namen wie die Data-API-Zeile laufen (eine Report-Zeile).
+        foreach ($connections as &$conn) {
+            $h = $handles[$conn['platform']] ?? null;
+            if ($h && empty($conn['account_ref'])) {
+                $conn['account_ref'] = $h;
+                $conn['account_label'] = $h;
+            }
+        }
+        unset($conn);
 
         try {
             $store = new \Openstream\Visibility\OAuth\OAuthTokenStore($repo);

@@ -553,8 +553,14 @@ final class ClientRepository
                (client_id, platform, account, followers, views_total, monthly_views, posts_total, source, measured_at)
              VALUES (:cid, :platform, :account, :followers, :views, :mviews, :posts, :source, :mdate)
              ON DUPLICATE KEY UPDATE
-               followers=VALUES(followers), views_total=VALUES(views_total),
-               monthly_views=VALUES(monthly_views), posts_total=VALUES(posts_total), source=VALUES(source)'
+               -- NULL-Werte überschreiben bestehende NICHT (COALESCE): so ergänzen sich
+               -- Data-API-Zeile (Follower/Lifetime-Views) und OAuth-Zeile (echte Monats-
+               -- Views) desselben Kanals zu EINER Zeile statt sich gegenseitig zu leeren.
+               followers=COALESCE(VALUES(followers), followers),
+               views_total=COALESCE(VALUES(views_total), views_total),
+               monthly_views=COALESCE(VALUES(monthly_views), monthly_views),
+               posts_total=COALESCE(VALUES(posts_total), posts_total),
+               source=VALUES(source)'
         );
         $n = 0;
         foreach ($metrics as $m) {
