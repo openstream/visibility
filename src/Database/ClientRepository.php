@@ -715,11 +715,16 @@ final class ClientRepository
     public function newsletterCampaigns(int $clientId, string $period, int $limit = 6): array
     {
         [, $end] = $this->monthRange($period);
+        // Nur echte Versände: reine Listen-Snapshots (campaign_ref 'list-…') und
+        // Test-/Teilversände mit sehr wenigen Empfängern (< 10) ausschliessen — sonst
+        // erscheinen absurde Raten (>100 %) und leere Zeilen im Report.
         $stmt = $this->db->prepare(
             "SELECT campaign_ref, subject, sent_at, recipients, opens, clicks, bounces,
                     unsubscribes, list_size, provider
              FROM newsletter_stats
-             WHERE client_id = ? AND (sent_at IS NULL OR sent_at <= ?)
+             WHERE client_id = ? AND sent_at IS NOT NULL AND sent_at <= ?
+               AND campaign_ref NOT LIKE 'list-%'
+               AND (recipients IS NULL OR recipients >= 10)
              ORDER BY sent_at DESC, id DESC
              LIMIT {$limit}"
         );

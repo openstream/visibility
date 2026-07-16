@@ -687,9 +687,10 @@ final class ReportBuilder
                 . " Abonnenten\n\n";
         }
 
-        $md .= $this->gray('Nur aggregierte Kennzahlen des eigenen Newsletters; keine '
-            . 'Empfänger-Adressen. „—" = vom Versandtool nicht geliefert (z. B. Sendy liefert '
-            . 'Öffnungs-/Klickraten nicht über die Standard-API).') . "\n\n";
+        $md .= $this->gray('Nur aggregierte Kennzahlen des eigenen Newsletters, keine '
+            . 'Empfänger-Adressen. Öffnungsrate = eindeutige Öffnungen / Empfänger, '
+            . 'Klickrate = eindeutige Klicks / Empfänger. „—" = vom Versandtool nicht '
+            . 'geliefert.') . "\n\n";
 
         return $md;
     }
