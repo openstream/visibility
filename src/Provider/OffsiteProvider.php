@@ -43,7 +43,7 @@ final class OffsiteProvider
      * Stärkste verweisende Domains (für konkrete Beispiel-Backlinks im Report).
      * Sortiert nach Domain-Rank absteigend. Quelle: DataForSEO backlinks/referring_domains.
      *
-     * @return array<int,array{domain:string,rank:?int,backlinks:?int,dofollow:?int}>
+     * @return array<int,array{domain:string,rank:?int,backlinks:?int}>
      */
     public function topReferringDomains(int $limit = 10): array
     {
@@ -65,7 +65,6 @@ final class OffsiteProvider
                 'domain'    => $domain,
                 'rank'      => isset($it['rank']) ? (int) $it['rank'] : null,
                 'backlinks' => isset($it['backlinks']) ? (int) $it['backlinks'] : null,
-                'dofollow'  => isset($it['dofollow']) ? (int) $it['dofollow'] : null,
             ];
         }
         return $out;

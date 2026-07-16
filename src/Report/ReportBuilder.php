@@ -733,17 +733,17 @@ final class ReportBuilder
         $top = $b['top_referring_domains'] ?? [];
         if ($top) {
             $md .= "**Stärkste verweisende Domains (Beispiele):**\n\n";
-            $md .= "| Domain | Rang | Backlinks | davon dofollow |\n|---|---:|---:|---:|\n";
+            $md .= "| Domain | Rang | Backlinks |\n|---|---:|---:|\n";
             foreach (array_slice($top, 0, 10) as $d) {
                 $rank = $d['rank'] !== null ? (string) $d['rank'] : '—';
-                $bl = $d['backlinks'] !== null ? number_format((int) $d['backlinks'], 0, ',', '\'') : '—';
-                $df = $d['dofollow'] !== null ? number_format((int) $d['dofollow'], 0, ',', '\'') : '—';
-                $md .= "| {$d['domain']} | {$rank} | {$bl} | {$df} |\n";
+                $bl = isset($d['backlinks']) && $d['backlinks'] !== null
+                    ? number_format((int) $d['backlinks'], 0, ',', '\'') : '—';
+                $md .= "| {$d['domain']} | {$rank} | {$bl} |\n";
             }
             $md .= "\n";
             $md .= $this->gray('Diese Domains verlinken auf die Website. Ein Link von einer Domain '
-                . 'mit hohem Rang wiegt schwerer als viele Links von schwachen Seiten. „dofollow" '
-                . 'bedeutet, dass der Link Autorität weitergibt (im Gegensatz zu „nofollow").') . "\n\n";
+                . 'mit hohem Rang (0 bis 1000, DataForSEO) wiegt schwerer als viele Links von '
+                . 'schwachen Seiten.') . "\n\n";
         }
 
         return $md;
