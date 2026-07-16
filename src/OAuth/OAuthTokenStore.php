@@ -62,9 +62,9 @@ class OAuthTokenStore
 
         $stored = $this->crypto->decrypt((string) $connection['refresh_token_enc']);
         $access = match ($cfg['token_style'] ?? 'oauth2') {
-            'tiktok'         => $this->refreshTikTok($cfg, $stored),
-            'meta_longlived' => $this->refreshMetaLongLived($cfg, $stored, $connection),
-            default          => $this->refreshOauth2($cfg, $stored),
+            'tiktok'           => $this->refreshTikTok($cfg, $stored),
+            'instagram_login'  => $this->refreshInstagramLogin($stored, $connection),
+            default            => $this->refreshOauth2($cfg, $stored),
         };
 
         return $this->accessCache[$id] = $access;
@@ -101,23 +101,25 @@ class OAuthTokenStore
     }
 
     /**
-     * Meta/Instagram: kein refresh_token-Grant. Das gespeicherte Long-Lived-Token (60 Tage)
-     * wird per fb_exchange_token gegen ein frisches Long-Lived-Token getauscht und rollierend
-     * zurückgespeichert (verlängert die 60-Tage-Frist bei jedem Lauf). Das getauschte Token
-     * ist zugleich das Access-Token für die Graph-API-Calls.
-     * @param array<string,mixed> $cfg
+     * Instagram-Login: kein refresh_token-Grant. Das gespeicherte Long-Lived-Token (60 Tage)
+     * wird via ig_refresh_token auf graph.instagram.com verlängert (frisches 60-Tage-Token)
+     * und rollierend zurückgespeichert. Das Token ist zugleich das Access-Token für die
+     * graph.instagram.com-Calls. Instagram erlaubt Refresh erst ab Token-Alter 24 h; solange
+     * das aktuelle Token noch gültig ist, taugt es ohnehin direkt als Access-Token, daher
+     * fällt der Refresh bei Fehlern still auf das gespeicherte Token zurück.
      * @param array<string,mixed> $connection
      */
-    private function refreshMetaLongLived(array $cfg, string $longLived, array $connection): string
+    private function refreshInstagramLogin(string $longLived, array $connection): string
     {
-        $data = $this->postToken($cfg['token_url'], [
-            'grant_type'        => 'fb_exchange_token',
-            'client_id'         => $cfg['client_id'],
-            'client_secret'     => $cfg['client_secret'],
-            'fb_exchange_token' => $longLived,
-        ], 'GET');
-        $access = $this->requireAccessToken($data, 'meta');
-        // Rollierend zurückspeichern, damit die 60-Tage-Frist nicht abläuft.
+        try {
+            $data = $this->postToken('https://graph.instagram.com/refresh_access_token', [
+                'grant_type'   => 'ig_refresh_token',
+                'access_token' => $longLived,
+            ], 'GET');
+            $access = $this->requireAccessToken($data, 'instagram');
+        } catch (\Throwable) {
+            return $longLived; // Refresh (noch) nicht möglich → gespeichertes Token nutzen
+        }
         if (isset($connection['id'])) {
             $this->repo->updateSocialConnectionToken(
                 (int) $connection['id'],
@@ -157,7 +159,9 @@ class OAuthTokenStore
     /**
      * Tauscht einen Authorization-Code gegen Tokens (im OAuth-Callback). Gibt access + refresh
      * im Klartext zurück; der Aufrufer speichert den Refresh-Token via encryptRefreshToken().
-     * @return array{access_token:string,refresh_token:?string,scope:?string}
+     * account_ref trägt (falls die Plattform sie liefert) die eindeutige Account-ID mit —
+     * bei Instagram-Login die user_id, damit spätere Läufe /me nicht auflösen müssen.
+     * @return array{access_token:string,refresh_token:?string,scope:?string,account_ref:?string}
      */
     public function exchangeCode(string $platform, string $code): array
     {
@@ -185,23 +189,45 @@ class OAuthTokenStore
         }
         $refresh = $data['refresh_token'] ?? ($data['data']['refresh_token'] ?? null);
         $scope = $data['scope'] ?? ($data['data']['scope'] ?? null);
+        $accountRef = null;
 
-        // Meta liefert kein refresh_token: das (kurzlebige) Access-Token muss zunächst gegen
-        // ein Long-Lived-Token getauscht und DAS als „refresh_token" gespeichert werden.
-        if (($cfg['token_style'] ?? 'oauth2') === 'meta_longlived') {
-            $refresh = $this->metaLongLivedFromShort($cfg, (string) $access);
+        // Instagram-Login: das kurzlebige Token (1 h) zuerst gegen ein Long-Lived-Token
+        // (60 Tage) tauschen und DAS als „refresh_token" speichern. Die user_id aus der
+        // Code-Antwort ist die IG-Account-ID → als account_ref merken.
+        if (($cfg['token_style'] ?? 'oauth2') === 'instagram_login') {
+            $refresh = $this->instagramLongLivedFromShort($cfg, (string) $access);
+            $access = $refresh; // Long-Lived-Token ist auch das Access-Token für graph.instagram.com
+            $uid = $data['user_id'] ?? ($data['data']['user_id'] ?? null);
+            $accountRef = $uid !== null ? (string) $uid : null;
         }
 
         return [
             'access_token'  => (string) $access,
             'refresh_token' => $refresh !== null ? (string) $refresh : null,
             'scope'         => $scope !== null ? (string) $scope : null,
+            'account_ref'   => $accountRef,
         ];
     }
 
     /**
+     * Tauscht ein kurzlebiges Instagram-Login-Token (1 h) gegen ein Long-Lived-Token (60 Tage)
+     * via ig_exchange_token auf graph.instagram.com. Wird verschlüsselt gespeichert und
+     * rollierend erneuert.
+     * @param array<string,mixed> $cfg
+     */
+    private function instagramLongLivedFromShort(array $cfg, string $shortToken): string
+    {
+        $data = $this->postToken('https://graph.instagram.com/access_token', [
+            'grant_type'    => 'ig_exchange_token',
+            'client_secret' => $cfg['client_secret'],
+            'access_token'  => $shortToken,
+        ], 'GET');
+        return $this->requireAccessToken($data, 'instagram long-lived');
+    }
+
+    /**
+     * (Ungenutzt seit Umstellung auf Instagram-Login; bleibt für den FB-Login-Weg dokumentiert.)
      * Tauscht ein kurzlebiges Meta-Access-Token (1 h) gegen ein Long-Lived-Token (60 Tage).
-     * Dieses langlebige Token speichern wir verschlüsselt und verlängern es rollierend.
      * @param array<string,mixed> $cfg
      */
     private function metaLongLivedFromShort(array $cfg, string $shortToken): string

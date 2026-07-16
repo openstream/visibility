@@ -8,20 +8,18 @@ use GuzzleHttp\Client;
 use Openstream\Visibility\OAuth\OAuthTokenStore;
 
 /**
- * Echte Kennzahlen eines per OAuth verbundenen Instagram-Business/Creator-Kontos via
- * Instagram Graph API (v21.0, Scopes instagram_basic + instagram_manage_insights).
+ * Echte Kennzahlen eines per OAuth verbundenen Instagram-Business/Creator-Kontos über
+ * „Instagram API with Instagram Login" (graph.instagram.com, Scopes instagram_business_basic
+ * + instagram_business_manage_insights). Der Kunde meldet sich direkt mit seinem Instagram-
+ * Konto an — KEINE Facebook-Seite und kein /me/accounts-Umweg nötig.
  *
  * Liefert die ECHTEN Monats-Views des Berichtsmonats (Metrik „views", period=day,
  * metric_type=total_value über since/until aggregiert) plus Reach und Follower. Anders als
  * YouTube/TikTok braucht es kein Delta — Instagram liefert den Zeitraumswert direkt.
- *
- * Voraussetzung: Business- oder Creator-Konto, mit einer Facebook-Seite verknüpft; die
- * Instagram-Business-Account-ID wird beim ersten Lauf über /me/accounts ermittelt und als
- * account_ref gecacht (spart je Lauf zwei Calls).
  */
 final class InstagramInsightsProvider implements ConnectedSocialProvider
 {
-    private const GRAPH = 'https://graph.facebook.com/v21.0/';
+    private const GRAPH = 'https://graph.instagram.com/';
 
     private Client $http;
 
@@ -38,24 +36,15 @@ final class InstagramInsightsProvider implements ConnectedSocialProvider
     public function collectConnected(array $connection, string $measuredAt): array
     {
         $token = $this->store->accessTokenFor($connection);
-
-        $igId = (string) ($connection['account_ref'] ?? '');
-        if ($igId === '') {
-            $igId = $this->resolveIgUserId($token);
-        }
-        if ($igId === '') {
-            return []; // kein verknüpftes IG-Business-Konto gefunden
-        }
-
         [$start, $end] = $this->monthUnixRange($measuredAt);
 
-        $views = $this->insightTotal($igId, 'views', $start, $end, $token);
-        $reach = $this->insightTotal($igId, 'reach', $start, $end, $token);
-        $followers = $this->followerCount($igId, $token);
+        $views = $this->insightTotal('views', $start, $end, $token);
+        $reach = $this->insightTotal('reach', $start, $end, $token);
+        $followers = $this->followerCount($token);
 
         return [new SocialMetric(
             platform:     'instagram',
-            account:      (string) ($connection['account_label'] ?? $igId),
+            account:      (string) ($connection['account_label'] ?? $connection['account_ref'] ?? 'instagram'),
             followers:    $followers,
             viewsTotal:   null, // Instagram liefert Zeitraumswerte direkt, kein Lifetime-Delta nötig
             postsTotal:   null,
@@ -65,30 +54,12 @@ final class InstagramInsightsProvider implements ConnectedSocialProvider
     }
 
     /**
-     * Ermittelt die Instagram-Business-Account-ID über die verknüpfte Facebook-Seite.
-     * /me/accounts → Page → instagram_business_account.id.
+     * Summe einer Account-Insights-Metrik (reach/views) über den Zeitraum (total_value),
+     * für das eigene verbundene Konto (/me). graph.instagram.com mit dem Instagram-User-Token.
      */
-    private function resolveIgUserId(string $token): string
+    private function insightTotal(string $metric, int $since, int $until, string $token): ?int
     {
-        $res = $this->http->get(self::GRAPH . 'me/accounts', [
-            'query' => ['fields' => 'instagram_business_account', 'access_token' => $token],
-        ]);
-        $data = json_decode((string) $res->getBody(), true)['data'] ?? [];
-        foreach ($data as $page) {
-            $id = $page['instagram_business_account']['id'] ?? null;
-            if (is_string($id) && $id !== '') {
-                return $id;
-            }
-        }
-        return '';
-    }
-
-    /**
-     * Summe einer Insights-Metrik (reach/views) über den Zeitraum (total_value).
-     */
-    private function insightTotal(string $igId, string $metric, int $since, int $until, string $token): ?int
-    {
-        $res = $this->http->get(self::GRAPH . $igId . '/insights', [
+        $res = $this->http->get(self::GRAPH . 'me/insights', [
             'query' => [
                 'metric'      => $metric,
                 'period'      => 'day',
@@ -107,9 +78,9 @@ final class InstagramInsightsProvider implements ConnectedSocialProvider
         return null;
     }
 
-    private function followerCount(string $igId, string $token): ?int
+    private function followerCount(string $token): ?int
     {
-        $res = $this->http->get(self::GRAPH . $igId, [
+        $res = $this->http->get(self::GRAPH . 'me', [
             'query' => ['fields' => 'followers_count', 'access_token' => $token],
         ]);
         $data = json_decode((string) $res->getBody(), true);

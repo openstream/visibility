@@ -102,7 +102,7 @@ final class OAuthController
         $this->repo->saveSocialConnection(
             $ctx['client_id'],
             $platform,
-            null,
+            $tokens['account_ref'] ?? null, // z.B. Instagram user_id (spart /me-Auflösung)
             null,
             $store->encryptRefreshToken($tokens['refresh_token']),
             $tokens['scope'],

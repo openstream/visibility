@@ -65,17 +65,22 @@ final class OAuthProviderConfig
         if (!$id || !$secret) {
             return null;
         }
+        // „Instagram API with Instagram Login" (graph.instagram.com) — der Kunde meldet sich
+        // direkt mit seinem Instagram-Business/Creator-Konto an, KEINE Facebook-Seite nötig.
+        // Auth/Token laufen über api.instagram.com, Daten über graph.instagram.com.
         return [
-            'auth_url'      => 'https://www.facebook.com/v21.0/dialog/oauth',
-            'token_url'     => 'https://graph.facebook.com/v21.0/oauth/access_token',
+            'auth_url'      => 'https://api.instagram.com/oauth/authorize',
+            'token_url'     => 'https://api.instagram.com/oauth/access_token',
             'client_id'     => $id,
             'client_secret' => $secret,
-            'scopes'        => ['instagram_basic', 'instagram_manage_insights', 'pages_read_engagement'],
+            'scopes'        => ['instagram_business_basic', 'instagram_business_manage_insights'],
+            // Instagram verlangt komma-separierte Scopes (wie TikTok).
+            'scope_separator' => ',',
             'extra_auth'    => [],
-            // Meta kennt keinen refresh_token-Grant: Das langlebige Token (60 Tage) wird per
-            // fb_exchange_token verlängert. Wir speichern das Long-Lived-Token als „refresh_token"
-            // und tauschen es bei jedem Lauf gegen ein frisches Long-Lived-Token (rollierend).
-            'token_style'   => 'meta_longlived',
+            // Instagram-Login: kein refresh_token-Grant. Das kurzlebige Token wird gegen ein
+            // Long-Lived-Token (60 Tage) getauscht (ig_exchange_token) und rollierend via
+            // ig_refresh_token erneuert. Endpoints auf graph.instagram.com.
+            'token_style'   => 'instagram_login',
         ];
     }
 

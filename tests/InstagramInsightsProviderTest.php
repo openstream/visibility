@@ -31,9 +31,9 @@ final class InstagramInsightsProviderTest extends TestCase
         return new InstagramInsightsProvider($store, $http);
     }
 
-    public function testCollectsRealMonthlyViewsWithCachedIgId(): void
+    public function testCollectsRealMonthlyViews(): void
     {
-        // account_ref gesetzt → kein /me/accounts-Call; Reihenfolge: views, reach, followers.
+        // Instagram-Login-Weg: me/insights views, me/insights reach, me?fields=followers_count.
         $provider = $this->providerWith([
             new Response(200, [], json_encode(['data' => [
                 ['name' => 'views', 'total_value' => ['value' => 12000]],
@@ -59,29 +59,31 @@ final class InstagramInsightsProviderTest extends TestCase
         $this->assertSame('instagram_graph', $m->source);
     }
 
-    public function testResolvesIgUserIdWhenNotCached(): void
+    public function testFallsBackToAccountRefAsLabel(): void
     {
-        // Ohne account_ref: erst /me/accounts, dann views, reach, followers.
         $provider = $this->providerWith([
-            new Response(200, [], json_encode(['data' => [
-                ['instagram_business_account' => ['id' => '17841499999999999']],
-            ]])),
             new Response(200, [], json_encode(['data' => [['name' => 'views', 'total_value' => ['value' => 300]]]])),
             new Response(200, [], json_encode(['data' => [['name' => 'reach', 'total_value' => ['value' => 250]]]])),
             new Response(200, [], json_encode(['followers_count' => 90])),
         ]);
 
-        $out = $provider->collectConnected(['id' => 1, 'platform' => 'instagram'], '2026-07-16');
+        // Kein account_label → account_ref (die user_id) dient als Label.
+        $out = $provider->collectConnected(['id' => 1, 'platform' => 'instagram', 'account_ref' => '17841499999999999'], '2026-07-16');
+        $this->assertSame('17841499999999999', $out[0]->account);
         $this->assertSame(300, $out[0]->monthlyViews);
         $this->assertSame(90, $out[0]->followers);
     }
 
-    public function testReturnsEmptyWhenNoLinkedIgAccount(): void
+    public function testHandlesMissingInsightGracefully(): void
     {
+        // views fehlt in der Antwort → monthlyViews null, aber Follower trotzdem gelesen.
         $provider = $this->providerWith([
-            new Response(200, [], json_encode(['data' => []])), // keine Seite mit IG-Konto
+            new Response(200, [], json_encode(['data' => []])),
+            new Response(200, [], json_encode(['data' => []])),
+            new Response(200, [], json_encode(['followers_count' => 42])),
         ]);
-        $out = $provider->collectConnected(['id' => 1, 'platform' => 'instagram'], '2026-07-16');
-        $this->assertSame([], $out);
+        $out = $provider->collectConnected(['id' => 1, 'platform' => 'instagram', 'account_ref' => 'x'], '2026-07-16');
+        $this->assertNull($out[0]->monthlyViews);
+        $this->assertSame(42, $out[0]->followers);
     }
 }
