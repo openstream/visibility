@@ -48,10 +48,12 @@ final class OAuthController
         $state = bin2hex(random_bytes(32));
         $this->repo->createOAuthState($state, $clientId, $platform);
 
+        // Scope-Trennzeichen: OAuth2-Standard ist Leerzeichen; TikTok verlangt Kommas.
+        $sep = $cfg['scope_separator'] ?? ' ';
         $base = [
             'redirect_uri'  => OAuthProviderConfig::redirectUri($platform),
             'response_type' => 'code',
-            'scope'         => implode(' ', $cfg['scopes']),
+            'scope'         => implode($sep, $cfg['scopes']),
             'state'         => $state,
         ];
         // TikTok identifiziert die App über client_key (in extra_auth). Sonst: client_id.

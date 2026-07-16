@@ -95,6 +95,8 @@ final class OAuthProviderConfig
             'scopes'        => ['user.info.basic', 'user.info.stats', 'video.list'],
             // TikTok nennt den Client-Parameter in der Auth-URL client_key (nicht client_id).
             'extra_auth'    => ['client_key' => $id],
+            // TikTok verlangt komma-separierte Scopes (nicht Leerzeichen wie OAuth2-Standard).
+            'scope_separator' => ',',
             // refresh_token-Grant, aber der Client-Parameter heisst client_key.
             'token_style'   => 'tiktok',
         ];
