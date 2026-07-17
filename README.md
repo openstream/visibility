@@ -641,8 +641,15 @@ Immer zwei Perspektiven pro Kennzahl: **Momentaufnahme** (aktueller Stand) und
 
 ## Phasenplan
 
+**Stand:** Phasen 0–3 sowie 2.5 + 2.6 sind ✅ **fertig** — Datenerhebung (SEO-Rankings,
+Onsite, Offsite, GEO inkl. Bing-AI/Copilot), Social via OAuth (YouTube/Instagram/TikTok live)
+und Newsletter (Sendy) sind angebunden, der ausführliche deutsche Report inkl. Charts +
+Executive Summary wird pro Kunde/Monat erzeugt (openstream Juni + Juli live). **Offen:**
+Phase 4 (Versand als Gmail-Draft), Phase 5 (Cron + Web-UI), Phase 6 (Produktion) — plus
+weitere Domains onboarden (foppa/schwarzenbach/hepro).
+
 ### Phase 0 — Setup & Konzept ✅/🟡
-- [x] `CLAUDE.md` + `ROADMAP.md` + API-Recherche
+- [x] `CLAUDE.md` + `README.md` (Konzept/Recherche/Statusplan) + API-Recherche
 - [x] Kern-Entscheidungen geklärt: keine Suites, kein eigener Crawler (nur APIs),
       wöchentlich crawlen/monatlich auswerten, Diagramme Pflicht, Onboarding mit
       Kundenfreigabe, plain PHP + Composer, YAML pro Kunde + DB, Gerüst zuerst.
@@ -679,7 +686,7 @@ Immer zwei Perspektiven pro Kennzahl: **Momentaufnahme** (aktueller Stand) und
 - [x] CLI-Gerüst: alle Kommandos funktionsfähig — `migrate`, `onboard`, `approve`,
       `backfill`, `collect`, `report`, `send`.
 - [x] DataForSEO-Account angelegt, Key in `.env` eingetragen (verifiziert).
-- [x] git-Repo initialisiert (34 Commits auf `main`).
+- [x] git-Repo initialisiert, auf `github.com/openstream/visibility` (main).
 
 ### Phase 1.5 — Onboarding einer Domain (Keywords & GEO-Prompts)  ✅ (End-to-end)
 Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf openstream.ch
@@ -717,7 +724,7 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       - **Grenze:** Bing hat KEINE historischen Rankings (nur live). GSC liefert
         zusätzlich 16 Monate echte eigene Daten (falls Property alt genug).
 
-### Phase 2 — Datenerhebung (das Herzstück)  🟡 (Rankings + Onsite/Offsite + GEO fertig)
+### Phase 2 — Datenerhebung (das Herzstück)  ✅ (Rankings + Onsite/Offsite + GEO + Bing-AI fertig)
 - [x] `SerpProvider`-Interface + `Measurement`-DTO.
 - [x] **GSC-Implementierung** (`GscSerpProvider`): echte Position/Klicks/Impressionen/
       CTR pro Query, Zuordnung zu approved Keywords. Auf openstream getestet (10 Messwerte).
@@ -733,15 +740,18 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       eingebunden (`bing.site_url`). Getestet auf openstream: 9 Messwerte inkl.
       Plattform-Kombos. Key hat 14 verifizierte Properties (u.a. openstream/foppa/hepro;
       schwarzenbach.ch fehlt noch).
-- [ ] **Bing AI Performance Report (CSV-Import)** — eigener Datenpfad, da KEINE API:
-      - Report exportieren: bing.com/webmasters/aiperformance → CSV (Citations,
-        Grounding Queries, seit Juni 2026 Intents/Topics/Citation-Share).
-      - **90-Tage-Fenster** → regelmässig (monatlich) exportieren, damit Historie
-        erhalten bleibt. CSV nach `storage/raw/<kunde>/bing_ai/<YYYY-MM>.csv` ablegen.
-      - `BingAiImporter`: CSV parsen → `ai_mentions` (engine=`bing_ai`, source=`bing_ui`,
-        mentioned/cited/Citations). Als **Stichprobe** im Report kennzeichnen.
-      - **Grounding Queries zusätzlich als GEO-Prompt-Saatgut** ans Onboarding geben.
-      - Kommando: `bin/console import-bing-ai --client=<slug> --file=<csv>`.
+- [x] **Bing AI Performance Report (CSV-Import, umgesetzt)** — eigener Datenpfad, da KEINE API.
+      `import-bing-ai --client=<slug> --month=<YYYY-MM>` liest **alle drei Export-Typen** aus
+      `storage/raw/<kunde>/bing_ai/`:
+      - **SearchQueries** → Grounding Queries mit Citations → `ai_mentions` (engine=`bing_ai`,
+        source=`bing_ai_csv`, je Query eine Zeile).
+      - **OverviewStats** → echte Monatssumme aller Citations (Tageszeitreihe) → `bing_ai_stats`.
+      - **PageStats** → meistzitierte eigene Seiten → `bing_ai_stats.top_pages`.
+      Report zeigt Gesamt-Citations + meistzitierte Seiten + Top-Anfragen (Abschnitt 4,
+      Copilot/Bing-AI), als **Stichprobe** gekennzeichnet. Report degradiert sauber, wenn nur
+      der Queries-Export vorliegt. Bing benennt Exporte nach dem Download-Tag → das Command
+      ordnet sie über `--month` zu (Report-Typ am Dateinamen erkannt).
+      - **Grounding Queries zusätzlich als GEO-Prompt-Saatgut** ans Onboarding (`onboard --bing-ai`).
       - Sobald Microsoft die API liefert (angekündigt „im Laufe 2026"): auf API umstellen,
         Importer als Fallback behalten.
 - [x] 🟡 `OnsiteProvider` (**rein API-basiert, umgesetzt**) via DataForSEO OnPage
@@ -756,7 +766,9 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
 - [x] `OffsiteProvider` (**umgesetzt**) via DataForSEO `backlinks/summary/live`:
       Domain Rank (0–1000), Backlinks gesamt, referring domains, broken/neu/verloren
       → `backlinks`. In `collect --offsite` eingebunden, im Report als Abschnitt 3.
-      **Offen (optional):** Anchor-Texte + Wettbewerbs-Backlink-Vergleich.
+      **Beispiel-Backlinks (umgesetzt):** `topReferringDomains()` (`backlinks/referring_domains`)
+      → stärkste verweisende Domains mit Rang + Backlinks (`backlinks.top_referring_domains`),
+      im Report als Tabelle. **Offen (optional):** Wettbewerbs-Backlink-Vergleich.
 - [x] **`GeoProvider`-Interface + `MentionAnalyzer` + `DataForSeoGeoProvider`:**
       **Wichtige Vereinfachung (15.07.2026):** ChatGPT, Gemini **und Claude** laufen
       alle über **DataForSEO LLM-Responses** (deutsche Prompts, web_search) — eine
@@ -774,32 +786,35 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
 - [x] **Google AI Overview** (`AiOverviewProvider`): prüft je Keyword mit Suchvolumen,
       ob die Domain in der AI-Zusammenfassung der Google-SERP zitiert wird
       → `ai_mentions` engine=`ai_overview`. In `collect --geo` eingebunden.
-- [ ] **Copilot** = Bing-AI aus CSV (`BingAiImporter` liest Grounding Queries/Citations,
-      → `ai_mentions` engine=bing_ai). Onboarding-Seeding fertig; **Mess-Import-Kommando
-      (`import-bing-ai`) offen.**
+- [x] **Copilot = Bing-AI aus CSV (umgesetzt):** `import-bing-ai` schreibt zitierte Queries
+      → `ai_mentions` (engine=bing_ai) und Overview/PageStats → `bing_ai_stats`. Im Report als
+      eigener Block (Gesamt-Citations, meistzitierte Seiten, Top-Anfragen), ohne irreführende
+      Erwähnungs-Rate (Microsoft liefert nur Treffer = Stichprobe).
 - [x] `bin/console collect --client=<slug>` (läuft **wöchentlich**) schreibt
       normalisiert → DB **mit `measured_at`**, idempotent pro Tag/Quelle. Flags:
-      `--serp`/`--geo`/`--onsite`/`--offsite`, `--date` zum Nachtragen.
+      `--serp`/`--geo`/`--onsite`/`--offsite`/`--social`/`--newsletter`, `--date` zum Nachtragen.
+      **Historischer Nachtrag (umgesetzt):** bei `--date` in einem abgeschlossenen Monat holt
+      GSC die Keyword-Positionen für genau diesen Monat (Datumsbereich statt letzte 28 Tage);
+      Bing WMT + DataForSEO-SERP werden dann übersprungen (liefern keinen historischen Monat).
       **Offen (optional):** Roh-Antworten zusätzlich nach `storage/raw` cachen.
 - [ ] Fehler-/Kostenlogging pro Lauf (aktuell: Kosten werden je Lauf ausgegeben,
       aber nicht persistiert; kein zentrales Log).
 
-### Phase 2.5 — Social Media + Newsletter (Owned Media erweitern)
+### Phase 2.5 — Social Media + Newsletter (Owned Media erweitern)  ✅
 Sichtbarkeit = ganzes Unternehmen, nicht nur die Website. Neue Kanäle, jeweils als
 eigener `Provider` hinter einem Interface (tauschbar), Zeitreihe via `collect` → DB.
 Details + Anbieter-Bewertung s. „Social-Media-Sichtbarkeit" und „Newsletter".
-**Grundsatz (entschieden):** nur **eigene Kanäle**, Fokus auf **öffentliche Views**.
-YouTube offiziell (API-Key); TikTok/IG nur eigene Accounts via Apify. Kein
-Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
+**Grundsatz (entschieden):** nur **eigene Kanäle**, Fokus auf **echte Monats-Views** via
+OAuth (der Kunde verbindet selbst, s. Phase 2.6). YouTube zusätzlich Data API (API-Key) als
+öffentlicher Fallback. Kein Scraping (Apify raus), kein Wettbewerber-Tracking.
 - [x] **`SocialProvider`-Interface** + `SocialMetric`-DTO + DB-Tabelle `social_metrics`
       (Zeitreihe: client, platform, account, followers, views_total, posts_total,
       measured_at). Config je Kunde (`social:` Block, optional — Kunden ohne Kanal:
       Abschnitt ausgeblendet). In `collect --social` eingebunden.
 - [x] **YouTube** (`YouTubeProvider`) via **Data API v3** (`channels.list?part=statistics`,
       nur API-Key, kein OAuth) — `viewCount` (Lifetime inkl. Shorts), Subscriber,
-      Video-Anzahl. Löst Kanal-ID/URL/@handle auf (`resolve()`, getestet). **Live-Test
-      offen bis YOUTUBE_API_KEY gesetzt.** *(Optional später: Analytics API mit OAuth für
-      echte Monats-Views + Shorts-Split.)*
+      Video-Anzahl. Löst Kanal-ID/URL/@handle auf (`resolve()`, getestet). **Live für openstream.**
+      Echte Monats-Views laufen über die Analytics API mit OAuth (s. Phase 2.6).
 - [x] **Apify komplett entfernt** (TikTok/Instagram-Scraping): lieferte Monats-Views nicht
       zuverlässig → durch OAuth ersetzt (s. Phase 2.6). Kein Apify-Code/-Token mehr.
 - [x] **Monats-Views je Kanal** — `socialMonthly()` bevorzugt echte OAuth-Monatswerte,
@@ -809,39 +824,44 @@ Wettbewerber-Tracking. Details s. „Social-Media-Sichtbarkeit".
       aggregierte Raten. Report-Abschnitt „6. Newsletter". Report-getestet.
   - [x] **`MailchimpProvider`** (Marketing API; Datacenter aus Key-Suffix; `parseCampaigns`
         unit-getestet). **Live-Lauf offen bis Mailchimp-Key.**
-  - [x] **`SendyProvider`** (aktive Abonnenten-Zahl für Listen-Wachstum; ehrlich: Sendy-API
-        liefert keine Opens/Clicks, DB-Pfad später). **Live-Lauf offen bis Sendy-Key.**
+  - [x] **`SendyProvider`** (umgesetzt & live für openstream): aktive Abonnenten + echte
+        Öffnungs-/Klickraten je Kampagne (Sendy-Stats). Report-Abschnitt 6 zeigt reale Zahlen.
+        Config `newsletter.cadence_months` steuert den Versand-Rhythmus (openstream: alle 2 Monate,
+        Report erklärt das statt den Abschnitt kommentarlos wegzulassen).
 - [x] **Openstream Visibility Score (OVS):** `VisibilityScore` (rein, unit-getestet:
       Impressionen × reale CTR statt roh), `visibility_score`-Zeitreihe, Report-Dachzahl
       mit offener Zusammensetzung + Trend-Chart, Executive Summary führt mit OVS. Getestet.
 - [x] **Grundsatz:** nur aggregierte Account-/Kampagnen-Stats des **eigenen** Kunden-Kanals,
       keine Personen-/Follower-/Empfänger-Listen, kein Wettbewerber-Tracking (DSG/DSGVO).
 
-### Phase 2.6 — Social via OAuth (exakte Monats-Views, minimale Web-Komponente)
+### Phase 2.6 — Social via OAuth (exakte Monats-Views, minimale Web-Komponente)  ✅ (live für openstream)
 Kurskorrektur: Apify liefert Monats-Views nicht zuverlässig → **offizielle APIs mit OAuth**,
 der Kunde verbindet seine Kanäle selbst. Bewusste, minimale Web-Erweiterung (kein
-Kundenportal). Details s. „Social via OAuth — Architektur". **Erst Infrastruktur, dann Provider.**
-- [ ] **Offen (Nick): OAuth-Apps registrieren** — Google Cloud (YouTube Analytics, Scope
-      `yt-analytics.readonly`), Meta (Instagram Graph + App-Review), TikTok Developer.
-      Callback-URLs auf `visibility.openstream.ch` (+ DDEV-URL). Credentials → `.env`.
+Kundenportal). Details s. „Social via OAuth — Architektur".
+- [x] **OAuth-Apps registriert (openstream):** Google Cloud (YouTube Analytics), TikTok
+      (Login Kit, **Sandbox** — kein Production-Review), Instagram (**Instagram-Login-Weg**,
+      Anwendungsfall „Messaging und Content", `instagram_business_manage_insights` im Dev-Modus,
+      **keine** Facebook-Seite nötig). Credentials in `.env` (`INSTAGRAM_OAUTH_*`, nicht `META_*`).
 - [x] **DB `social_connections` + `oauth_states`** — Refresh-Token **verschlüsselt**
       (`Crypto`, AES-256-GCM, unit-getestet: Manipulation/falscher Key scheitern).
-- [x] **`OAuthTokenStore`** — Refresh-Token ver-/entschlüsseln, Refresh→Access (gecacht),
-      Code→Token (Callback). `OAuthProviderConfig` (Google/Meta/TikTok Endpunkte/Scopes).
+- [x] **`OAuthTokenStore`** — Token ver-/entschlüsseln, Refresh→Access (gecacht), Code→Token.
+      Refresht **je Plattform unterschiedlich** (`token_style`): Google Standard-OAuth2,
+      TikTok mit `client_key` + komma-Scopes, Instagram Long-Lived-Token via `ig_refresh_token`
+      (rollierend zurückgespeichert). `OAuthProviderConfig` je Plattform.
 - [x] **Verbindungsseite (Web):** `/connect/<platform>?client=<slug>` → Consent-Redirect;
-      `/callback` speichert verschlüsselten Token. CSRF-State. Lokal getestet (Fehlerpfade +
-      Redirect-Konstruktion mit Dummy-Creds). **Live-Consent offen bis echte Credentials.**
-- [x] **`YouTubeAnalyticsProvider`** (`youtubeAnalytics.reports.query`): echte Monats-`views`.
-      In `collect --social` eingebunden. **Live-Test offen bis Google-OAuth-Client.**
-- [ ] **`InstagramInsightsProvider`** (Graph API Insights): echte Reichweite/Impressions/Views.
-- [ ] **`TikTokProvider` (OAuth)** (Display/Business API): echte Video-Views des eigenen Kontos.
-- [ ] **Live testen (DDEV):** OAuth-Flow gegen Nicks openstream-Konten, sobald die Apps
-      registriert sind — dann echte Monatswerte → `social_metrics` (`socialMonthly` nutzt sie
-      bereits bevorzugt gegenüber dem Data-API-Delta).
+      `/callback` speichert verschlüsselten Token. CSRF-State. **Live durchgespielt** für alle drei.
+- [x] **`YouTubeAnalyticsProvider`** — echte Monats-`views` (month-to-date). **Live.**
+- [x] **`InstagramInsightsProvider`** — `graph.instagram.com/me/insights` (views/reach) +
+      Follower. Echte Monats-Views (Zeitraumswert, kein Delta). **Live.**
+- [x] **`TikTokProvider`** — Display API `video/list` + `user/info`; Monats-Views als Delta
+      der Lifetime-Summe. **Live.** (Keine historischen Monate — Display API ist Momentaufnahme.)
+- [x] **Live getestet (DDEV):** alle drei Kanäle real verbunden, echte Zahlen in `social_metrics`.
+      **Historischer Backfill:** YouTube (Analytics-Zeitraum) + Instagram (90-Tage-Insights)
+      rückwirkend abrufbar; TikTok-Juni kam aus dem TikTok-Studio-CSV-Export (API kann's nicht).
 
-### Phase 3 — Report-Generierung (inkl. Diagramme)
-- [ ] Report-Datenmodell: aktueller Monat vs. Vormonat (Deltas!) **plus Zeitreihe
-      aus den wöchentlichen Datenpunkten** für die Verlaufs-Diagramme.
+### Phase 3 — Report-Generierung (inkl. Diagramme)  ✅ (Report + Charts + Summary live)
+- [x] Report-Datenmodell: aktueller Monat + Zeitreihe aus den wöchentlichen Datenpunkten
+      für die Verlaufs-Diagramme (ETV/OVS-Trend). GSC-Totals + Rankings live je Berichtsmonat.
 - [x] `src/Chart`: Chart-Generator (`SvgChart` + `ReportCharts`), der aus den
       Zeitreihen/Momentaufnahmen **eigenständiges SVG** erzeugt — kein externer
       Dienst (kein QuickChart), keine Netzwerk-Calls, voll reproduzierbar. Vier
@@ -857,25 +877,23 @@ Kundenportal). Details s. „Social via OAuth — Architektur". **Erst Infrastru
       *(Newsletter analog, sobald `NewsletterProvider` gebaut.)*
 - [x] **Report-Abschnitt „5. Social Media"** (`socialSection`): je Plattform Views (Monat) +
       Follower, plus **Views-Gesamt-Total** über alle Plattformen. Blendet sich ohne Daten aus.
-- [ ] **Ausführlicher `.md`-Report (Deutsch)** mit klaren Abschnitten:
-      0. **Openstream Visibility Score (OVS)** — die eine Dach-Zahl (aktive Sichtkontakte,
-         Monatswert + Trend) mit **offener Zusammensetzung** (Beitrag je Kanal + Formel).
-      1. **Markt-Kontext CH** (Donut Suchmaschinen + AI-Assistenten).
-      2. **Suchmaschinen-Rankings** (Google + Bing): Änderungen, Sichtbarkeitsindex.
-      3. **Onsite/technisch:** Core Web Vitals, technische Fehler, hreflang, Broken Links.
-      4. **Offsite/Backlinks:** referring domains, neue/verlorene Links, Spam-Score.
-      5. **GEO:** Mentions/Citations je LLM (ChatGPT/Perplexity/Gemini/AI-Overview) + Bing-AI.
-      6. **Social Media (neu):** je Plattform (YouTube/TikTok/Instagram) eine Zeile mit
-         **monatlichen Views** + Follower + Trend; darunter das **Views-Gesamt-Total** über
-         alle Plattformen. Kunden ohne Kanal: Abschnitt ausblenden.
-      7. **Newsletter (neu):** Öffnungs-/Klickrate, Listen-Wachstum je Ausgabe + Trend.
-      8. **Handlungsempfehlungen** über alle Bereiche.
-      Jeder Datenabschnitt enthält **Momentaufnahme + Verlaufs-Diagramm** (Bilder aus
-      `charts/`). Twig-/PHP-Template → Markdown. Datenlücken transparent kennzeichnen.
-- [ ] **Executive Summary (Deutsch, kurz):** das Wichtigste + Trend + eine Empfehlung.
-      **Um Social/Newsletter + OVS erweitern** (nicht nur SEO/GEO): den OVS-Monatswert +
-      Trend und die stärksten Social-/Newsletter-Signale einbeziehen. Für Mail-Body.
-- [ ] `bin/console report --client=<slug> --month=YYYY-MM` → schreibt beide.
+- [x] **Ausführlicher `.md`-Report (Deutsch, umgesetzt)** mit Header (Titel „Visibility Report
+      für X in <Region>", verlinkte Website + Social-Handles) und Abschnitten:
+      OVS-Dachzahl + Zusammensetzung, Markt-Kontext CH (Donuts), Sichtbarkeits-Verlauf (ETV),
+      1. Suchmaschinen-Rankings (Google gesamt + echte GSC-Verteilung + getrackte Keywords),
+      2. Onsite (Auffälligkeiten **mit Beispielseiten** + Meta-Längen-Tabelle),
+      3. Offsite (Domain Rank, Backlinks, **stärkste verweisende Domains**),
+      4. GEO (ChatGPT/Perplexity/AI-Overview mit **Beispiel-Anfragen + zitierten Quellen** +
+         Copilot/Bing-AI mit Gesamt-Citations/meistzitierte Seiten/Top-Anfragen),
+      5. Social Media (YouTube/TikTok/Instagram: Monats-Views + Follower + Total),
+      6. Newsletter (Öffnungs-/Klickrate je Ausgabe, Listen-Wachstum, Rhythmus-Hinweis).
+      Momentaufnahme + Verlaufs-Diagramme (SVG aus `charts/`). Datenlücken transparent
+      gekennzeichnet (z.B. Bing/TikTok ohne historischen Monat). Footer mit allen Quellen +
+      GitHub-Link. **Offen (optional):** eigener Abschnitt „Handlungsempfehlungen" über alle Bereiche.
+- [x] **Executive Summary (Deutsch, umgesetzt):** per Claude aus den Kern-Kennzahlen, führt mit
+      dem OVS + Trend, bezieht Social/Newsletter ein, ordnet den SEO→GEO-Shift ein, nennt eine
+      Empfehlung. Am Report-Anfang zum Kopieren als Mail-Body.
+- [x] `bin/console report --client=<slug> --month=YYYY-MM` → schreibt Report + Charts.
 
 ### Phase 4 — Versand
 - [ ] Symfony Mailer / SMTP-Config in `.env` (welcher Mailserver? → offene Frage)
