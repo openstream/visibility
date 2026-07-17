@@ -76,13 +76,21 @@ final class CollectCommand extends Command
         $io->title("Collect: {$slug} — {$measuredAt}");
         $io->text(count($keywords) . ' freigegebene Keywords.');
 
+        // Historischer Monat? (--date liegt in einem abgeschlossenen früheren Monat) → GSC-
+        // Keyword-Positionen für genau diesen Monat rückwirkend holen (statt der letzten 28
+        // Tage). Bing WMT kann das nicht (GetQueryStats liefert keinen wählbaren Bereich).
+        $histMonth = substr($measuredAt, 0, 7);
+        $isHistorical = $histMonth < date('Y-m');
+        $gscStart = $isHistorical ? $histMonth . '-01' : null;
+        $gscEnd = $isHistorical ? date('Y-m-t', strtotime($histMonth . '-01')) : null;
+
         $total = 0;
 
         // --- GSC (gratis, eigene Property) ---
         $siteUrl = $cfg['gsc']['site_url'] ?? null;
         if ($siteUrl) {
             try {
-                $provider = new GscSerpProvider(GscClient::fromEnv(), $siteUrl);
+                $provider = new GscSerpProvider(GscClient::fromEnv(), $siteUrl, 28, $gscStart, $gscEnd);
                 $measurements = $provider->collect($keywords);
                 $n = $repo->saveMeasurements($clientId, $measurements, $measuredAt);
                 $io->success("GSC: {$n} Messwerte erhoben und gespeichert.");
@@ -95,8 +103,13 @@ final class CollectCommand extends Command
         }
 
         // --- Bing Webmaster Tools (gratis, eigene Property) ---
+        // Bei historischer Erhebung überspringen: GetQueryStats liefert nur den aktuellen
+        // rollierenden Stand, kein wählbarer Monat → würde heutige Rankings falsch datieren.
         $bingSite = $cfg['bing']['site_url'] ?? null;
-        if ($bingSite) {
+        if ($bingSite && $isHistorical) {
+            $io->text('Bing WMT liefert keinen historischen Monat (nur aktuell) — überspringe Bing für '
+                . $histMonth . '.');
+        } elseif ($bingSite) {
             try {
                 $provider = new BingSerpProvider(BingWmtClient::fromEnv(), $bingSite);
                 $measurements = $provider->collect($keywords);
@@ -111,7 +124,10 @@ final class CollectCommand extends Command
         }
 
         // --- DataForSEO SERP (optional, kostet) ---
-        if ($input->getOption('serp')) {
+        if ($input->getOption('serp') && $isHistorical) {
+            $io->text('DataForSEO-SERP liefert nur den aktuellen Rang (keine Vergangenheit) — '
+                . 'überspringe SERP für ' . $histMonth . '.');
+        } elseif ($input->getOption('serp')) {
             $io->text('DataForSEO-SERP läuft (Standard-Queue, ~5 Min Wartezeit) …');
             $dfs = new DataForSeoClient();
             try {

@@ -608,7 +608,8 @@ final class ReportBuilder
 
         if (!$summary) {
             $md .= $this->gray('Für die getrackten Keywords liegen für ' . $this->monthLabel($period)
-                . ' noch keine Positionsdaten vor.') . "\n\n";
+                . ' keine Positionsdaten vor (in diesem Monat nicht erhoben). Die Gesamt- und '
+                . 'GSC-Rankings oben sind davon unberührt.') . "\n\n";
             return $md;
         }
 
@@ -640,6 +641,13 @@ final class ReportBuilder
                 }
                 $md .= "\n";
             }
+        }
+        // Google da, Bing fehlt → erklären (Bing Webmaster Tools liefert getrackte Positionen
+        // nur für den aktuellen Zeitraum, nicht rückwirkend für einen abgeschlossenen Monat).
+        if (isset($summary['google']) && !isset($summary['bing'])) {
+            $md .= $this->gray('Für Bing liegen in diesem Monat keine getrackten Keyword-Positionen '
+                . 'vor: Die Bing Webmaster Tools liefern diese Daten nur für den aktuellen Zeitraum, '
+                . 'nicht rückwirkend. Ab der laufenden Erhebung sind sie wieder enthalten.') . "\n\n";
         }
 
         return $md;

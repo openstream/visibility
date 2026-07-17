@@ -14,12 +14,16 @@ final class GscSerpProvider implements SerpProvider
     /**
      * @param GscClient $gsc
      * @param string $siteUrl  exakte Property-URL (z.B. https://www.openstream.ch/)
-     * @param int $days        Zeitfenster für die Erhebung (Default 28)
+     * @param int $days        rollierendes Zeitfenster (Default 28), falls kein fester Bereich
+     * @param ?string $startDate expliziter Bereichsanfang (Y-m-d) — für historische Monate
+     * @param ?string $endDate   expliziter Bereichsende (Y-m-d)
      */
     public function __construct(
         private readonly GscClient $gsc,
         private readonly string $siteUrl,
         private readonly int $days = 28,
+        private readonly ?string $startDate = null,
+        private readonly ?string $endDate = null,
     ) {}
 
     public function name(): string
@@ -30,8 +34,9 @@ final class GscSerpProvider implements SerpProvider
     public function collect(array $keywords): array
     {
         // GSC liefert Query + page in einem Rutsch; wir aggregieren pro Query.
-        $end = date('Y-m-d', strtotime('-3 days'));   // GSC-Daten ~2-3 Tage verzögert
-        $start = date('Y-m-d', strtotime("-{$this->days} days"));
+        // Fester Bereich (historischer Monat) hat Vorrang vor dem rollierenden Fenster.
+        $end = $this->endDate ?? date('Y-m-d', strtotime('-3 days')); // GSC ~2-3 Tage verzögert
+        $start = $this->startDate ?? date('Y-m-d', strtotime("-{$this->days} days"));
         $rows = $this->gsc->searchAnalytics($this->siteUrl, $start, $end, ['query', 'page'], 5000);
 
         // Query (lowercase) → beste Zeile (nach Impressionen) für URL-Zuordnung.
