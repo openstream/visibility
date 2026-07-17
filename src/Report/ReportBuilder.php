@@ -163,7 +163,13 @@ final class ReportBuilder
             return '—';
         }
         $path = (string) (parse_url($url, PHP_URL_PATH) ?: '/');
-        $label = $path === '/' || $path === '' ? 'Startseite' : $path;
+        if ($path === '/' || $path === '') {
+            // Startseite: bei einer Subdomain (nicht www) den Host zeigen statt „Startseite".
+            $host = preg_replace('#^www\.#', '', (string) (parse_url($url, PHP_URL_HOST) ?: ''));
+            $label = ($host !== '' && substr_count($host, '.') > 1) ? $host : 'Startseite';
+        } else {
+            $label = $path;
+        }
         return "[{$label}]({$url})";
     }
 
@@ -827,14 +833,52 @@ final class ReportBuilder
         // AI-Performance-Export listet nur Anfragen, bei denen die Domain zitiert wurde
         // (eine Stichprobe), nicht die Grundgesamtheit aller Anfragen.
         $bingAi = $this->repo->bingAiSummary($clientId, $period);
+        $bingStats = $this->repo->bingAiStats($clientId, $period);
         $md .= "### Copilot / Bing-AI (Microsoft)\n\n";
-        if ($bingAi) {
-            $md .= '- Anfragen mit Zitierung: ' . number_format($bingAi['queries'], 0, ',', '\'') . "\n";
-            $md .= '- Zitationen gesamt: ' . number_format($bingAi['citations'], 0, ',', '\'') . "\n\n";
+        if ($bingAi || $bingStats) {
+            // Gesamt-Citations bevorzugt aus dem Overview-Report (echte Monatssumme),
+            // sonst Fallback auf die Summe der Top-Queries.
+            $totalCit = $bingStats['citations_total'] ?? ($bingAi['citations'] ?? 0);
+            if ($totalCit) {
+                $md .= '- Zitationen gesamt (Monat): ' . number_format($totalCit, 0, ',', '\'') . "\n";
+            }
+            if ($bingAi) {
+                $md .= '- Grounding-Anfragen mit Zitierung: ' . number_format($bingAi['queries'], 0, ',', '\'') . "\n";
+            }
+            $md .= "\n";
             $md .= $this->gray('Quelle: Bing-AI-Performance-Report (Copilot & Bing-KI-Antworten). '
-                . 'Microsoft liefert nur die Anfragen, bei denen die Domain zitiert wurde, plus die '
-                . 'Anzahl Zitationen. Eine Erwähnungs-Rate wie bei den Chat-Assistenten ist daher '
+                . 'Microsoft liefert die Anfragen und Seiten, bei denen die Domain zitiert wurde, plus '
+                . 'die Anzahl Zitationen. Eine Erwähnungs-Rate wie bei den Chat-Assistenten ist daher '
                 . 'nicht möglich; die Werte sind laut Microsoft eine Stichprobe.') . "\n\n";
+
+            // Meistzitierte eigene Seiten (welcher Content in KI-Antworten funktioniert).
+            $pages = $bingStats['top_pages'] ?? [];
+            if ($pages) {
+                $md .= "**Meistzitierte Seiten in KI-Antworten:**\n\n";
+                $md .= "| Seite | Zitationen |\n|---|---:|\n";
+                foreach (array_slice($pages, 0, 10) as $p) {
+                    $cit = number_format((int) ($p['citations'] ?? 0), 0, ',', '\'');
+                    $md .= '| ' . $this->shortUrl((string) ($p['page'] ?? '')) . " | {$cit} |\n";
+                }
+                $md .= "\n";
+                $md .= $this->gray('Diese Seiten werden von Copilot/Bing-AI am häufigsten als Quelle '
+                    . 'herangezogen. Sie zeigen, welche Inhalte in KI-Antworten am besten funktionieren, '
+                    . 'also wo sich weiterer, ähnlich aufbereiteter Content lohnt.') . "\n\n";
+            }
+
+            // Top-Grounding-Queries (welche Fragen zur Zitierung führten).
+            $queries = $this->repo->bingAiQueries($clientId, $period, 10);
+            if ($queries) {
+                $md .= "**Top-Anfragen, bei denen zitiert wurde:**\n\n";
+                $md .= "| Grounding-Anfrage | Zitationen |\n|---|---:|\n";
+                foreach ($queries as $q) {
+                    $cit = number_format((int) $q['citations'], 0, ',', '\'');
+                    $md .= '| ' . $q['query'] . " | {$cit} |\n";
+                }
+                $md .= "\n";
+                $md .= $this->gray('„Grounding-Anfragen" sind die Fragen, auf die Copilot/Bing-AI '
+                    . 'geantwortet und dabei die Website zitiert hat.') . "\n\n";
+            }
         } else {
             $md .= $this->gray('Noch nicht importiert. Export unter bing.com/webmasters (AI Performance, '
                 . 'Beta, ohne API) als CSV, dann `import-bing-ai`.') . "\n\n";

@@ -283,3 +283,21 @@ CREATE TABLE IF NOT EXISTS reports (
     UNIQUE KEY uq_reports_client_period (client_id, period),
     CONSTRAINT fk_reports_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Bing AI Performance — Monats-Snapshot aus den CSV-Exporten (keine API, s. README).
+-- Gesamt-Citations (aus OverviewStats) + die meistzitierten Seiten (aus PageStats).
+-- Die einzelnen Grounding-Queries liegen in ai_mentions (engine=bing_ai). measured_at =
+-- Monatsletzter. Monat wird beim Import explizit gesetzt (Bing benennt Exporte nach dem
+-- Download-Tag, nicht dem Berichtsmonat).
+CREATE TABLE IF NOT EXISTS bing_ai_stats (
+    id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id        INT UNSIGNED NOT NULL,
+    citations_total  INT          NULL,           -- echte Monatssumme aller Citations
+    cited_pages_peak INT          NULL,           -- max. zitierte Seiten an einem Tag
+    top_pages        JSON         NULL,           -- meistzitierte Seiten [{page,citations}]
+    source           VARCHAR(64)  NOT NULL DEFAULT 'bing_ai_csv',
+    measured_at      DATE         NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_bingai_client_date (client_id, measured_at),
+    CONSTRAINT fk_bingai_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

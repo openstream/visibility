@@ -332,6 +332,76 @@ final class ClientRepository
     }
 
     /**
+     * Top-Grounding-Queries von Bing-AI im Monat (aus ai_mentions; position = Citation-Anzahl),
+     * absteigend nach Zitationen.
+     * @return array<int,array{query:string,citations:int}>
+     */
+    public function bingAiQueries(int $clientId, string $period, int $limit = 10): array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT citations, position FROM ai_mentions
+             WHERE client_id=? AND engine='bing_ai' AND measured_at BETWEEN ? AND ?
+               AND measured_at=(SELECT MAX(measured_at) FROM ai_mentions a2
+                                WHERE a2.client_id=ai_mentions.client_id AND a2.engine='bing_ai'
+                                  AND a2.measured_at BETWEEN ? AND ?)
+             ORDER BY position DESC LIMIT {$limit}"
+        );
+        $stmt->execute([$clientId, $start, $end, $start, $end]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $cits = json_decode((string) ($r['citations'] ?? '[]'), true) ?: [];
+            $query = is_array($cits) && isset($cits[0]) ? (string) $cits[0] : '';
+            if ($query !== '') {
+                $out[] = ['query' => $query, 'citations' => (int) $r['position']];
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Speichert den Bing-AI-Monats-Snapshot (Gesamt-Citations + meistzitierte Seiten).
+     * Idempotent pro (client, measured_at).
+     * @param array{citations_total:int,cited_pages_peak:int,top_pages:array<int,mixed>} $s
+     */
+    public function saveBingAiStats(int $clientId, array $s, string $measuredAt): void
+    {
+        $this->db->prepare(
+            'INSERT INTO bing_ai_stats (client_id, citations_total, cited_pages_peak, top_pages, source, measured_at)
+             VALUES (:cid, :ct, :cp, :tp, :src, :mdate)
+             ON DUPLICATE KEY UPDATE citations_total=VALUES(citations_total),
+               cited_pages_peak=VALUES(cited_pages_peak), top_pages=VALUES(top_pages)'
+        )->execute([
+            'cid' => $clientId, 'ct' => $s['citations_total'] ?? null,
+            'cp' => $s['cited_pages_peak'] ?? null, 'tp' => $this->json($s['top_pages'] ?? []),
+            'src' => 'bing_ai_csv', 'mdate' => $measuredAt,
+        ]);
+    }
+
+    /**
+     * Bing-AI-Monats-Snapshot (jüngster im Monat) für den Report.
+     * @return array{citations_total:?int,cited_pages_peak:?int,top_pages:array<int,array<string,mixed>>}|null
+     */
+    public function bingAiStats(int $clientId, string $period): ?array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            'SELECT citations_total, cited_pages_peak, top_pages FROM bing_ai_stats
+             WHERE client_id=? AND measured_at BETWEEN ? AND ? ORDER BY measured_at DESC LIMIT 1'
+        );
+        $stmt->execute([$clientId, $start, $end]);
+        $r = $stmt->fetch();
+        if (!$r) {
+            return null;
+        }
+        return [
+            'citations_total'  => $r['citations_total'] !== null ? (int) $r['citations_total'] : null,
+            'cited_pages_peak' => $r['cited_pages_peak'] !== null ? (int) $r['cited_pages_peak'] : null,
+            'top_pages'        => $r['top_pages'] ? (json_decode((string) $r['top_pages'], true) ?: []) : [],
+        ];
+    }
+
+    /**
      * GEO-Sichtbarkeit je Engine für einen Monat (für Report): wie viele Prompts,
      * wie oft erwähnt/zitiert.
      * @return array<string,array{prompts:int,mentioned:int,cited:int}>

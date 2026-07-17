@@ -64,6 +64,73 @@ final class BingAiImporter
     }
 
     /**
+     * Liest den AIPerformanceOverviewStats-Report (Tageszeitreihe: Datum, Citations,
+     * Cited Pages) und aggregiert ihn zur Monatssumme. Das ist die ECHTE Gesamtzahl der
+     * Citations im Monat (nicht nur die Summe der Top-Grounding-Queries).
+     *
+     * @return array{citations_total:int,cited_pages_peak:int,days:int}
+     */
+    public function overviewTotals(string $csvPath): array
+    {
+        $rows = $this->readCsv($csvPath);
+        if (!$rows) {
+            return ['citations_total' => 0, 'cited_pages_peak' => 0, 'days' => 0];
+        }
+        $header = array_shift($rows);
+        $cCol = $this->findColumn($header, self::CITATION_HEADERS);
+        $pCol = $this->findColumn($header, ['cited page', 'pages', 'seiten']);
+
+        $total = 0;
+        $peak = 0;
+        $days = 0;
+        foreach ($rows as $r) {
+            if ($cCol === null || trim((string) ($r[$cCol] ?? '')) === '') {
+                continue;
+            }
+            $total += (int) preg_replace('/\D/', '', (string) ($r[$cCol] ?? ''));
+            if ($pCol !== null) {
+                $peak = max($peak, (int) preg_replace('/\D/', '', (string) ($r[$pCol] ?? '')));
+            }
+            $days++;
+        }
+        return ['citations_total' => $total, 'cited_pages_peak' => $peak, 'days' => $days];
+    }
+
+    /**
+     * Liest den AIPageStatsReport (Seite, Citations): welche Seiten der Domain in
+     * KI-Antworten zitiert werden, mit Citation-Anzahl. Absteigend sortiert.
+     *
+     * @return array<int,array{page:string,citations:int}>
+     */
+    public function pageStats(string $csvPath): array
+    {
+        $rows = $this->readCsv($csvPath);
+        if (!$rows) {
+            return [];
+        }
+        $header = array_shift($rows);
+        $pCol = $this->findColumn($header, ['seite', 'page', 'url']);
+        $cCol = $this->findColumn($header, self::CITATION_HEADERS);
+        if ($pCol === null) {
+            throw new \RuntimeException('Keine Seiten-Spalte im PageStats-Report. Header: ' . implode(', ', $header));
+        }
+
+        $out = [];
+        foreach ($rows as $r) {
+            $page = trim((string) ($r[$pCol] ?? ''));
+            if ($page === '') {
+                continue;
+            }
+            $out[] = [
+                'page'      => $page,
+                'citations' => $cCol !== null ? (int) preg_replace('/\D/', '', (string) ($r[$cCol] ?? '')) : 0,
+            ];
+        }
+        usort($out, static fn($a, $b) => $b['citations'] <=> $a['citations']);
+        return $out;
+    }
+
+    /**
      * Extrahiert die Grounding Queries aus einer Bing-AI-CSV.
      *
      * @return array<int,string> eindeutige Grounding-Query-Strings (Reihenfolge erhalten)

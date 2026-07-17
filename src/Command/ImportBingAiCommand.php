@@ -63,13 +63,6 @@ final class ImportBingAiCommand extends Command
         }
         $cfg = Yaml::parseFile($cfgFile);
 
-        $csv = $input->getOption('file') ?: $app->storagePath("raw/{$slug}/bing_ai/{$month}.csv");
-        if (!is_file($csv)) {
-            $io->error("Bing-AI-CSV nicht gefunden: {$csv}");
-            $io->note('Export unter bing.com/webmasters → AI Performance → als CSV, dann hierher legen.');
-            return Command::FAILURE;
-        }
-
         $repo = new ClientRepository();
         try {
             $clientId = $repo->upsertFromConfig($cfg);
@@ -80,38 +73,95 @@ final class ImportBingAiCommand extends Command
 
         $io->title("Bing-AI-Import: {$slug} — {$month}");
 
-        try {
-            $rows = (new BingAiImporter())->citations($csv);
-        } catch (\Throwable $e) {
-            $io->error('CSV konnte nicht gelesen werden: ' . $e->getMessage());
-            return Command::FAILURE;
-        }
-        if (!$rows) {
-            $io->warning('Keine Zitations-Zeilen in der CSV.');
-            return Command::SUCCESS;
-        }
-
-        // measured_at auf den Monatsletzten setzen (Monats-Snapshot, wie im Report erwartet).
+        // Report-Dateien finden. Bing benennt Exporte nach dem DOWNLOAD-Tag, nicht dem
+        // Berichtsmonat → wir erkennen die drei Report-Typen am Namensmuster im bing_ai-Ordner
+        // und ordnen sie über --month zu. --file erzwingt eine einzelne Queries-CSV.
+        $dir = $app->storagePath("raw/{$slug}/bing_ai");
+        $importer = new BingAiImporter();
         $measuredAt = date('Y-m-t', strtotime($month . '-01'));
 
-        $mentions = [];
-        foreach ($rows as $r) {
-            $mentions[] = new GeoMention(
-                engine:      'bing_ai',
-                promptId:    null,
-                mentioned:   true,   // jede Zeile = zitierte Query
-                cited:       true,
-                position:    $r['citations'],   // Zitations-Anzahl (bing_ai nutzt position sonst nicht)
-                citations:   [$r['query']],     // Grounding Query als Beleg
-                competitors: [],
-                source:      'bing_ai_csv',
-            );
+        $queriesFile = $input->getOption('file')
+            ?: $this->findReport($dir, ['AISearchQueries', 'SearchQueries'], $month)
+            ?: (is_file("{$dir}/{$month}.csv") ? "{$dir}/{$month}.csv" : null);
+        $overviewFile = $this->findReport($dir, ['AIPerformanceOverview', 'OverviewStats'], $month);
+        $pagesFile    = $this->findReport($dir, ['AIPageStats', 'PageStats'], $month);
+
+        if (!$queriesFile && !$overviewFile && !$pagesFile) {
+            $io->error("Keine Bing-AI-Reports für {$month} in {$dir} gefunden.");
+            $io->note('Export unter bing.com/webmasters → AI Performance. Dateien in den Ordner '
+                . 'legen; der Monat wird über --month zugeordnet (Bing benennt nach Download-Tag).');
+            return Command::FAILURE;
         }
 
-        $n = $repo->saveGeoBatch($clientId, $mentions, $measuredAt);
-        $totalCit = array_sum(array_column($rows, 'citations'));
-        $io->success("{$n} zitierte Bing-AI-Queries importiert (Zitate gesamt: {$totalCit}), Stand {$measuredAt}.");
+        $did = [];
 
+        // 1) Grounding Queries → ai_mentions (je Query eine Zeile).
+        if ($queriesFile) {
+            $rows = $importer->citations($queriesFile);
+            $mentions = [];
+            foreach ($rows as $r) {
+                $mentions[] = new GeoMention(
+                    engine: 'bing_ai', promptId: null, mentioned: true, cited: true,
+                    position: $r['citations'], citations: [$r['query']], competitors: [],
+                    source: 'bing_ai_csv',
+                );
+            }
+            $n = $repo->saveGeoBatch($clientId, $mentions, $measuredAt);
+            $did[] = "{$n} Grounding-Queries";
+        }
+
+        // 2) Overview + PageStats → bing_ai_stats (Monats-Snapshot).
+        if ($overviewFile || $pagesFile) {
+            $overview = $overviewFile ? $importer->overviewTotals($overviewFile)
+                : ['citations_total' => 0, 'cited_pages_peak' => 0, 'days' => 0];
+            $pages = $pagesFile ? $importer->pageStats($pagesFile) : [];
+            $repo->saveBingAiStats($clientId, [
+                'citations_total'  => $overview['citations_total'],
+                'cited_pages_peak' => $overview['cited_pages_peak'],
+                'top_pages'        => array_slice($pages, 0, 20),
+            ], $measuredAt);
+            $did[] = "Overview ({$overview['citations_total']} Citations gesamt)";
+            $did[] = count($pages) . ' zitierte Seiten';
+        }
+
+        $io->success('Bing-AI importiert: ' . implode(', ', $did) . ", Stand {$measuredAt}.");
         return Command::SUCCESS;
+    }
+
+    /**
+     * Findet die neueste passende Report-Datei im Ordner (Namensmuster-Teilstring).
+     * Bevorzugt Dateien, die den Monat (MM.YYYY oder YYYY-MM) im Namen tragen.
+     * @param array<int,string> $needles
+     */
+    private function findReport(string $dir, array $needles, string $month): ?string
+    {
+        if (!is_dir($dir)) {
+            return null;
+        }
+        [$y, $m] = explode('-', $month);
+        $monthTags = ["{$m}.{$y}", "{$y}-{$m}", "_{$month}"];
+        $matches = [];
+        foreach (glob("{$dir}/*.csv") ?: [] as $path) {
+            $base = basename($path);
+            foreach ($needles as $needle) {
+                if (stripos($base, $needle) !== false) {
+                    // Priorität: Datei mit passendem Monat im Namen zuerst.
+                    $score = 0;
+                    foreach ($monthTags as $tag) {
+                        if (stripos($base, $tag) !== false) {
+                            $score = 1;
+                        }
+                    }
+                    $matches[] = ['path' => $path, 'score' => $score, 'mtime' => filemtime($path)];
+                    break;
+                }
+            }
+        }
+        if (!$matches) {
+            return null;
+        }
+        // Höchster Score, dann neueste Datei.
+        usort($matches, static fn($a, $b) => [$b['score'], $b['mtime']] <=> [$a['score'], $a['mtime']]);
+        return $matches[0]['path'];
     }
 }
