@@ -59,7 +59,7 @@ final class ReportBuilder
         $sections .= $this->onsiteOffsite($clientId, $period);
         $sections .= $this->geoSection($clientId, $period, $name);
         $sections .= $this->socialSection($clientId, $period);
-        $sections .= $this->newsletterSection($clientId, $period);
+        $sections .= $this->newsletterSection($clientId, $period, $cfg);
 
         $md  = "# " . $this->reportTitle($name, $cfg) . "\n\n";
         $md .= "**Website:** " . $this->websiteLink($domain) . "  \n";
@@ -71,7 +71,7 @@ final class ReportBuilder
         $md .= "---\n\n";
 
         $hasSocial = $this->repo->socialMonthly($clientId, $period) !== [];
-        $md .= $this->intro($name, $hasSocial);
+        $md .= $this->intro($name, $hasSocial, $cfg);
         $md .= $this->executiveSummary($clientId, $period, $name, $domain, $gscTotals);
         $md .= $sections;
 
@@ -228,9 +228,15 @@ final class ReportBuilder
         return "[{$display}]({$url})";
     }
 
-    /** Kurze „Was ist das?"-Einordnung für den Kunden. */
-    private function intro(string $name, bool $hasSocial): string
+    /**
+     * Kurze „Was ist das?"-Einordnung für den Kunden.
+     * @param array<string,mixed> $cfg
+     */
+    private function intro(string $name, bool $hasSocial, array $cfg = []): string
     {
+        $hasNewsletter = !empty($cfg['newsletter']);
+        $cadence = (int) ($cfg['newsletter']['cadence_months'] ?? 1);
+
         $md  = "## Worum es geht\n\n";
         $md .= "Dieser Report zeigt monatlich, wie sichtbar {$name} online ist "
             . ($hasSocial ? "- über Website, KI-Antworten und Social Media hinweg:\n\n" : "in "
@@ -244,6 +250,13 @@ final class ReportBuilder
         if ($hasSocial) {
             $md .= "- **Social Media:** Wie entwickeln sich die eigenen Kanäle (YouTube, TikTok, "
                 . "Instagram) - Views und Follower über die Zeit?\n";
+        }
+        if ($hasNewsletter) {
+            $rhythmus = $cadence >= 2
+                ? " Er wird alle {$cadence} Monate verschickt; gezeigt werden jeweils die jüngsten Ausgaben."
+                : '';
+            $md .= "- **Newsletter:** Öffnungs- und Klickraten sowie das Wachstum der Abonnentenliste."
+                . $rhythmus . "\n";
         }
         $md .= "\nZiel: auf einen Blick sehen, wo {$name} gut sichtbar ist und wo Potenzial liegt.\n\n";
         return $md;
@@ -937,16 +950,38 @@ final class ReportBuilder
      * Newsletter — Owned Media (Öffnungs-/Klickrate, Listen-Wachstum je Ausgabe).
      * Blendet sich aus, wenn keine Newsletter-Daten erhoben wurden.
      */
-    private function newsletterSection(int $clientId, string $period): string
+    /** @param array<string,mixed> $cfg */
+    private function newsletterSection(int $clientId, string $period, array $cfg = []): string
     {
         $rows = $this->repo->newsletterCampaigns($clientId, $period, 6);
+        $hasNewsletter = !empty($cfg['newsletter']);
+        $cadence = (int) ($cfg['newsletter']['cadence_months'] ?? 1);
+
         if (!$rows) {
-            return '';
+            // Kunde ohne Newsletter → Abschnitt ganz weglassen. Kunde MIT Newsletter, aber
+            // in diesem Monat keine Ausgabe (z.B. zweimonatlicher Versand) → Abschnitt zeigen
+            // und erklären, warum keine Zahlen da sind (statt kommentarlos zu fehlen).
+            if (!$hasNewsletter) {
+                return '';
+            }
+            $md = "## 6. Newsletter\n\n";
+            if ($cadence >= 2) {
+                $md .= "_In diesem Monat wurde keine Newsletter-Ausgabe verschickt: Der Newsletter "
+                    . "erscheint alle {$cadence} Monate. Kennzahlen (Öffnungs-/Klickraten, "
+                    . "Listen-Wachstum) folgen wieder im nächsten Versandmonat._\n\n";
+            } else {
+                $md .= "_In diesem Monat wurde keine Newsletter-Ausgabe verschickt._\n\n";
+            }
+            return $md;
         }
 
         $md = "## 6. Newsletter\n\n";
+        $rhythmusHinweis = $cadence >= 2
+            ? " Der Newsletter erscheint alle {$cadence} Monate; gezeigt werden die jeweils "
+              . "jüngsten Ausgaben, auch wenn im Berichtsmonat keine neue verschickt wurde."
+            : '';
         $md .= "_Reichweite des eigenen Newsletters: Öffnungs- und Klickrate je Ausgabe, "
-            . "plus Entwicklung der Listengrösse._\n\n";
+            . "plus Entwicklung der Listengrösse." . $rhythmusHinweis . "_\n\n";
         $md .= "| Ausgabe | Datum | Empfänger | Öffnungsrate | Klickrate | Abmeldungen |\n"
             . "|---|---|---:|---:|---:|---:|\n";
 

@@ -51,6 +51,7 @@ newsletter:
   provider: sendy
   env_suffix: OPENSTREAM
   list_id: "aczKi892kyKbP9miN8923NJEgw"   # Sendy-Listen-ID (öffentlich, kein Secret)
+  cadence_months: 2                        # Versand-Rhythmus: alle 2 Monate (nicht jeden Monat)
 
 report:
   recipient: nick@openstream.ch
