@@ -9,6 +9,7 @@ use Openstream\Visibility\Command\BackfillCommand;
 use Openstream\Visibility\Command\CollectCommand;
 use Openstream\Visibility\Command\ImportBingAiCommand;
 use Openstream\Visibility\Command\MigrateCommand;
+use Openstream\Visibility\Command\RefreshVolumeCommand;
 use Openstream\Visibility\Command\OnboardCommand;
 use Openstream\Visibility\Command\ReportCommand;
 use Openstream\Visibility\Command\SendCommand;
@@ -33,6 +34,7 @@ $app->addCommands([
     new BackfillCommand(),
     new CollectCommand(),
     new ImportBingAiCommand(),
+    new RefreshVolumeCommand(),
     new ReportCommand(),
     new SendCommand(),
 ]);

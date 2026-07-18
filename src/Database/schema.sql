@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS keywords (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     client_id   INT UNSIGNED NOT NULL,
     keyword     VARCHAR(255) NOT NULL,
+    search_volume INT        NULL,             -- CH-Suchvolumen/Monat (DataForSEO Keywords Data)
+    competition VARCHAR(16)  NULL,             -- LOW/MEDIUM/HIGH
+    cpc         DECIMAL(8,2) NULL,             -- Cost-per-Click (USD), Indikator für Wettbewerb
+    volume_updated_at DATETIME NULL,           -- wann zuletzt aktualisiert (quartalsweise)
     approved    TINYINT(1)   NOT NULL DEFAULT 0,
     approved_at DATETIME     NULL,
     PRIMARY KEY (id),

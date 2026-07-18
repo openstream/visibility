@@ -189,6 +189,29 @@ final class ClientRepository
     }
 
     /**
+     * Speichert CH-Suchvolumen/Wettbewerb/CPC je Keyword (aus KeywordVolumeProvider).
+     * Matcht case-insensitive über den Keyword-Text. Nur approved Keywords.
+     * @param array<string,array{search_volume:?int,competition:?string,cpc:?float}> $volumes keyword(lower)=>Werte
+     * @return int Anzahl aktualisierter Keywords
+     */
+    public function saveKeywordVolumes(int $clientId, array $volumes): int
+    {
+        $upd = $this->db->prepare(
+            'UPDATE keywords SET search_volume=:sv, competition=:comp, cpc=:cpc, volume_updated_at=NOW()
+             WHERE client_id=:cid AND LOWER(keyword)=:kw'
+        );
+        $n = 0;
+        foreach ($volumes as $kw => $v) {
+            $upd->execute([
+                'sv' => $v['search_volume'], 'comp' => $v['competition'], 'cpc' => $v['cpc'],
+                'cid' => $clientId, 'kw' => $kw,
+            ]);
+            $n += $upd->rowCount();
+        }
+        return $n;
+    }
+
+    /**
      * Keywords mit tatsächlichen Impressionen im jüngsten Erhebungslauf (= echtes
      * Suchvolumen). Für AI-Overview-Checks, damit nicht alle Keywords (langsam/teuer)
      * geprüft werden, sondern nur die relevanten. @return array<int,string> id => keyword
@@ -598,7 +621,7 @@ final class ClientRepository
         // measurements existieren — ohne die historischen Messwerte zu löschen.
         $stmt = $this->db->prepare(
             "SELECT m.engine, m.source, m.position, m.impressions, m.clicks, k.keyword,
-                    m.measured_at
+                    k.search_volume, m.measured_at
              FROM measurements m
              JOIN keywords k ON k.id = m.keyword_id AND k.approved = 1
              WHERE m.client_id = :cid
