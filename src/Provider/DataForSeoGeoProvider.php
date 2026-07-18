@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace Openstream\Visibility\Provider;
 
 /**
- * GEO-Sichtbarkeit über DataForSEO LLM-Responses (ChatGPT & Gemini). Schickt jeden
- * GEO-Prompt auf Deutsch mit Web-Suche an das Modell, analysiert Text + Citations
- * (via MentionAnalyzer) → erwähnt/zitiert/Position/Wettbewerber. Kein US/EN-Limit,
- * da wir die Prompts selbst deutsch stellen.
+ * GEO-Sichtbarkeit über DataForSEO LLM-Responses (ChatGPT, Gemini, Claude, Perplexity).
+ * Schickt jeden GEO-Prompt auf Deutsch mit Web-Suche an das Modell, analysiert Text +
+ * Citations (via MentionAnalyzer) → erwähnt/zitiert/Position/Wettbewerber. Kein US/EN-Limit,
+ * da wir die Prompts selbst deutsch stellen. Perplexity läuft seit 18.07.2026 ebenfalls hier
+ * (statt separater Sonar-API) → alle GEO-Kanäle unter einer Auth/einem Antwortformat.
  */
 final class DataForSeoGeoProvider implements GeoProvider
 {
     /** engine → [dfs-provider-slug, modell, ai_mentions-engine, source] */
     private const CHANNELS = [
-        'chatgpt' => ['chat_gpt', 'gpt-4o-mini', 'chatgpt', 'dataforseo'],
-        'gemini'  => ['gemini',   'gemini-2.5-flash', 'gemini', 'dataforseo'],
-        'claude'  => ['claude',   'claude-sonnet-4-6', 'claude', 'dataforseo'],
+        'chatgpt'    => ['chat_gpt',  'gpt-4o-mini', 'chatgpt', 'dataforseo'],
+        'gemini'     => ['gemini',    'gemini-2.5-flash', 'gemini', 'dataforseo'],
+        'claude'     => ['claude',    'claude-sonnet-4-6', 'claude', 'dataforseo'],
+        'perplexity' => ['perplexity', 'sonar', 'perplexity', 'dataforseo'],
     ];
 
     public function __construct(

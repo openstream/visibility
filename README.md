@@ -324,7 +324,7 @@ teurer) + AI Overview.
 |---|---|---|---|
 | SERP-Rankings (GSC gratis, DataForSEO nur Zusatz) | ~20 Keywords | wöchentlich | ~$0.05/Monat |
 | GEO ChatGPT (DataForSEO LLM-Responses) | 20 Prompts | monatlich | ~$0.55 (~$0.027/Call) |
-| GEO Perplexity (Sonar API) | 20 Prompts | monatlich | ~$0.10 (günstig) |
+| GEO Perplexity (DataForSEO LLM-Responses, Modell sonar) | 20 Prompts | monatlich | ~$0.14 (~$0.007/Call) |
 | GEO AI Overview (DataForSEO SERP) | ~104 Keywords | monatlich | ~$0.40 ($0.004/Query) |
 | Onsite-Audit (DataForSEO OnPage) | 25 Seiten | monatlich | ~$0.004 |
 | Offsite/Backlinks (DataForSEO) | 1 Snapshot | monatlich | ~$0.024 |
@@ -780,9 +780,10 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       Getestet openstream: Marke bei Marken-Prompts sichtbar (Pos 1), bei Kategorie-
       Prompts (Wettbewerb) noch nicht — je Kanal unterschiedlich.
       **Kanal-Marktanteile CH:** ChatGPT 72 %, Gemini 8 %, **Claude 7 % (vor Perplexity!)**.
-- [x] **Perplexity** via Sonar-API (`PerplexityGeoProvider`, citation-native, deutsch):
-      Antwort + Citations → `MentionAnalyzer` → `ai_mentions`. In `collect --geo`
-      eingebunden (config `geo.channels.perplexity`).
+- [x] **Perplexity** über DataForSEO LLM-Responses (Modell `sonar`, seit 18.07.2026 — vorher
+      direkte Sonar-API). Läuft jetzt als 4. Kanal im `DataForSeoGeoProvider` → alle GEO-Kanäle
+      unter einer Auth/einem Antwortformat. Verifiziert gleichwertig (deutsche Antwort +
+      Citations, ~$0.007/Prompt). Der frühere `PerplexityGeoProvider` (Sonar) ist entfernt.
 - [x] **Google AI Overview** (`AiOverviewProvider`): prüft je Keyword mit Suchvolumen,
       ob die Domain in der AI-Zusammenfassung der Google-SERP zitiert wird
       → `ai_mentions` engine=`ai_overview`. In `collect --geo` eingebunden.

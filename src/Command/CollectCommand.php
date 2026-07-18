@@ -153,19 +153,17 @@ final class CollectCommand extends Command
                     $domain, $repo->brandNames($clientId), $cfg['competitors'] ?? []
                 );
                 // Aktive GEO-Kanäle aus der Config (kostenbewusst wählbar).
-                // ChatGPT/Gemini/Claude via DataForSEO; Perplexity via Sonar (citation-native).
+                // ChatGPT/Gemini/Claude/Perplexity laufen alle über DataForSEO LLM-Responses
+                // (eine Auth, ein Antwortformat, serverseitige Web-Suche, deutsche Prompts).
                 $channels = $cfg['geo']['channels'] ?? ['chatgpt' => true, 'perplexity' => true];
                 $active = array_keys(array_filter($channels));
                 $io->text(count($prompts) . ' GEO-Prompts über: ' . implode(', ', $active) . '.');
                 $dfsGeo = new DataForSeoClient();
                 $providers = [];
-                foreach (['chatgpt', 'gemini', 'claude'] as $ch) {
+                foreach (['chatgpt', 'gemini', 'claude', 'perplexity'] as $ch) {
                     if (!empty($channels[$ch])) {
                         $providers[] = new \Openstream\Visibility\Provider\DataForSeoGeoProvider($dfsGeo, $analyzer, $ch);
                     }
-                }
-                if (!empty($channels['perplexity'])) {
-                    $providers[] = new \Openstream\Visibility\Provider\PerplexityGeoProvider($analyzer);
                 }
                 if (!$providers) {
                     $io->warning('Keine GEO-Kanäle aktiviert (config geo.channels).');
@@ -206,7 +204,7 @@ final class CollectCommand extends Command
                 }
 
                 if ($dfsGeo->spent() > 0) {
-                    $io->note(sprintf('DataForSEO-GEO-Kosten: $%.4f (Perplexity separat via Sonar)', $dfsGeo->spent()));
+                    $io->note(sprintf('DataForSEO-GEO-Kosten: $%.4f (inkl. Perplexity)', $dfsGeo->spent()));
                 }
             }
         }
