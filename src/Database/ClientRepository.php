@@ -593,11 +593,14 @@ final class ClientRepository
         // Datumsbereich statt DATE_FORMAT-String (vermeidet Collation-Konflikte, indexnutzbar).
         [$start, $end] = $this->monthRange($period);
         // Letzter Erhebungstag im Monat je (engine) — Momentaufnahme des Monats.
+        // JOIN (nicht LEFT) auf approved=1: deaktivierte Keywords (z.B. Agentur-Begriffe nach
+        // Positionierungs-Wechsel) fallen sofort aus dem Report, auch wenn noch alte
+        // measurements existieren — ohne die historischen Messwerte zu löschen.
         $stmt = $this->db->prepare(
             "SELECT m.engine, m.source, m.position, m.impressions, m.clicks, k.keyword,
                     m.measured_at
              FROM measurements m
-             LEFT JOIN keywords k ON k.id = m.keyword_id
+             JOIN keywords k ON k.id = m.keyword_id AND k.approved = 1
              WHERE m.client_id = :cid
                AND m.measured_at = (
                    SELECT MAX(measured_at) FROM measurements
