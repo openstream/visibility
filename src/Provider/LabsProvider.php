@@ -100,6 +100,42 @@ final class LabsProvider
         return $out;
     }
 
+    /**
+     * Verwandte Keyword-Ideen zu Seed-Begriffen (CH/Deutsch), nach Volumen. Für die
+     * Keyword-Findung im Onboarding — als SIGNAL (roh, streut breit, braucht Kuratierung
+     * durch LLM + Mensch), nicht als fertige Keyword-Liste. Seeds sollten spezifisch sein
+     * (z.B. «woocommerce agentur»), nicht generisch («shop»), sonst dominieren fremde Marken.
+     *
+     * @param array<int,string> $seeds
+     * @return array<int,array{keyword:string,volume:?int}>
+     */
+    public function keywordIdeas(array $seeds, int $limit = 50): array
+    {
+        $seeds = array_values(array_filter(array_map('trim', $seeds)));
+        if (!$seeds) {
+            return [];
+        }
+        $res = $this->dfs->post('dataforseo_labs/google/keyword_ideas/live', [[
+            'keywords'      => array_slice($seeds, 0, 200),
+            'location_code' => self::LOCATION_SWITZERLAND,
+            'language_code' => 'de',
+            'limit'         => $limit,
+            'order_by'      => ['keyword_info.search_volume,desc'],
+        ]]);
+        $items = $res['tasks'][0]['result'][0]['items'] ?? [];
+        $out = [];
+        foreach ($items as $it) {
+            $kw = trim((string) ($it['keyword'] ?? ''));
+            if ($kw !== '') {
+                $out[] = [
+                    'keyword' => $kw,
+                    'volume'  => $it['keyword_info']['search_volume'] ?? null,
+                ];
+            }
+        }
+        return $out;
+    }
+
     private function normalize(string $domain): string
     {
         $d = strtolower(preg_replace('#^https?://#', '', $domain));

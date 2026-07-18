@@ -32,6 +32,7 @@ final class OnboardCommand extends Command
         $this->addOption('urls', null, InputOption::VALUE_REQUIRED, 'Kommagetrennte URLs (Default: key_pages/Startseite)');
         $this->addOption('save', null, InputOption::VALUE_NONE, 'Ergebnisse in die DB schreiben (Status pending → approve nötig)');
         $this->addOption('bing-ai', null, InputOption::VALUE_REQUIRED, 'Pfad zur Bing-AI-Report-CSV (Grounding Queries als GEO-Prompt-Saatgut)');
+        $this->addOption('labs-ideas', null, InputOption::VALUE_NONE, 'DataForSEO Labs Keyword-Ideen als zusätzliches Signal (kostet ~$0.01, braucht GSC-Queries)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -96,6 +97,27 @@ final class OnboardCommand extends Command
             }
         } else {
             $io->text('Keine GSC-Property in der Config — überspringe GSC-Signale.');
+        }
+
+        // --- Optional: DataForSEO Labs Keyword-Ideen als zusätzliches Keyword-Signal ---
+        // Seeds = die (spezifischen) GSC-Queries; die Ideen sind ROH und streuen breit,
+        // dienen daher nur als Signal für die LLM-/Nick-Kuratierung, nicht als fertige Liste.
+        if ($input->getOption('labs-ideas')) {
+            if ($gscQueries) {
+                try {
+                    $dfsIdeas = new \Openstream\Visibility\Provider\DataForSeoClient();
+                    $ideas = (new \Openstream\Visibility\Provider\LabsProvider($dfsIdeas, $cfg['domain'] ?? $slug))
+                        ->keywordIdeas(array_slice($gscQueries, 0, 20), 50);
+                    $ideaKw = array_map(static fn($i) => $i['keyword'], $ideas);
+                    $gscQueries = array_values(array_unique(array_merge($gscQueries, $ideaKw)));
+                    $io->text('Labs Keyword-Ideen ergänzt: ' . count($ideaKw)
+                        . sprintf(' ($%.4f)', $dfsIdeas->spent()));
+                } catch (\Throwable $e) {
+                    $io->warning('Labs Keyword-Ideen nicht verfügbar: ' . $e->getMessage());
+                }
+            } else {
+                $io->text('Keine GSC-Queries als Seeds — überspringe Labs Keyword-Ideen.');
+            }
         }
 
         // --- Optional: Bing-AI Grounding Queries (CSV) als GEO-Prompt-Saatgut ---
