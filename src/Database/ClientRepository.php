@@ -432,6 +432,41 @@ final class ClientRepository
     }
 
     /**
+     * Getestete GEO-Anfragen eines Kanals mit Ergebnis (erwähnt/zitiert), für die
+     * Beispiel-Liste im Report. Zeigt bewusst BEIDES: einige erwähnte Anfragen (Stärken)
+     * UND einige nicht-erwähnte (GEO-Lücken/Potenzial) — so wird sichtbar, wo die Marke
+     * schon präsent ist und wo nicht. Nur Anfragen mit Prompt-Text (nicht bing_ai-Zeilen).
+     *
+     * @return array<int,array{prompt:string,mentioned:bool,cited:bool}>
+     */
+    public function geoPromptResults(int $clientId, string $engine, string $period, int $limit = 8): array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT p.prompt, a.mentioned, a.cited
+             FROM ai_mentions a JOIN geo_prompts p ON p.id = a.prompt_id
+             WHERE a.client_id = ? AND a.engine = ? AND a.measured_at BETWEEN ? AND ?
+               AND a.measured_at = (SELECT MAX(measured_at) FROM ai_mentions a2
+                                    WHERE a2.client_id = a.client_id AND a2.engine = a.engine
+                                      AND a2.measured_at BETWEEN ? AND ?)
+             ORDER BY a.cited DESC, a.mentioned DESC, p.id"
+        );
+        $stmt->execute([$clientId, $engine, $start, $end, $start, $end]);
+        $rows = array_map(static fn($r) => [
+            'prompt'    => (string) $r['prompt'],
+            'mentioned' => (bool) $r['mentioned'],
+            'cited'     => (bool) $r['cited'],
+        ], $stmt->fetchAll());
+
+        // Ausgewogen: bis zur Hälfte erwähnte (Stärken), Rest nicht-erwähnte (Lücken).
+        $mentioned = array_values(array_filter($rows, static fn($r) => $r['mentioned']));
+        $missing   = array_values(array_filter($rows, static fn($r) => !$r['mentioned']));
+        $half = (int) ceil($limit / 2);
+        $pick = array_merge(array_slice($mentioned, 0, $half), $missing);
+        return array_slice($pick, 0, $limit);
+    }
+
+    /**
      * Konkrete GEO-Beispiele je Engine für den Report: pro Kanal eine Beispiel-Anfrage
      * mit Erwähnungs-/Zitierungs-Status, plus aggregierte Beispiele der in KI-Antworten
      * zitierten Quellen und genannten Wettbewerber (über alle Anfragen des Kanals).

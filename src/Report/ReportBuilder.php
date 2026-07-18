@@ -860,7 +860,15 @@ final class ReportBuilder
                 continue;
             }
             $exampleMd .= "**{$label}**  \n";
-            if ($e['example_prompt'] !== null) {
+            // Mehrere getestete Anfragen mit Ergebnis (erwähnt/zitiert), erwähnte zuerst.
+            $results = $this->repo->geoPromptResults($clientId, $engine, $period, 6);
+            foreach ($results as $r) {
+                $status = $r['mentioned']
+                    ? ($r['cited'] ? '✓ erwähnt und zitiert' : '✓ erwähnt')
+                    : 'nicht erwähnt';
+                $exampleMd .= '- „' . $r['prompt'] . '" — ' . $this->gray($status) . "\n";
+            }
+            if (!$results && $e['example_prompt'] !== null) {
                 $status = $e['example_mentioned']
                     ? ($e['example_cited'] ? 'erwähnt und als Quelle zitiert' : 'erwähnt')
                     : 'nicht erwähnt';
