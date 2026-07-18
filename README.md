@@ -283,8 +283,8 @@ Content Optimization, Building SaaS Tool (+ Local SEO). Integration: **REST API*
 | **OnPage API** | Crawl + technisches Audit: Meta, Headings, Canonicals, hreflang, Broken Links, Duplicate Content, Lighthouse/CWV | ✅ **Kern** — Onsite |
 | **Backlinks API** | referring domains/networks, Anchor-Texte, neu/verloren, Domain-Rank, Spam-Score, Wettbewerbsvergleich | ✅ **Kern** — Offsite |
 | **AI Optimization API** | LLM-Mentions & Citations (ChatGPT*/Perplexity/Gemini/AIO), LLM-Responses je Modell, AI-Keyword-Data | ✅ **Kern** — GEO (*ChatGPT nur US/EN → via OpenAI) |
-| **Keywords Data API** | Suchvolumen (Google/Bing Ads), Google Trends, Clickstream-Nachfrage | 🔜 **Onboarding** — Keyword-Ideen & Volumen für CH; «people also ask» als Prompt-Saat |
-| **DataForSEO Labs API** | Wettbewerber-Research, Keyword-Ideen, Ranked-Keywords, Domain-Vergleich, Kategorie-Analyse | 🔜 **Onboarding + Wettbewerb** — Konkurrenten & deren Keywords finden |
+| **Keywords Data API** | Suchvolumen (Google/Bing Ads), Google Trends, Clickstream-Nachfrage | ✅ **umgesetzt** — CH-Suchvolumen/Wettbewerb/CPC je Keyword (`refresh-volume`, ein Call ~$0.09, quartalsweise); Volumen-Spalte im Report |
+| **DataForSEO Labs API** | Ranked-Keywords, Keyword-Ideen, Relevant-Pages, Keyword-Difficulty | ✅ **umgesetzt** (eigene Domain, kein Wettbewerber-Tracking) — `collect --labs`: Sichtbarkeitsbreite (alle Rankings), stärkste Seiten, Difficulty-Spalte; Keyword-Ideen als Onboarding-Signal (`--labs-ideas`) |
 | **Domain Analytics API** | Tech-Stack-Erkennung, WHOIS, Domain-Infos | 💡 **Später** — Tech-Kontext im Onsite-Report (z.B. CMS erkannt) |
 | **Content Analysis API** | Sentiment, Rating-Verteilung, Phrase-Trends über Web-Erwähnungen | 💡 **Später** — Marken-/Reputations-Signal (Brand-Mentions, Sentiment) neben GEO |
 | **Business Data API** | Google Business Profile, Bewertungen (Trustpilot/Tripadvisor), Local-Pack, Social-Mentions | 💡 **Später (relevant für CH-KMU!)** — Local SEO: GBP-Sichtbarkeit, Sterne, lokale Rankings |
