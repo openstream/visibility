@@ -52,13 +52,13 @@ ddev exec php bin/console collect --client=<slug>          # Rankings erheben (w
 | Quelle | Modell | Kosten | Wofür | Bewertung |
 |---|---|---|---|---|
 | **Google Search Console API** | offiziell, OAuth/Service-Account | **kostenlos** | Echte Klicks, Impressions, CTR, Position pro Query & Seite — nur für *eigene* verifizierte Properties | **Erste Wahl**, wo GSC-Zugriff besteht. Skill `gsc-api-access` existiert bereits. |
-| **GSC — Search Generative AI Report** | offiziell | **kostenlos** | Impressions/Pages/Countries/Devices in **AI Overviews & AI Mode** (Daten ab 18.05.2026, **keine Queries/Klicks/CTR**) | ⚠️ **Angekündigt 3. Juni 2026, Rollout nur an UK-Teilmenge, keine API.** Bei unseren CH-Domains (z.B. hepro.ch) **noch nicht sichtbar.** → Als „kommt später" einplanen, nicht darauf warten; sobald verfügbar für AIO-Seiten-Signale nutzen. |
-| **Bing Webmaster Tools** | offiziell | **kostenlos** | Bing-Rankings/Impressions/Klicks (API ✅, umgesetzt) **und** der **AI Performance (Beta)** Report: Citations in Microsoft Copilot & Bing-AI-Summaries, „Grounding Queries", Intents/Topics/Citation-Share/Compare (seit Juni 2026). Nur für *eigene* verifizierte Properties. | Klassische WMT-Daten ✅ via API (`BingWmtClient`/`BingSerpProvider`). **AI-Report: weiterhin KEINE API** (Microsoft: „im Laufe 2026", Juli 2026 noch nicht live). **Aber CSV-Export über die UI** (bing.com/webmasters/aiperformance) → sauberer Datenpfad: manueller CSV-Import statt Scrape. **90-Tage-Fenster** → regelmässig exportieren & selbst archivieren. Daten sind eine **Stichprobe**. |
+| **GSC — Search Generative AI Report** | offiziell | **kostenlos** | Impressions/Pages/Countries/Devices in **AI Overviews & AI Mode** (Daten ab 18.05.2026, **keine Queries/Klicks/CTR**) | ⚠️ **Angekündigt 3. Juni 2026, Rollout nur an UK-Teilmenge, keine API.** Bei unseren CH-Kundendomains **noch nicht sichtbar.** → Als «kommt später» einplanen, nicht darauf warten; sobald verfügbar für AIO-Seiten-Signale nutzen. |
+| **Bing Webmaster Tools** | offiziell | **kostenlos** | Bing-Rankings/Impressions/Klicks (API ✅, umgesetzt) **und** der **AI Performance (Beta)** Report: Citations in Microsoft Copilot & Bing-AI-Summaries, «Grounding Queries», Intents/Topics/Citation-Share/Compare (seit Juni 2026). Nur für *eigene* verifizierte Properties. | Klassische WMT-Daten ✅ via API (`BingWmtClient`/`BingSerpProvider`). **AI-Report: weiterhin KEINE API** (Microsoft: «im Laufe 2026», Juli 2026 noch nicht live). **Aber CSV-Export über die UI** (bing.com/webmasters/aiperformance) → sauberer Datenpfad: manueller CSV-Import statt Scrape. **90-Tage-Fenster** → regelmässig exportieren & selbst archivieren. Daten sind eine **Stichprobe**. |
 | **DataForSEO — SERP API** | pay-per-task | ~$0.0006/Query (Standard-Queue, ~5 Min) bis $0.002 (Live, ~6 Sek) | Google-Rankings für beliebige Keywords/Domains *ohne* GSC-Zugriff; Wettbewerber-Rankings. **Unterstützt Schweiz + Deutsch** (`location="Switzerland"`, `gl=ch`, `hl=de`; Labs deckt DE/FR/IT für CH ab). PHP-Beispiele in Doku. | **Zweite Wahl / Ergänzung** für SEO. Günstigster Anbieter bei Volumen, transparentes Pay-per-Query. |
 | SerpApi | Abo | ab $25/Mt (1'000 Suchen), $75 (5'000) | SERP-Scraping, >100 Engines, `gl=ch`/`hl=de`/`location` | Backup zu DataForSEO. Teurer bei Volumen, aber sauberes JSON & breite Abdeckung. |
 | ValueSERP / ScaleSERP, Scrapingdog, Bright Data, Oxylabs SERP | pay-per-1K | ~$0.30–1.60 / 1'000 | Reine Google-SERP-Scraper mit CH-Targeting (UULE/`gl=ch`) | Günstige SERP-only-Alternativen. Kein Keyword-/Backlink-/GEO-Mehrwert. Nur falls DataForSEO nicht reicht. |
 
-**Bewusst NICHT genutzt (Suite-Produkte):** Sistrix, XOVI (Nicks Alt-Tool),
+**Bewusst NICHT genutzt (Suite-Produkte):** Sistrix, XOVI (das früher eingesetzte Alt-Tool),
 SE Ranking, Semrush, Ahrefs. → Entscheidung: **kein Suite-Dashboard**, wir bauen
 selbst. Ihre *rohen Daten-APIs* wären erlaubt, sind aber teurer/abo-gebunden als
 DataForSEO und bringen für unseren Fall keinen Mehrwert. Einzige Ausnahme, die man
@@ -73,19 +73,19 @@ im Report erwartet — dann nur diese eine Zahl, nicht die Suite.
 > **Update (Social ist jetzt Ziel):** Wir lösen das **nicht** über SE Ranking/Planable
 > (Suite), sondern selbst — YouTube offiziell (Data API), TikTok/Instagram via Apify nur
 > für die *eigenen* Kunden-Accounts (Gesamt-Views). Kein Wettbewerber-Tracking
-> (Nick-Entscheidung, s. „Social-Media-Sichtbarkeit"). SE Ranking
-> bleibt verworfen; die „keine Suite"-Leitplanke gilt weiter.
+> (Betreiber-Entscheidung, s. «Social-Media-Sichtbarkeit»). SE Ranking
+> bleibt verworfen; die «keine Suite»-Leitplanke gilt weiter.
 
 ### Onsite / technisches SEO (Website-Audit)
 
 Bisher via Xovi gemacht → jetzt selbst gebaut, aber **das Crawlen läuft über APIs,
-NICHT über einen selbstgebauten Crawler/Scraper.** „Crawlen" = regelmässiger
+NICHT über einen selbstgebauten Crawler/Scraper.** «Crawlen» = regelmässiger
 Erhebungslauf gegen APIs. Kein Screaming Frog/Sitebulb (Desktop-Tools) und
 **kein Eigenbau-Crawler** nötig.
 
 | Quelle | Modell | Kosten | Wofür | Bewertung |
 |---|---|---|---|---|
-| **DataForSEO OnPage API** | pay-per-task | **~$0.000125/Seite** (Base), +JS-Rendering | **Crawl-Backbone (API).** 60+ technische Checks: Meta/Title/Description, Headings, Canonicals, robots.txt, Sitemap, Broken Links (4xx/5xx), Redirect-Chains, **hreflang**, strukturierte Daten, HTTPS, Mobile, **Alt-Texte**, Duplicate Content, interne Links, Core Web Vitals (aus Lighthouse). JSON, async. | **Primäre Onsite-Quelle.** ~$1.25 für 10'000 Seiten. Deckt die allermeisten Checks ab — inkl. der Punkte, die wir sonst „selbst" prüfen müssten. |
+| **DataForSEO OnPage API** | pay-per-task | **~$0.000125/Seite** (Base), +JS-Rendering | **Crawl-Backbone (API).** 60+ technische Checks: Meta/Title/Description, Headings, Canonicals, robots.txt, Sitemap, Broken Links (4xx/5xx), Redirect-Chains, **hreflang**, strukturierte Daten, HTTPS, Mobile, **Alt-Texte**, Duplicate Content, interne Links, Core Web Vitals (aus Lighthouse). JSON, async. | **Primäre Onsite-Quelle.** ~$1.25 für 10'000 Seiten. Deckt die allermeisten Checks ab — inkl. der Punkte, die wir sonst «selbst» prüfen müssten. |
 | **Google PageSpeed Insights API** | offiziell | **kostenlos** (25'000 Req/Tag) | Lighthouse-Lab + Core Web Vitals (LCP, INP, CLS), SEO-/Performance-Score je URL | **Einbauen** — gratis, präzise Performance-Daten. |
 | **Chrome UX Report (CrUX) API** | offiziell | **kostenlos** | **Feld-/Real-User-Daten** der Core Web Vitals (nicht nur Lab) | **Einbauen** — ergänzt PageSpeed um echte Nutzerdaten. |
 | **Google Search Console API** | offiziell | **kostenlos** | Crawl-Stats, Index-Coverage, Mobile-Usability der *eigenen* Properties | Bereits im SEO-Teil; liefert auch Onsite-Signale. |
@@ -95,7 +95,7 @@ Erhebungslauf gegen APIs. Kein Screaming Frog/Sitebulb (Desktop-Tools) und
 Meta/Headings/hreflang/Broken Links/Alt-Texte/strukturierte Daten selbst ab) +
 gratis Google-APIs (PageSpeed/CrUX/GSC) + Mozilla Observatory. **Kein eigener
 Crawler.** Kostet real nur wenige Franken/Monat für alle 4 Domains.
-Falls später ein Spezialcheck fehlt, den keine API liefert: mit Nick abklären, ob
+Falls später ein Spezialcheck fehlt, den keine API liefert: intern abklären, ob
 er das Report-Ergebnis überhaupt braucht — nicht reflexartig selbst crawlen.
 
 ### Offsite SEO (Backlinks / Autorität)
@@ -103,7 +103,7 @@ er das Report-Ergebnis überhaupt braucht — nicht reflexartig selbst crawlen.
 | Quelle | Modell | Kosten | Wofür | Bewertung |
 |---|---|---|---|---|
 | **DataForSEO Backlinks API** | pay-per-task | **$0.02/Request + $0.00003/Zeile** (~$0.05 / 1'000 Backlinks) | Referring Domains, Backlink-Anzahl/-Qualität, **Domain/Page/Backlink-Rank**, **Spam-Score**, neue/verlorene Links, Anchor-Texte, Wettbewerbsvergleich. 2.8 T Live-Backlinks, .ch normal abgedeckt. JSON, PHP-tauglich. | **Klare erste Wahl.** Einziger echter pay-per-use-Anbieter mit gutem Index. ~100× günstiger als Ahrefs-API. |
-| ~~Ahrefs API, Semrush API, Majestic, Moz~~ | Abo/Enterprise | $400–999+/Mt | Autoritäts-Metriken: **DR** (Domain Rating, Ahrefs), **DA** (Domain Authority, Moz), **TF** (Trust Flow) & **CF** (Citation Flow, Majestic) | ❌ **DEFINITIV NICHT NUTZEN.** Das sind Suites → verstösst gegen die „keine Suites"-Leitplanke, ausserdem unwirtschaftlich. Nur hier gelistet, um die Entscheidung zu dokumentieren. Ihre Autoritäts-Metriken werden **nicht** gebraucht — wir nutzen den DataForSEO-eigenen Domain/Backlink-Rank + Spam-Score. |
+| ~~Ahrefs API, Semrush API, Majestic, Moz~~ | Abo/Enterprise | $400–999+/Mt | Autoritäts-Metriken: **DR** (Domain Rating, Ahrefs), **DA** (Domain Authority, Moz), **TF** (Trust Flow) & **CF** (Citation Flow, Majestic) | ❌ **DEFINITIV NICHT NUTZEN.** Das sind Suites → verstösst gegen die «keine Suites»-Leitplanke, ausserdem unwirtschaftlich. Nur hier gelistet, um die Entscheidung zu dokumentieren. Ihre Autoritäts-Metriken werden **nicht** gebraucht — wir nutzen den DataForSEO-eigenen Domain/Backlink-Rank + Spam-Score. |
 | Bing Webmaster Tools (eigene Site, gratis) | offiziell | kostenlos | Backlinks *zur eigenen* verifizierten Domain | Kostenlose Zusatzquelle für die eigenen Properties; keine Wettbewerber. |
 | Common Crawl / OpenLinkProfiler | offen/gratis | kostenlos | Roh-Backlink-Daten | Für kontinuierliches Monitoring **nicht praktikabel** (zu roh/technisch bzw. zu klein). |
 
@@ -126,13 +126,13 @@ Unternehmens dazu. Ziel: **echte monatliche Views/Reichweite** und Follower-Wach
 **eigenen** Kanäle des Kunden. Plattformen: **YouTube, Instagram, TikTok**.
 Zeitreihe bauen wir selbst (wöchentlich `collect` → DB).
 
-**Kernentscheidung (Nick, Juli 2026 — Kurskorrektur weg von Apify):** Für zuverlässige,
+**Kernentscheidung (Juli 2026 — Kurskorrektur weg von Apify):** Für zuverlässige,
 **exakte Monats-Views** führt kein Weg an den **offiziellen APIs mit OAuth** vorbei.
 Apify/öffentliches Scraping liefert das nicht sauber (IG gibt öffentlich gar keine
 Account-Views; TikTok je nach Actor; YouTube nur Lifetime-Näherung). Deshalb: **der Kunde
 verbindet seine Kanäle selbst per OAuth** über eine schlanke Web-App auf
-`visibility.openstream.ch` → einmal „mit YouTube/Instagram/TikTok verbinden" klicken. Das
-skaliert (kein Setup-Aufwand für Nick pro Kunde) und liefert die genauesten Daten.
+`visibility.openstream.ch` → einmal «mit YouTube/Instagram/TikTok verbinden» klicken. Das
+skaliert (kein Setup-Aufwand pro Kunde) und liefert die genauesten Daten.
 
 | Plattform | Quelle (OAuth, eigenes Konto) | Liefert |
 |---|---|---|
@@ -140,7 +140,7 @@ skaliert (kein Setup-Aufwand für Nick pro Kunde) und liefert die genauesten Dat
 | **Instagram** | **Instagram-Login + Graph Insights** (`graph.instagram.com/me/insights`, Business/Creator) | echte Reichweite/Views + Follower — das, was öffentlich GAR nicht geht. Fürs eigene Konto ohne vollen App-Review (Dev-Modus), keine FB-Seite nötig. |
 | **TikTok** | **Display API** (eigenes verbundenes Konto, Sandbox reicht) | Video-Views/Engagement des eigenen Kontos; Monats-Views als Delta. Keine historischen Monate (nur Momentaufnahme). |
 
-**Architektur der OAuth-Anbindung** (s. „Social via OAuth" unten für Details):
+**Architektur der OAuth-Anbindung** (s. «Social via OAuth» unten für Details):
 - Schlanke **Verbindungsseite** je Kunde: OAuth-Consent → **Refresh-Token verschlüsselt in
   der DB** (`social_connections`, App-Key aus `.env`).
 - `collect --social` nutzt die gespeicherten Tokens (Refresh → Access-Token) und ruft die
@@ -155,7 +155,7 @@ skaliert (kein Setup-Aufwand für Nick pro Kunde) und liefert die genauesten Dat
 
 ### Social via OAuth — Architektur (gebaut)
 
-Bewusste Erweiterung um eine **minimale Web-Komponente** (bricht die „nur CLI/kein Login"-
+Bewusste Erweiterung um eine **minimale Web-Komponente** (bricht die «nur CLI/kein Login»-
 Leitplanke gezielt für genau diesen Zweck, s. CLAUDE.md). Kein Kundenportal, keine Reports
 für Kunden — nur das Verbinden der Kanäle.
 
@@ -184,13 +184,13 @@ für Kunden — nur das Verbinden der Kanäle.
   bzw. das Delta zweier wöchentlicher Stände.
 - **Freischaltung je Plattform (so eingerichtet):**
   - *YouTube* — Google-Cloud-OAuth-Client, Scope `yt-analytics.readonly`.
-  - *TikTok* — App auf https://developers.tiktok.com/apps/, Produkt „Login Kit", Scopes
+  - *TikTok* — App auf https://developers.tiktok.com/apps/, Produkt «Login Kit», Scopes
     `user.info.basic`/`user.info.stats`/`video.list`. **Sandbox-Modus reicht** (eigenes Konto
     als target user) — kein Production-Review mit ToS-/Datenschutz-URLs nötig.
   - *Instagram* — **Instagram-Login-Weg** (nicht Facebook-Login): App auf
-    https://developers.facebook.com/apps/, Anwendungsfall „Messaging und Content auf Instagram
-    verwalten", Scopes `instagram_business_basic`/`instagram_business_manage_insights`. Das
-    Business-/Creator-Konto als „Instagram-Tester" (Tab App-Rollen) hinzufügen und die
+    https://developers.facebook.com/apps/, Anwendungsfall «Messaging und Content auf Instagram
+    verwalten», Scopes `instagram_business_basic`/`instagram_business_manage_insights`. Das
+    Business-/Creator-Konto als «Instagram-Tester» (Tab App-Rollen) hinzufügen und die
     Einladung in Instagram annehmen. **Kein voller App-Review** fürs eigene Konto (Dev-Modus).
     Wichtig: die *Instagram*-App-ID verwenden, nicht die Facebook-App-ID. **Keine** FB-Seite nötig.
 - **Status: LIVE.** Alle drei Kanäle sind für openstream real verbunden und liefern echte
@@ -217,7 +217,7 @@ Secrets aus dem Repo bleiben und pro Kunde getrennte Accounts möglich sind.
 - **Besonderheit:** rein **eigene, private Daten** (kein Scraping, kein
   Wettbewerber-Vergleich) → datenschutzrechtlich unkritisch, nur aggregierte Raten
   in den Report (keine Empfänger-Adressen).
-- **Report:** eigener Abschnitt „Newsletter" mit Momentaufnahme (letzte Ausgabe) +
+- **Report:** eigener Abschnitt «Newsletter» mit Momentaufnahme (letzte Ausgabe) +
   Zeitreihe (Öffnungs-/Klickrate über die Ausgaben, Listen-Wachstum). Kunden ohne
   Newsletter: Abschnitt sauber ausblenden.
 
@@ -229,11 +229,11 @@ Unternehmen online war — über Website, KI-Antworten, Social und Newsletter hi
 **Das methodische Problem (bewusst gelöst):** GSC-Impressions, YouTube-Views und Klicks
 sind NICHT dasselbe. Eine Impression (Seite erschien irgendwo im Suchergebnis, oft
 ungesehen) mit einem Video-View (jemand hat aktiv gestartet) zu addieren, erzeugt eine
-Scheinzahl, die von den riesigen Impression-Zahlen dominiert wird und „flüchtig erschienen"
-mit „aktiv konsumiert" vermischt. Willkürliche Gewichte (Impression = 0.1 o.ä.) wären
+Scheinzahl, die von den riesigen Impression-Zahlen dominiert wird und «flüchtig erschienen»
+mit «aktiv konsumiert» vermischt. Willkürliche Gewichte (Impression = 0.1 o.ä.) wären
 Marketing-Theater.
 
-**Lösung — OVS misst „aktive Sichtkontakte" (angelehnt an die ETV-Logik):** jeder Kanal
+**Lösung — OVS misst «aktive Sichtkontakte» (angelehnt an die ETV-Logik):** jeder Kanal
 wird auf dieselbe ehrliche Einheit reduziert — *ein Mensch hat den Content aktiv
 konsumiert*. Keine erfundenen Gewichte; jede Komponente ist entweder eine **echte Aktion**
 oder eine **CTR-fundierte Schätzung** (nicht 0.1, sondern die reale Klickrate):
@@ -253,8 +253,8 @@ OVS (Monat) = Google-Klicks + Bing-Klicks               (echte Besuche)
 - **Report-Darstellung (transparent):** Der Report zeigt den OVS als eine Zahl PLUS die
   **offene Zusammensetzung** — welcher Kanal wie viele Kontakte beitrug + die verwendete
   Formel/CTR. Kein Blackbox-Score; der Kunde kann es nachvollziehen.
-- **Bezug zu ETV:** ETV bleibt die kanalspezifische Google-Trend-Kennzahl (in „Traffic-Wert").
-  OVS ist die kanalübergreifende Dach-Kennzahl (in „Kontakten"). ETV speist die
+- **Bezug zu ETV:** ETV bleibt die kanalspezifische Google-Trend-Kennzahl (in «Traffic-Wert»).
+  OVS ist die kanalübergreifende Dach-Kennzahl (in «Kontakten»). ETV speist die
   Google-Komponente konzeptionell, ersetzt sie aber nicht.
 - **Zeitreihe:** OVS je Monat → eigener Trend-Chart (steigt die Gesamt-Sichtbarkeit?).
 
@@ -283,7 +283,7 @@ Content Optimization, Building SaaS Tool (+ Local SEO). Integration: **REST API*
 | **OnPage API** | Crawl + technisches Audit: Meta, Headings, Canonicals, hreflang, Broken Links, Duplicate Content, Lighthouse/CWV | ✅ **Kern** — Onsite |
 | **Backlinks API** | referring domains/networks, Anchor-Texte, neu/verloren, Domain-Rank, Spam-Score, Wettbewerbsvergleich | ✅ **Kern** — Offsite |
 | **AI Optimization API** | LLM-Mentions & Citations (ChatGPT*/Perplexity/Gemini/AIO), LLM-Responses je Modell, AI-Keyword-Data | ✅ **Kern** — GEO (*ChatGPT nur US/EN → via OpenAI) |
-| **Keywords Data API** | Suchvolumen (Google/Bing Ads), Google Trends, Clickstream-Nachfrage | 🔜 **Onboarding** — Keyword-Ideen & Volumen für CH; „people also ask" als Prompt-Saat |
+| **Keywords Data API** | Suchvolumen (Google/Bing Ads), Google Trends, Clickstream-Nachfrage | 🔜 **Onboarding** — Keyword-Ideen & Volumen für CH; «people also ask» als Prompt-Saat |
 | **DataForSEO Labs API** | Wettbewerber-Research, Keyword-Ideen, Ranked-Keywords, Domain-Vergleich, Kategorie-Analyse | 🔜 **Onboarding + Wettbewerb** — Konkurrenten & deren Keywords finden |
 | **Domain Analytics API** | Tech-Stack-Erkennung, WHOIS, Domain-Infos | 💡 **Später** — Tech-Kontext im Onsite-Report (z.B. CMS erkannt) |
 | **Content Analysis API** | Sentiment, Rating-Verteilung, Phrase-Trends über Web-Erwähnungen | 💡 **Später** — Marken-/Reputations-Signal (Brand-Mentions, Sentiment) neben GEO |
@@ -296,7 +296,7 @@ Content Optimization, Building SaaS Tool (+ Local SEO). Integration: **REST API*
    Wettbewerber-Findung). Kommen früh dran.
 2. **Business Data (Local SEO)** — für lokale CH-Kunden oft wertvoller als reine
    Web-Rankings: Google-Business-Profile-Sichtbarkeit, Sterne-Bewertungen, Local Pack.
-   Guter Kandidat für einen eigenen Report-Abschnitt „Lokale Sichtbarkeit".
+   Guter Kandidat für einen eigenen Report-Abschnitt «Lokale Sichtbarkeit».
 3. **Content Analysis** — Brand-Mentions/Sentiment als Ergänzung zur GEO-Sektion.
 4. **Domain Analytics** — kleiner Tech-Kontext-Block im Onsite-Teil.
 
@@ -343,7 +343,7 @@ direkt, alle Chat-Kanäle laufen über DataForSEO.
 | Domains | API-Kosten/Monat |
 |---|---|
 | 1 | ~$1.50 |
-| **4 (foppa, openstream, schwarzenbach, hepro)** | **~$6** |
+| **4 Kunden (inkl. openstream als öffentliches Beispiel)** | **~$6** |
 | 10 | ~$15 |
 | 25 | ~$38 |
 
@@ -371,13 +371,13 @@ direkt, alle Chat-Kanäle laufen über DataForSEO.
 
 | Quelle | Modell | Kosten | Wofür | Bewertung |
 |---|---|---|---|---|
-| **DataForSEO — AI Optimization API** | pay-per-task | pay-per-task (günstig) | LLM-Mentions & Citations über ChatGPT, Perplexity, Gemini, Google AI Overview. Endpunkte u.a. `/v3/ai_optimization/...`, `/v3/dataforseo_labs/ai_mentions/live`. LLM-Responses-API generiert echte Antworten je Modell. Freshness-Lag 2–7 Tage. | **⚠️ WICHTIG für unseren Fall:** **`chat_gpt`-Mentions sind laut Doku nur für „United States" + „English" verfügbar.** Für unsere **CH-Domains mit deutschen, lokalen Prompts ist das ChatGPT-Panel via DataForSEO praktisch wertlos.** Perplexity/Gemini/AI-Overview haben breitere Länder-/Sprach-Abdeckung. → Bleibt **primäre GEO-Quelle für Perplexity/Gemini/AI-Overview**, aber **NICHT für ChatGPT in der Schweiz**. CH+Deutsch-Kombination je Engine am Live-Endpoint `/v3/ai_optimization/llm_mentions/locations_and_languages` mit unserem Key **verifizieren (offener TODO)**. |
+| **DataForSEO — AI Optimization API** | pay-per-task | pay-per-task (günstig) | LLM-Mentions & Citations über ChatGPT, Perplexity, Gemini, Google AI Overview. Endpunkte u.a. `/v3/ai_optimization/...`, `/v3/dataforseo_labs/ai_mentions/live`. LLM-Responses-API generiert echte Antworten je Modell. Freshness-Lag 2–7 Tage. | **⚠️ WICHTIG für unseren Fall:** **`chat_gpt`-Mentions sind laut Doku nur für «United States» + «English» verfügbar.** Für unsere **CH-Domains mit deutschen, lokalen Prompts ist das ChatGPT-Panel via DataForSEO praktisch wertlos.** Perplexity/Gemini/AI-Overview haben breitere Länder-/Sprach-Abdeckung. → Bleibt **primäre GEO-Quelle für Perplexity/Gemini/AI-Overview**, aber **NICHT für ChatGPT in der Schweiz**. CH+Deutsch-Kombination je Engine am Live-Endpoint `/v3/ai_optimization/llm_mentions/locations_and_languages` mit unserem Key **verifizieren (offener TODO)**. |
 | **Perplexity Sonar API** | pay-per-token | Sonar ~$1/1M, Sonar Pro $3/$15 pro 1M In/Out; Web-Grounding inklusive; ~$5–14 / 1'000 grounded Requests | **Citation-native** — jede Antwort liefert `citations`-Array + `search_results`-Metadaten. Direkt Perplexity befragen, Sprache/Land frei wählbar (deutsche Prompts kein Problem). | **Empfohlen als direkter Perplexity-Kanal**, unabhängig von DataForSEO-Länderlimits. |
 | **OpenAI API (web-search tool)** | pay-per-call | ~$20–25 / 1'000 Requests | **Eigene ChatGPT-artige Antworten mit Web-Suche selbst grounden — in Deutsch, ohne US-Limit.** | **Wird zum bevorzugten ChatGPT-Kanal für die Schweiz**, weil DataForSEO-ChatGPT auf US/EN beschränkt ist. Teurer, aber der einzige saubere Weg zu ChatGPT-Sichtbarkeit auf Deutsch. |
 | **Perplexity Sonar API** (Details oben) | | | Deutsch nativ via `language_filter="de"`, CH-Prompts problemlos, Citations inklusive | **Bestätigter Best-in-Class für deutschsprachiges Selbst-Grounding.** |
 | **Google Gemini API / Claude API (web search)** | pay-per-token | günstig | Eigene grounded Antworten je Modell, multilingual inkl. Deutsch, mit Quell-Links | Optionale zusätzliche GEO-Kanäle zum Selber-Grounden, falls Gemini/Claude-Sichtbarkeit relevant wird. |
 | **SE Ranking (SE Visible)** | Abo | im SE-Ranking-Abo enthalten | Fertiges AI-Visibility-Dashboard mit **deutscher Konfiguration + CH**, API in allen Plänen; Perplexity/Gemini/AIO | **Einzige fertige Suite mit echtem dt./CH-Setup + API.** ChatGPT bleibt aber auch hier US/EN. Guter Fallback/Ergänzung. |
-| Fertige GEO-Suiten (Otterly, Peec [Berlin/DSGVO], Profound, Nightwatch, RankScale, Semrush AI, Ahrefs Brand Radar) | Abo | ~$20–700/Mt | AI-Visibility-Dashboards out-of-the-box | Referenz für Features & Fallback. **Achtung:** fast alle tracken ChatGPT **nur US/EN**; „DACH"-Tools (z.B. prompt-monitoring.com) nutzen zwar dt. Prompts, haben aber oft **kein API**. |
+| Fertige GEO-Suiten (Otterly, Peec [Berlin/DSGVO], Profound, Nightwatch, RankScale, Semrush AI, Ahrefs Brand Radar) | Abo | ~$20–700/Mt | AI-Visibility-Dashboards out-of-the-box | Referenz für Features & Fallback. **Achtung:** fast alle tracken ChatGPT **nur US/EN**; «DACH»-Tools (z.B. prompt-monitoring.com) nutzen zwar dt. Prompts, haben aber oft **kein API**. |
 
 ### Firecrawl — geprüft & verworfen (Juli 2026)
 
@@ -387,7 +387,7 @@ GEO-Quelle ohnehin ungeeignet (liefert Seiteninhalte, keine SERP-Positionen; kan
 keine ChatGPT/Perplexity-Antworten abfragen). Und der Content-Zweck (Seiten fürs
 Website-Verständnis holen) wird bereits von der **DataForSEO OnPage API** abgedeckt,
 die wir schon nutzen (`ContentFetcher` liefert Meta/Headings/Text/Raw-HTML). Firecrawls
-„schöneres" Markdown bringt für unseren LLM-Schritt keinen relevanten Mehrwert. →
+«schöneres» Markdown bringt für unseren LLM-Schritt keinen relevanten Mehrwert. →
 **Kein Firecrawl** — eine Quelle weniger, Stack bleibt bei DataForSEO + gratis APIs.
 
 ### Empfohlener Ausgangs-Stack (an CH-Realität angepasst)
@@ -424,7 +424,7 @@ ist die zentrale bezahlte Quelle über vier Rollen hinweg; alles andere ist grat
 
 **Quellen:** [DataForSEO AI Optimization API](https://dataforseo.com/apis/ai-optimization-api) · [DataForSEO Docs v3](https://docs.dataforseo.com/v3/ai_optimization-overview/) · [DataForSEO LLM Mentions Locations & Languages (ChatGPT = US/EN only)](https://docs.dataforseo.com/v3/ai_optimization-llm_mentions-locations_and_languages/) · [DataForSEO: Swiss Italian in Labs API](https://dataforseo.com/update/swiss-italian-available-in-dataforseo-labs-api) · [Perplexity API Pricing](https://docs.perplexity.ai/docs/getting-started/pricing) · [Bing WMT AI Performance (Public Preview)](https://blogs.bing.com/webmaster/February-2026/Introducing-AI-Performance-in-Bing-Webmaster-Tools-Public-Preview) · [Bing AI Insights: Intents/Topics/Citation Share/Compare (Juni 2026)](https://blogs.bing.com/search/June-2026/New-AI-Visibility-Insights-in-Bing-Webmaster-Tools-Intents-Topics-Citation-Share-Compare) · [Bing WMT AI-Report: API? (Microsoft Q&A)](https://learn.microsoft.com/en-ca/answers/questions/5780844/bing-webmaster-tools-ai-performance-report-is-ther) · [SE Ranking AI Visibility](https://seranking.com/ai-visibility-tracker.html) · [SERP API Vergleich 2026](https://apiserpent.com/blog/serp-api-rank-tracking-cost) · [Sistrix API](https://www.sistrix.com/api/) · [XOVI Rank Tracker](https://www.xovi.com/xovi-tool/rank-tracker/) · [SE Ranking API](https://seranking.com/api.html) · [Perplexity Sonar Language Filter](https://docs.perplexity.ai/guides/language-filter-guide) · [Peec AI (Berlin)](https://docs.peec.ai/api/introduction) · [Gemini API Grounding](https://ai.google.dev/gemini-api/docs/google-search) · [DataForSEO OnPage API](https://dataforseo.com/apis/on-page-api) · [DataForSEO Backlinks API](https://dataforseo.com/apis/backlinks-api) · [PageSpeed Insights API](https://developers.google.com/speed/docs/insights/v5/get-started) · [CrUX API](https://developer.chrome.com/docs/crux/guides/crux-api) · [Mozilla Observatory API](https://developer.mozilla.org/en-US/docs/Web/Security/Practical_implementation_guides)
 
-### Abdeckungs-Check für unsere Ziel-Domains (foppa.ch, openstream.ch, schwarzenbach.ch, hepro.ch)
+### Abdeckungs-Check für unsere Ziel-Domains (openstream.ch + drei weitere CH-Kundendomains)
 
 Alles Schweizer Domains, deutschsprachig, lokaler Fokus. Konsequenzen:
 
@@ -458,7 +458,7 @@ Alles Schweizer Domains, deutschsprachig, lokaler Fokus. Konsequenzen:
 
 **✅ Konto freigeschaltet & End-to-End getestet (14.07.2026):** SERP `task_post`
 (Standard-Queue) für Google CH/de lief durch — echte CH-Rankings abgerufen
-(z.B. „webentwicklung zürich": ebro.ch #4, s-pro.io #5, webagentur.ch #6),
+(z.B. «webentwicklung zürich»: ebro.ch #4, s-pro.io #5, webagentur.ch #6),
 Kosten $0.0006/Query wie kalkuliert. Auth → task_post → task_get bestätigt.
 (Die 40104-Meldung war zeitverzögerte Verifizierung, jetzt erledigt.)
 **Nächster Test nach Bedarf:** LLM-Responses-Call auf Deutsch (ChatGPT/Gemini) +
@@ -472,7 +472,7 @@ Beim Onboarding einer Domain müssen **Keywords** (für Rankings) und **GEO-Prom
 (für die KI-Sichtbarkeit) erzeugt und dem Kunden **zur Prüfung/Freigabe vorgelegt**
 werden. Qualität hier = Qualität des ganzen Reports. Ansatz: **erst die Website
 verstehen**, dann aus echten Signalen generieren, per LLM ausformulieren, dann
-Mensch (Nick + Kunde) kuratieren.
+Mensch (Betreiber + Kunde) kuratieren.
 
 ### Schritt 0: Die Website verstehen (Innensicht — Grundlage für alles Weitere)
 
@@ -496,23 +496,23 @@ Weitere abgeleitet wird.
   - **Content-Themen & wichtige Seiten** (woraus Kategorien werden)
 - **Ergebnis:** ein `website_profile` (JSON) pro Kunde, das in die Keyword-/Prompt-
   Generierung einfliesst und im Onboarding-Report dem Kunden **auch zur Bestätigung
-  vorgelegt wird** („Haben wir eure Seite richtig verstanden?"). Wird in der DB/Config
+  vorgelegt wird** («Haben wir eure Seite richtig verstanden?»). Wird in der DB/Config
   gespeichert; ist selbst **lebende Config** (bei Relaunch/Neuausrichtung aktualisieren).
 
 > Ohne dieses Verständnis sind die Prompts geraten. Mit ihm sind Kategorie-Prompts
-> („bester Anbieter für *das, was die Seite wirklich tut*") und Marken-Prompts
-> („kennt die KI *diese Marke* korrekt?") trennscharf und aussagekräftig.
+> («bester Anbieter für *das, was die Seite wirklich tut*») und Marken-Prompts
+> («kennt die KI *diese Marke* korrekt?») trennscharf und aussagekräftig.
 
 ### Woher die Rohsignale kommen (datenbasiert, nicht geraten)
 
 | Quelle | Liefert | Für | Status |
 |---|---|---|---|
 | **Google Search Console** (eigene Property) | echte Suchanfragen (Query, Klicks, Impressions, Position) | **beste Keyword-Quelle**; auch Prompt-Saatgut | ✅ via API verfügbar |
-| **Bing Webmaster Tools** | Suchanfragen (API) **+ AI Performance „Grounding Queries"** (welche Fragen KI-Antworten mit Zitat der Seite auslösten) | **Prompt-Saatgut aus echten KI-Anfragen** | Klassik via API (✅); **AI-Report via CSV-Export** (keine API) → Grounding-Queries aus CSV einlesen |
-| **Google Search Console — Search Generative AI Report** | Impressions/Pages/Countries/Devices in AI Overviews & AI Mode (**keine Queries!**) | zeigt, *welche Seiten* in AIO auftauchen → daraus Themen ableiten | ⚠️ **angekündigt 3. Juni 2026, Rollout nur an UK-Teilmenge, Daten ab 18.05.2026, keine API.** Bei hepro.ch & Co. **noch nicht sichtbar** → als „kommt später" einplanen, nicht darauf warten. |
-| **DataForSEO** (Keyword-Ideen, „people also ask", verwandte Suchen, AI-Keyword-Data) | Keyword-Vorschläge & Volumen für CH, Frageformulierungen | Keyword- **und** Prompt-Ideen für Domains ohne/mit wenig GSC-Daten | ✅ via API |
+| **Bing Webmaster Tools** | Suchanfragen (API) **+ AI Performance «Grounding Queries»** (welche Fragen KI-Antworten mit Zitat der Seite auslösten) | **Prompt-Saatgut aus echten KI-Anfragen** | Klassik via API (✅); **AI-Report via CSV-Export** (keine API) → Grounding-Queries aus CSV einlesen |
+| **Google Search Console — Search Generative AI Report** | Impressions/Pages/Countries/Devices in AI Overviews & AI Mode (**keine Queries!**) | zeigt, *welche Seiten* in AIO auftauchen → daraus Themen ableiten | ⚠️ **angekündigt 3. Juni 2026, Rollout nur an UK-Teilmenge, Daten ab 18.05.2026, keine API.** Bei unseren CH-Kundendomains **noch nicht sichtbar** → als «kommt später» einplanen, nicht darauf warten. |
+| **DataForSEO** (Keyword-Ideen, «people also ask», verwandte Suchen, AI-Keyword-Data) | Keyword-Vorschläge & Volumen für CH, Frageformulierungen | Keyword- **und** Prompt-Ideen für Domains ohne/mit wenig GSC-Daten | ✅ via API |
 | **Website-Inhalt → Website-Profil** (via DataForSEO OnPage + LLM) | Was die Seite IST, Absicht/Ziel, Angebot, Zielgruppe, Positionierung, Marke | **Grundlage (Schritt 0)** für Kategorie- & Marken-Prompts — Innensicht | ✅ API + LLM |
-| **Wettbewerber** (vom Kunden genannt / aus SERP) | Konkurrenznamen | für „alternatives to X"- und Vergleichs-Prompts | ✅ |
+| **Wettbewerber** (vom Kunden genannt / aus SERP) | Konkurrenznamen | für «alternatives to X»- und Vergleichs-Prompts | ✅ |
 
 ### Methodik für realistische GEO-Prompts (Best Practice 2026)
 
@@ -520,11 +520,11 @@ Weitere abgeleitet wird.
   (Ort, Budget, Beruf). Also **keine** elaborierten Marketing-Prompt-Templates,
   sondern natürliche, kurze Fragen auf **Deutsch/CH**.
 - **Drei bewährte Buckets** pro Domain kombinieren:
-  1. **„best/bester X"** — Kategorie-/Kaufabsicht („Bester Anbieter für <Leistung>
-     in <Region CH>?") → misst Sichtbarkeit vs. Wettbewerb.
-  2. **„X für <Branche/Zielgruppe>"** — verengt, spiegelt Personalisierung.
-  3. **„Alternativen zu <Wettbewerber>"** — Vergleichs-/Verdrängungs-Prompts.
-  Plus die schon beschlossenen **Marken-Prompts** („Was ist <Marke>?").
+  1. **«best/bester X»** — Kategorie-/Kaufabsicht («Bester Anbieter für <Leistung>
+     in <Region CH>?») → misst Sichtbarkeit vs. Wettbewerb.
+  2. **«X für <Branche/Zielgruppe>»** — verengt, spiegelt Personalisierung.
+  3. **«Alternativen zu <Wettbewerber>»** — Vergleichs-/Verdrängungs-Prompts.
+  Plus die schon beschlossenen **Marken-Prompts** («Was ist <Marke>?»).
 - **CH-Lokalisierung ist Pflicht:** Region/Kanton/Stadt und ggf. Sprache (de/fr/it)
   in die Prompts einbauen — KI-Antworten variieren stark nach Ort.
 - **Spezifität > Menge.** Häufigste Fehler: vage Prompts, fehlender Marken-Kontext,
@@ -541,9 +541,9 @@ Weitere abgeleitet wird.
    Rohsignalen (1), bündelt zu Themen und formuliert **Keyword-Liste** + **8
    GEO-Prompt-Vorschläge** (5 Kategorie / 3 Marke) auf Deutsch, je mit Begründung und
    Quell-Signal. Das Profil sorgt für Trennschärfe & korrekten Marken-Bezug.
-3. **Kuratieren (Nick):** durchsehen, schärfen, CH-Bezug prüfen.
+3. **Kuratieren (Betreiber):** durchsehen, schärfen, CH-Bezug prüfen.
 4. **Kundenfreigabe:** Onboarding-Report `.md` mit **(a) Website-Profil zur
-   Bestätigung** („richtig verstanden?") **+ (b) Keyword-/Prompt-Vorschlägen** →
+   Bestätigung** («richtig verstanden?») **+ (b) Keyword-/Prompt-Vorschlägen** →
    Kunde bestätigt/ergänzt/streicht.
 5. **Festschreiben:** freigegebenes Profil + Keywords/Prompts → DB, Status `approved`,
    mit Freigabedatum. Erst dann startet `collect`.
@@ -632,8 +632,8 @@ Immer zwei Perspektiven pro Kennzahl: **Momentaufnahme** (aktueller Stand) und
   aktuell vs. Vormonat (Balken); Score-Gauge als Momentaufnahme.
 - **Offsite:** referring domains & Backlinks über Zeit (Linie); neue vs. verlorene
   Links pro Woche (gestapelte Balken); Autoritäts-Trend.
-- **GEO:** Mention-Rate je LLM über Zeit (Linien, ein Strang pro Engine); „in wie
-  vielen Prompts erwähnt" aktuell (Balken); Share-of-Voice vs. Wettbewerber (Donut).
+- **GEO:** Mention-Rate je LLM über Zeit (Linien, ein Strang pro Engine); «in wie
+  vielen Prompts erwähnt» aktuell (Balken); Share-of-Voice vs. Wettbewerber (Donut).
 - **Markt-Kontext:** CH-Marktanteile Suchmaschinen & AI-Assistenten (Donut,
   s. Abschnitt oben) — als fixer Kontext-Block.
 
@@ -646,7 +646,7 @@ Onsite, Offsite, GEO inkl. Bing-AI/Copilot), Social via OAuth (YouTube/Instagram
 und Newsletter (Sendy) sind angebunden, der ausführliche deutsche Report inkl. Charts +
 Executive Summary wird pro Kunde/Monat erzeugt (openstream Juni + Juli live). **Offen:**
 Phase 4 (Versand als Gmail-Draft), Phase 5 (Cron + Web-UI), Phase 6 (Produktion) — plus
-weitere Domains onboarden (foppa/schwarzenbach/hepro).
+die weiteren CH-Kundendomains onboarden.
 
 ### Phase 0 — Setup & Konzept ✅/🟡
 - [x] `CLAUDE.md` + `README.md` (Konzept/Recherche/Statusplan) + API-Recherche
@@ -659,13 +659,13 @@ weitere Domains onboarden (foppa/schwarzenbach/hepro).
 - [x] **GSC-Zugriff für openstream.ch eingerichtet** (Service-Account
       gsc-reader@openstream-apis, read-only, via Skill gsc-api-access). Verifiziert:
       136 Klicks / 47'312 Impr. / Ø-Pos 22.5 (28 T). URL-Prefix-Property, deckt alles ab.
-      Key liegt ausserhalb des Repos; Token-Helper `gsc_token.sh`. **hepro.ch ebenfalls
-      schon am selben SA angebunden.**
+      Key liegt ausserhalb des Repos; Token-Helper `gsc_token.sh`. **Eine weitere
+      Kundendomain ist ebenfalls schon am selben SA angebunden.**
 - [x] Bing Webmaster Tools: API-Key vorhanden, 14 Properties verifiziert
-      (u.a. openstream/foppa/hepro). **Offen:** schwarzenbach.ch verifizieren,
+      (inkl. openstream + zwei weitere Kundendomains). **Offen:** die vierte Domain verifizieren,
       AI-Performance-Report für die Domains real sichten (was liefert er?).
 - [x] 🟡 Ziel-Kunden + Keywords + GEO-Prompts pro Kunde: **openstream vollständig
-      onboardet** (104 Keywords + 20 GEO-Prompts approved). foppa/hepro/schwarzenbach
+      onboardet** (104 Keywords + 20 GEO-Prompts approved). Die drei weiteren Kundendomains
       als Config angelegt, aber noch nicht durchs Onboarding geschickt.
 
 ### Phase 1 — Gerüst & lokale Umgebung  ✅ (Grundgerüst steht)
@@ -694,7 +694,7 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
 - [x] **Schritt 0 — Website verstehen:** `WebsiteAnalyzer` holt Seiten via DataForSEO
       OnPage (`ContentFetcher`) → `ClaudeClient.structuredJson()` leitet `website_profile`
       ab (Angebot, Absicht, Zielgruppe, Region, Positionierung, Marke). Auf openstream.ch
-      korrekt erkannt (Analyse-Plattform, B2B-DACH, Zürich, „Orientierung statt Hype").
+      korrekt erkannt (Analyse-Plattform, B2B-DACH, Zürich, «Orientierung statt Hype»).
 - [x] `bin/console onboard --client=<slug>`: sammelt GSC-Queries (80 für openstream) +
       Wettbewerber aus Config. (Bing-Grounding/DataForSEO-Keyword-Ideen: später ergänzbar.)
 - [x] LLM-Schritt (`PromptGenerator`): **Website-Profil + GSC-Queries** → ~18 Keywords +
@@ -730,7 +730,7 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       CTR pro Query, Zuordnung zu approved Keywords. Auf openstream getestet (10 Messwerte).
 - [x] **DataForSEO-SERP-Implementierung** (`DataForSeoSerpProvider`): organische Position
       der Kundendomain je Keyword via task_post→tasks_ready→task_get (Tag-Zuordnung).
-      Getestet: openstream Pos 4 für „ki anbieter schweiz", $0.0024/2 Keywords.
+      Getestet: openstream Pos 4 für «ki anbieter schweiz», $0.0024/2 Keywords.
 - [x] `collect`-Kommando: GSC (gratis) immer, DataForSEO-SERP hinter `--serp` (kostet,
       ~5 Min). Schreibt Zeitreihe → `measurements` (idempotent pro Tag/Quelle).
 - [x] **Plattform-Keyword-Kombinationen** (`KeywordCombiner`): WordPress/WooCommerce/
@@ -738,8 +738,8 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
 - [x] **`BingSerpProvider` + `BingWmtClient`**: klassische Bing-Rankings via WMT-API
       (GetQueryStats, pro Query aggregiert, engine=bing/source=bing_wmt). In collect
       eingebunden (`bing.site_url`). Getestet auf openstream: 9 Messwerte inkl.
-      Plattform-Kombos. Key hat 14 verifizierte Properties (u.a. openstream/foppa/hepro;
-      schwarzenbach.ch fehlt noch).
+      Plattform-Kombos. Key hat 14 verifizierte Properties (inkl. openstream + zwei weitere
+      Kundendomains; die vierte fehlt noch).
 - [x] **Bing AI Performance Report (CSV-Import, umgesetzt)** — eigener Datenpfad, da KEINE API.
       `import-bing-ai --client=<slug> --month=<YYYY-MM>` liest **alle drei Export-Typen** aus
       `storage/raw/<kunde>/bing_ai/`:
@@ -752,7 +752,7 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       der Queries-Export vorliegt. Bing benennt Exporte nach dem Download-Tag → das Command
       ordnet sie über `--month` zu (Report-Typ am Dateinamen erkannt).
       - **Grounding Queries zusätzlich als GEO-Prompt-Saatgut** ans Onboarding (`onboard --bing-ai`).
-      - Sobald Microsoft die API liefert (angekündigt „im Laufe 2026"): auf API umstellen,
+      - Sobald Microsoft die API liefert (angekündigt «im Laufe 2026»): auf API umstellen,
         Importer als Fallback behalten.
 - [x] 🟡 `OnsiteProvider` (**rein API-basiert, umgesetzt**) via DataForSEO OnPage
       (`on_page/instant_pages`): technische Checks je Seite (Title/Description-Länge,
@@ -803,7 +803,7 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
 ### Phase 2.5 — Social Media + Newsletter (Owned Media erweitern)  ✅
 Sichtbarkeit = ganzes Unternehmen, nicht nur die Website. Neue Kanäle, jeweils als
 eigener `Provider` hinter einem Interface (tauschbar), Zeitreihe via `collect` → DB.
-Details + Anbieter-Bewertung s. „Social-Media-Sichtbarkeit" und „Newsletter".
+Details + Anbieter-Bewertung s. «Social-Media-Sichtbarkeit» und «Newsletter».
 **Grundsatz (entschieden):** nur **eigene Kanäle**, Fokus auf **echte Monats-Views** via
 OAuth (der Kunde verbindet selbst, s. Phase 2.6). YouTube zusätzlich Data API (API-Key) als
 öffentlicher Fallback. Kein Scraping (Apify raus), kein Wettbewerber-Tracking.
@@ -821,7 +821,7 @@ OAuth (der Kunde verbindet selbst, s. Phase 2.6). YouTube zusätzlich Data API (
       fällt sonst auf das `views_total`-Delta (clamp ≥0) der Data API zurück. Getestet.
 - [x] **`NewsletterProvider`-Interface** + `newsletter_stats` (Zeitreihe): `collect
       --newsletter`, Tool je Kunde in der Config, Key je Kunde aus `.env` (Suffix). Nur
-      aggregierte Raten. Report-Abschnitt „6. Newsletter". Report-getestet.
+      aggregierte Raten. Report-Abschnitt «6. Newsletter». Report-getestet.
   - [x] **`MailchimpProvider`** (Marketing API; Datacenter aus Key-Suffix; `parseCampaigns`
         unit-getestet). **Live-Lauf offen bis Mailchimp-Key.**
   - [x] **`SendyProvider`** (umgesetzt & live für openstream): aktive Abonnenten + echte
@@ -837,10 +837,10 @@ OAuth (der Kunde verbindet selbst, s. Phase 2.6). YouTube zusätzlich Data API (
 ### Phase 2.6 — Social via OAuth (exakte Monats-Views, minimale Web-Komponente)  ✅ (live für openstream)
 Kurskorrektur: Apify liefert Monats-Views nicht zuverlässig → **offizielle APIs mit OAuth**,
 der Kunde verbindet seine Kanäle selbst. Bewusste, minimale Web-Erweiterung (kein
-Kundenportal). Details s. „Social via OAuth — Architektur".
+Kundenportal). Details s. «Social via OAuth — Architektur».
 - [x] **OAuth-Apps registriert (openstream):** Google Cloud (YouTube Analytics), TikTok
       (Login Kit, **Sandbox** — kein Production-Review), Instagram (**Instagram-Login-Weg**,
-      Anwendungsfall „Messaging und Content", `instagram_business_manage_insights` im Dev-Modus,
+      Anwendungsfall «Messaging und Content», `instagram_business_manage_insights` im Dev-Modus,
       **keine** Facebook-Seite nötig). Credentials in `.env` (`INSTAGRAM_OAUTH_*`, nicht `META_*`).
 - [x] **DB `social_connections` + `oauth_states`** — Refresh-Token **verschlüsselt**
       (`Crypto`, AES-256-GCM, unit-getestet: Manipulation/falscher Key scheitern).
@@ -871,14 +871,14 @@ Kundenportal). Details s. „Social via OAuth — Architektur".
       Ausgabe → `storage/reports/<kunde>/charts/*.svg`, relativ im `.md` eingebettet.
       Text-Sparkline bleibt als Fallback, wenn ohne Charts gebaut wird. Web-Dashboard-
       JSON (Chart.js) folgt bei der UI.
-- [x] **„Worum es geht" + Executive Summary um Social erweitert:** Einleitung nennt Social
+- [x] **«Worum es geht» + Executive Summary um Social erweitert:** Einleitung nennt Social
       Media, wenn Kanäle vorhanden (datenabhängig); Summary-Fakten + System-Prompt beziehen
       die monatlichen Social-Views ein. Report-getestet (Summary griff Social eigenständig auf).
       *(Newsletter analog, sobald `NewsletterProvider` gebaut.)*
-- [x] **Report-Abschnitt „5. Social Media"** (`socialSection`): je Plattform Views (Monat) +
+- [x] **Report-Abschnitt «5. Social Media»** (`socialSection`): je Plattform Views (Monat) +
       Follower, plus **Views-Gesamt-Total** über alle Plattformen. Blendet sich ohne Daten aus.
-- [x] **Ausführlicher `.md`-Report (Deutsch, umgesetzt)** mit Header (Titel „Visibility Report
-      für X in <Region>", verlinkte Website + Social-Handles) und Abschnitten:
+- [x] **Ausführlicher `.md`-Report (Deutsch, umgesetzt)** mit Header (Titel «Visibility Report
+      für X in <Region>», verlinkte Website + Social-Handles) und Abschnitten:
       OVS-Dachzahl + Zusammensetzung, Markt-Kontext CH (Donuts), Sichtbarkeits-Verlauf (ETV),
       1. Suchmaschinen-Rankings (Google gesamt + echte GSC-Verteilung + getrackte Keywords),
       2. Onsite (Auffälligkeiten **mit Beispielseiten** + Meta-Längen-Tabelle),
@@ -889,7 +889,7 @@ Kundenportal). Details s. „Social via OAuth — Architektur".
       6. Newsletter (Öffnungs-/Klickrate je Ausgabe, Listen-Wachstum, Rhythmus-Hinweis).
       Momentaufnahme + Verlaufs-Diagramme (SVG aus `charts/`). Datenlücken transparent
       gekennzeichnet (z.B. Bing/TikTok ohne historischen Monat). Footer mit allen Quellen +
-      GitHub-Link. **Offen (optional):** eigener Abschnitt „Handlungsempfehlungen" über alle Bereiche.
+      GitHub-Link. **Offen (optional):** eigener Abschnitt «Handlungsempfehlungen» über alle Bereiche.
 - [x] **Executive Summary (Deutsch, umgesetzt):** per Claude aus den Kern-Kennzahlen, führt mit
       dem OVS + Trend, bezieht Social/Newsletter ein, ordnet den SEO→GEO-Shift ein, nennt eine
       Empfehlung. Am Report-Anfang zum Kopieren als Mail-Body.
@@ -900,13 +900,13 @@ Kundenportal). Details s. „Social via OAuth — Architektur".
 - [ ] `bin/console send --client=<slug> --month=YYYY-MM [--dry-run]`:
       Executive Summary als Body, `.md` (bzw. als PDF/HTML gerendert?) als Anhang
 - [ ] Freigabe-Flow: manuell (Standard) vs. automatisch — Report erst als Draft,
-      Nick gibt frei. (Gmail-MCP für Draft-Erstellung ist verfügbar.)
+      der Betreiber gibt frei. (Gmail-MCP für Draft-Erstellung ist verfügbar.)
 
 ### Phase 5 — Automatisierung & Web-UI
 - [ ] **Wöchentlicher Cron:** `collect` je Kunde (füllt die Zeitreihe).
 - [ ] **Monatlicher Cron:** `report` → Charts erzeugen → Gmail-Draft →
-      Benachrichtigung an Nick zur Freigabe.
-- [ ] Minimal-Web-UI (nur lokal/Nick): Kundenliste, letzte Reports ansehen,
+      Benachrichtigung an den Betreiber zur Freigabe.
+- [ ] Minimal-Web-UI (nur intern, kein Kundenzugang): Kundenliste, letzte Reports ansehen,
       **interaktive Chart.js-Diagramme** (Momentaufnahme + Verlauf), Report manuell
       auslösen/versenden. Liest aus DB, keine Live-API-Calls.
 - [ ] Historie über Monate/Wochen im Dashboard durchklickbar.
@@ -920,11 +920,11 @@ Kundenportal). Details s. „Social via OAuth — Architektur".
 ## Getroffene Entscheidungen (verbindlich)
 
 1. **GEO-Messmethode: Beides.** Pro Kunde ein Mix aus
-   - **3–5 Kategorie-/Kaufabsicht-Prompts** (z.B. „Bester Anbieter für X in der
-     Schweiz?") → misst Sichtbarkeit *gegenüber Wettbewerbern*: Wird der Kunde
+   - **3–5 Kategorie-/Kaufabsicht-Prompts** (z.B. «Bester Anbieter für X in der
+     Schweiz?») → misst Sichtbarkeit *gegenüber Wettbewerbern*: Wird der Kunde
      erwähnt, an welcher Stelle, welche Quelle wird zitiert, welche Konkurrenten
      tauchen auf?
-   - **2–3 Marken-Prompts** (z.B. „Was ist Firma X und was bietet sie an?") →
+   - **2–3 Marken-Prompts** (z.B. «Was ist Firma X und was bietet sie an?») →
      misst *Marken-Wissen & Faktentreue*: Kennt der LLM die Marke, sind die
      Fakten korrekt/aktuell, welche Quellen zitiert er?
 
@@ -932,16 +932,16 @@ Kundenportal). Details s. „Social via OAuth — Architektur".
    ein Feld `type` (`category` | `brand`). Prompts pro Kunde in der Config.
 
 2. **Executive Summary: per LLM.** Claude formuliert aus den Rohdaten eine
-   flüssige, deutsche Summary *mit Einordnung* („Sichtbarkeit gestiegen, weil …";
-   „grösstes Potenzial bei Perplexity"). Der ausführliche `.md`-Report wird
+   flüssige, deutsche Summary *mit Einordnung* («Sichtbarkeit gestiegen, weil …»;
+   «grösstes Potenzial bei Perplexity»). Der ausführliche `.md`-Report wird
    template-basiert erzeugt (Zahlen/Tabellen), die Summary obendrauf per LLM.
    → Braucht Claude-API-Zugriff im Versand-/Report-Schritt (siehe `claude-api`).
 
 3. **Versand: Gmail-Draft zur Freigabe.** `send` erstellt einen fertigen
-   Mail-**Entwurf** in Nicks Gmail (Executive Summary als Body, `.md`-Report als
-   Anhang) via **Gmail-MCP** — Nick prüft und sendet manuell. Kein automatischer
-   Direktversand. Monatlicher Cron läuft bis „Draft erstellt" und benachrichtigt
-   Nick zur Freigabe.
+   Mail-**Entwurf** im Gmail des Betreibers (Executive Summary als Body, `.md`-Report als
+   Anhang) via **Gmail-MCP** — der Betreiber prüft und sendet manuell. Kein automatischer
+   Direktversand. Monatlicher Cron läuft bis «Draft erstellt» und benachrichtigt
+   den Betreiber zur Freigabe.
 
 ## Noch offen (später, nicht blockierend)
 
