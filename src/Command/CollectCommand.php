@@ -35,6 +35,7 @@ final class CollectCommand extends Command
         $this->addOption('geo', null, InputOption::VALUE_NONE, 'GEO-Sichtbarkeit erheben (ChatGPT/Gemini/Claude, kostet pro Prompt)');
         $this->addOption('onsite', null, InputOption::VALUE_NONE, 'Onsite-Audit der wichtigsten Seiten (DataForSEO OnPage)');
         $this->addOption('offsite', null, InputOption::VALUE_NONE, 'Offsite/Backlinks-Snapshot (DataForSEO)');
+        $this->addOption('labs', null, InputOption::VALUE_NONE, 'Sichtbarkeitsbreite (DataForSEO Labs: alle Rankings, Top-Seiten, Difficulty)');
         $this->addOption('social', null, InputOption::VALUE_NONE, 'Social-Kennzahlen der eigenen Kanäle (YouTube + OAuth-Verbindungen)');
         $this->addOption('newsletter', null, InputOption::VALUE_NONE, 'Newsletter-Kennzahlen (Sendy/Mailchimp je Kunden-Config)');
         $this->addOption('date', null, InputOption::VALUE_REQUIRED, 'measured_at überschreiben (Y-m-d, Default heute)');
@@ -241,6 +242,30 @@ final class CollectCommand extends Command
                 $io->note(sprintf('DataForSEO-Backlinks-Kosten: $%.4f', $dfsOff->spent()));
             } catch (\Throwable $e) {
                 $io->warning('Offsite fehlgeschlagen: ' . $e->getMessage());
+            }
+        }
+
+        // --- Sichtbarkeitsbreite via DataForSEO Labs (eigene Domain) ---
+        if ($input->getOption('labs')) {
+            $io->section('Sichtbarkeitsbreite (DataForSEO Labs)');
+            $dfsLabs = new DataForSeoClient();
+            try {
+                $labs = new \Openstream\Visibility\Provider\LabsProvider($dfsLabs, $domain);
+                $ranked = $labs->rankedKeywords(25);
+                $pages = $labs->relevantPages(10);
+                $repo->saveLabsSnapshot($clientId, [
+                    'ranked_total' => $ranked['total'],
+                    'ranked_top'   => $ranked['items'],
+                    'top_pages'    => $pages,
+                ], $measuredAt);
+                // Difficulty für die getrackten Keywords (ein Bulk-Call).
+                $diff = $labs->difficulty(array_values($keywords));
+                $nd = $repo->saveKeywordDifficulty($clientId, $diff);
+                $io->success(sprintf('Labs: %d Keywords ranken (Top 25 + %d Seiten gespeichert), '
+                    . 'Difficulty für %d Keywords.', $ranked['total'], count($pages), $nd));
+                $io->note(sprintf('DataForSEO-Labs-Kosten: $%.4f', $dfsLabs->spent()));
+            } catch (\Throwable $e) {
+                $io->warning('Labs fehlgeschlagen: ' . $e->getMessage());
             }
         }
 

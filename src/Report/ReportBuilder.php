@@ -56,6 +56,7 @@ final class ReportBuilder
         $sections .= $this->marketContext($activeGeo);
         $sections .= $this->visibilityTrend($clientId, $period);
         $sections .= $this->searchRankings($clientId, $period, $prevPeriod, $gscTotals, $gscDist);
+        $sections .= $this->visibilityBreadth($clientId, $period);
         $sections .= $this->onsiteOffsite($clientId, $period, $cfg);
         $sections .= $this->geoSection($clientId, $period, $name);
         $sections .= $this->socialSection($clientId, $period);
@@ -504,6 +505,59 @@ final class ReportBuilder
     }
 
     /** Sichtbarkeits-Verlauf (Google, historisch) — Sparkline + Tabelle + Trend. */
+    /**
+     * Sichtbarkeitsbreite (DataForSEO Labs): ALLE Keywords, für die die Domain rankt —
+     * über die manuell getrackten hinaus. Deckt ungeahnte Rankings + Chancen auf und zeigt,
+     * welche eigenen Seiten die Sichtbarkeit tragen. Blendet sich ohne Labs-Daten aus.
+     */
+    private function visibilityBreadth(int $clientId, string $period): string
+    {
+        $labs = $this->repo->labsSnapshot($clientId, $period);
+        if (!$labs || !$labs['ranked_total']) {
+            return '';
+        }
+
+        $md = "## Sichtbarkeitsbreite (Google, alle Rankings)\n\n";
+        $md .= '_Alle Keywords, für die die Website in der Schweiz rankt, nicht nur die getrackten '
+            . "(Quelle: DataForSEO Labs)._\n\n";
+        $md .= '**Die Website rankt in der Schweiz für ' . number_format($labs['ranked_total'], 0, ',', '\'')
+            . " Keywords.**\n\n";
+
+        // Stärkste Rankings (Top nach geschätztem Traffic), inkl. solcher, die NICHT getrackt sind.
+        $top = array_slice($labs['ranked_top'], 0, 12);
+        if ($top) {
+            $md .= "**Stärkste Rankings (nach geschätztem Traffic):**\n\n";
+            $md .= "| Keyword | Position | Suchvol./Mt. |\n|---|---:|---:|\n";
+            foreach ($top as $r) {
+                $pos = ($r['position'] ?? null) !== null ? (int) $r['position'] : '—';
+                $vol = ($r['volume'] ?? null) !== null
+                    ? number_format((int) $r['volume'], 0, ',', '\'') : '—';
+                $md .= '| ' . $this->cell((string) ($r['keyword'] ?? '—')) . " | {$pos} | {$vol} |\n";
+            }
+            $md .= "\n";
+            $md .= $this->gray('Diese Rankings entstehen organisch, auch für nicht aktiv getrackte '
+                . 'Begriffe. Keywords mit hohem Volumen auf mittlerer Position (11 bis 30) sind oft '
+                . 'die grössten Chancen: schon sichtbar, aber mit Optimierungspotenzial auf Seite 1.') . "\n\n";
+        }
+
+        // Stärkste eigene Seiten (nach Rankings/Traffic).
+        $pages = array_slice($labs['top_pages'], 0, 8);
+        if ($pages) {
+            $md .= "**Stärkste Seiten (nach Rankings und geschätztem Traffic):**\n\n";
+            $md .= "| Seite | Keywords | Sichtbarkeit (ETV) |\n|---|---:|---:|\n";
+            foreach ($pages as $p) {
+                $etv = ($p['etv'] ?? null) !== null ? number_format((float) $p['etv'], 0, ',', '\'') : '—';
+                $md .= '| ' . $this->shortUrl((string) ($p['page'] ?? '')) . ' | '
+                    . (int) ($p['keywords'] ?? 0) . " | {$etv} |\n";
+            }
+            $md .= "\n";
+            $md .= $this->gray('Zeigt, welche Inhalte die meiste organische Sichtbarkeit tragen — '
+                . 'ein Signal, wo sich weiterer, ähnlicher Content lohnt.') . "\n\n";
+        }
+
+        return $md;
+    }
+
     private function visibilityTrend(int $clientId, string $period): string
     {
         $hist = $this->repo->visibilityHistory($clientId, 'google', $period);
@@ -648,24 +702,36 @@ final class ReportBuilder
 
             $top = array_slice($s['rows'], 0, 10);
             if ($top) {
-                // Suchvolumen-Spalte nur zeigen, wenn Volumen-Daten vorliegen (refresh-volume gelaufen).
+                // Suchvolumen- + Difficulty-Spalten nur zeigen, wenn die Daten vorliegen
+                // (refresh-volume bzw. collect --labs gelaufen).
                 $hasVolume = array_filter($s['rows'], static fn($r) => ($r['search_volume'] ?? null) !== null) !== [];
-                if ($hasVolume) {
-                    $md .= "| Keyword | Suchvol./Mt. | Position | Impressionen | Klicks |\n"
-                        . "|---|---:|---:|---:|---:|\n";
-                } else {
-                    $md .= "| Keyword | Position | Impressionen | Klicks |\n|---|---:|---:|---:|\n";
-                }
+                $hasDiff = array_filter($s['rows'], static fn($r) => ($r['difficulty'] ?? null) !== null) !== [];
+                $head = '| Keyword |';
+                $sep = '|---|';
+                if ($hasVolume) { $head .= ' Suchvol./Mt. |'; $sep .= '---:|'; }
+                if ($hasDiff)   { $head .= ' Wettbewerb |';   $sep .= '---:|'; }
+                $head .= " Position | Impressionen | Klicks |\n";
+                $sep .= "---:|---:|---:|\n";
+                $md .= $head . $sep;
                 foreach ($top as $r) {
-                    $vol = ($r['search_volume'] ?? null) !== null
-                        ? number_format((int) $r['search_volume'], 0, ',', '\'') : '—';
-                    $md .= '| ' . $this->cell((string) ($r['keyword'] ?? '—'))
-                        . ($hasVolume ? ' | ' . $vol : '')
-                        . ' | ' . $this->fmtPos($r['position'] !== null ? (float) $r['position'] : null)
+                    $md .= '| ' . $this->cell((string) ($r['keyword'] ?? '—'));
+                    if ($hasVolume) {
+                        $md .= ' | ' . (($r['search_volume'] ?? null) !== null
+                            ? number_format((int) $r['search_volume'], 0, ',', '\'') : '—');
+                    }
+                    if ($hasDiff) {
+                        $md .= ' | ' . (($r['difficulty'] ?? null) !== null ? (int) $r['difficulty'] : '—');
+                    }
+                    $md .= ' | ' . $this->fmtPos($r['position'] !== null ? (float) $r['position'] : null)
                         . ' | ' . (int) ($r['impressions'] ?? 0)
                         . ' | ' . (int) ($r['clicks'] ?? 0) . " |\n";
                 }
                 $md .= "\n";
+                if ($hasDiff) {
+                    $md .= $this->gray('„Wettbewerb" ist die Ranking-Schwierigkeit (0 bis 100, '
+                        . 'DataForSEO): je tiefer, desto leichter erreichbar. Ein Keyword mit hohem '
+                        . 'Suchvolumen UND tiefem Wettbewerb ist die attraktivste Chance.') . "\n\n";
+                }
             }
         }
         // Google da, Bing fehlt → erklären (Bing Webmaster Tools liefert getrackte Positionen

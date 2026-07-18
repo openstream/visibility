@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS keywords (
     search_volume INT        NULL,             -- CH-Suchvolumen/Monat (DataForSEO Keywords Data)
     competition VARCHAR(16)  NULL,             -- LOW/MEDIUM/HIGH
     cpc         DECIMAL(8,2) NULL,             -- Cost-per-Click (USD), Indikator für Wettbewerb
+    difficulty  INT          NULL,             -- Ranking-Schwierigkeit 0-100 (DataForSEO Labs)
     volume_updated_at DATETIME NULL,           -- wann zuletzt aktualisiert (quartalsweise)
     approved    TINYINT(1)   NOT NULL DEFAULT 0,
     approved_at DATETIME     NULL,
@@ -304,4 +305,19 @@ CREATE TABLE IF NOT EXISTS bing_ai_stats (
     PRIMARY KEY (id),
     UNIQUE KEY uq_bingai_client_date (client_id, measured_at),
     CONSTRAINT fk_bingai_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- DataForSEO Labs — Monats-Snapshot der echten Sichtbarkeitsbreite der EIGENEN Domain
+-- (ranked_keywords + relevant_pages). Kein Wettbewerber-Tracking. measured_at = Monatsletzter.
+CREATE TABLE IF NOT EXISTS labs_snapshots (
+    id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    client_id     INT UNSIGNED NOT NULL,
+    ranked_total  INT          NULL,           -- Gesamtzahl Keywords, für die die Domain rankt
+    ranked_top    JSON         NULL,           -- Top-Keywords [{keyword,position,volume,etv}]
+    top_pages     JSON         NULL,           -- stärkste Seiten [{page,keywords,etv}]
+    source        VARCHAR(64)  NOT NULL DEFAULT 'dataforseo_labs',
+    measured_at   DATE         NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_labs_client_date (client_id, measured_at),
+    CONSTRAINT fk_labs_client FOREIGN KEY (client_id) REFERENCES clients (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

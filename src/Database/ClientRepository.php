@@ -189,6 +189,65 @@ final class ClientRepository
     }
 
     /**
+     * Speichert die Ranking-Schwierigkeit (0-100) je Keyword (DataForSEO Labs).
+     * @param array<string,?int> $difficulties keyword(lower) => difficulty
+     * @return int Anzahl aktualisierter Keywords
+     */
+    public function saveKeywordDifficulty(int $clientId, array $difficulties): int
+    {
+        $upd = $this->db->prepare(
+            'UPDATE keywords SET difficulty=:d WHERE client_id=:cid AND LOWER(keyword)=:kw'
+        );
+        $n = 0;
+        foreach ($difficulties as $kw => $d) {
+            $upd->execute(['d' => $d, 'cid' => $clientId, 'kw' => $kw]);
+            $n += $upd->rowCount();
+        }
+        return $n;
+    }
+
+    /**
+     * Speichert den Labs-Monats-Snapshot (ranked_keywords + relevant_pages).
+     * @param array{ranked_total:int,ranked_top:array<int,mixed>,top_pages:array<int,mixed>} $s
+     */
+    public function saveLabsSnapshot(int $clientId, array $s, string $measuredAt): void
+    {
+        $this->db->prepare(
+            'INSERT INTO labs_snapshots (client_id, ranked_total, ranked_top, top_pages, source, measured_at)
+             VALUES (:cid, :rt, :rtop, :tp, :src, :mdate)
+             ON DUPLICATE KEY UPDATE ranked_total=VALUES(ranked_total),
+               ranked_top=VALUES(ranked_top), top_pages=VALUES(top_pages)'
+        )->execute([
+            'cid' => $clientId, 'rt' => $s['ranked_total'] ?? null,
+            'rtop' => $this->json($s['ranked_top'] ?? []), 'tp' => $this->json($s['top_pages'] ?? []),
+            'src' => 'dataforseo_labs', 'mdate' => $measuredAt,
+        ]);
+    }
+
+    /**
+     * Labs-Monats-Snapshot (jüngster im Monat) für den Report.
+     * @return array{ranked_total:?int,ranked_top:array<int,array<string,mixed>>,top_pages:array<int,array<string,mixed>>}|null
+     */
+    public function labsSnapshot(int $clientId, string $period): ?array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            'SELECT ranked_total, ranked_top, top_pages FROM labs_snapshots
+             WHERE client_id=? AND measured_at BETWEEN ? AND ? ORDER BY measured_at DESC LIMIT 1'
+        );
+        $stmt->execute([$clientId, $start, $end]);
+        $r = $stmt->fetch();
+        if (!$r) {
+            return null;
+        }
+        return [
+            'ranked_total' => $r['ranked_total'] !== null ? (int) $r['ranked_total'] : null,
+            'ranked_top'   => $r['ranked_top'] ? (json_decode((string) $r['ranked_top'], true) ?: []) : [],
+            'top_pages'    => $r['top_pages'] ? (json_decode((string) $r['top_pages'], true) ?: []) : [],
+        ];
+    }
+
+    /**
      * Speichert CH-Suchvolumen/Wettbewerb/CPC je Keyword (aus KeywordVolumeProvider).
      * Matcht case-insensitive über den Keyword-Text. Nur approved Keywords.
      * @param array<string,array{search_volume:?int,competition:?string,cpc:?float}> $volumes keyword(lower)=>Werte
@@ -621,7 +680,7 @@ final class ClientRepository
         // measurements existieren — ohne die historischen Messwerte zu löschen.
         $stmt = $this->db->prepare(
             "SELECT m.engine, m.source, m.position, m.impressions, m.clicks, k.keyword,
-                    k.search_volume, m.measured_at
+                    k.search_volume, k.difficulty, m.measured_at
              FROM measurements m
              JOIN keywords k ON k.id = m.keyword_id AND k.approved = 1
              WHERE m.client_id = :cid
