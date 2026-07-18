@@ -36,19 +36,31 @@ final class OnsiteProvider
         'redirect_loop'          => 'Weiterleitungsschleife',
     ];
 
+    /**
+     * Positive Checks, die wir als «das ist gut» im Report zeigen (ausgewogenes Bild,
+     * nicht nur Mängelliste). Nur solche, die für den Kunden aussagekräftig sind.
+     */
+    private const GOOD_CHECKS = [
+        'is_https'         => 'HTTPS aktiv',
+        'canonical'        => 'Canonical gesetzt',
+        'seo_friendly_url' => 'SEO-freundliche URLs',
+        'has_html_doctype' => 'Gültiger HTML-Doctype',
+    ];
+
     public function __construct(private readonly DataForSeoClient $dfs) {}
 
     /**
      * Prüft mehrere URLs. @param array<int,string> $urls
-     * @return array<int,array{url:string,title:?string,title_len:int,desc_len:int,h1:int,h2:int,internal:int,external:int,problems:array<int,string>}>
+     * @return array<int,array<string,mixed>>
      */
     public function audit(array $urls): array
     {
         $out = [];
         foreach ($urls as $url) {
             try {
+                // enable_javascript für realistischere Ladezeiten (page_timing).
                 $res = $this->dfs->post('on_page/instant_pages', [[
-                    'url' => $url, 'enable_javascript' => false,
+                    'url' => $url, 'enable_javascript' => true,
                 ]]);
             } catch (\Throwable $e) {
                 continue;
@@ -60,6 +72,7 @@ final class OnsiteProvider
             $meta = $item['meta'] ?? [];
             $checks = $item['checks'] ?? [];
             $htags = $meta['htags'] ?? [];
+            $timing = $item['page_timing'] ?? [];
 
             $problems = [];
             foreach (self::PROBLEM_CHECKS as $key => $label) {
@@ -67,17 +80,44 @@ final class OnsiteProvider
                     $problems[] = $label;
                 }
             }
+            $good = [];
+            foreach (self::GOOD_CHECKS as $key => $label) {
+                if (($checks[$key] ?? false) === true) {
+                    $good[] = $label;
+                }
+            }
+
+            // Social-Sharing: Open Graph / Twitter Card vorhanden?
+            $social = $meta['social_media_tags'] ?? [];
+            $hasOg = false;
+            $hasTwitter = false;
+            foreach (array_keys((array) $social) as $tag) {
+                if (str_starts_with((string) $tag, 'og:')) {
+                    $hasOg = true;
+                }
+                if (str_starts_with((string) $tag, 'twitter:')) {
+                    $hasTwitter = true;
+                }
+            }
 
             $out[] = [
-                'url'       => $url,
-                'title'     => $meta['title'] ?? null,
-                'title_len' => mb_strlen((string) ($meta['title'] ?? '')),
-                'desc_len'  => mb_strlen((string) ($meta['description'] ?? '')),
-                'h1'        => count($htags['h1'] ?? []),
-                'h2'        => count($htags['h2'] ?? []),
-                'internal'  => (int) ($meta['internal_links_count'] ?? 0),
-                'external'  => (int) ($meta['external_links_count'] ?? 0),
-                'problems'  => $problems,
+                'url'          => $url,
+                'title'        => $meta['title'] ?? null,
+                'title_len'    => mb_strlen((string) ($meta['title'] ?? '')),
+                'desc_len'     => mb_strlen((string) ($meta['description'] ?? '')),
+                'h1'           => count($htags['h1'] ?? []),
+                'h2'           => count($htags['h2'] ?? []),
+                'internal'     => (int) ($meta['internal_links_count'] ?? 0),
+                'external'     => (int) ($meta['external_links_count'] ?? 0),
+                'problems'     => $problems,
+                'good'         => $good,
+                'onpage_score' => isset($item['onpage_score']) ? round((float) $item['onpage_score'], 1) : null,
+                // Ladezeiten in ms (die aussagekräftigsten: Interaktivität, DOM fertig, Serverantwort).
+                'tti_ms'       => isset($timing['time_to_interactive']) ? (int) $timing['time_to_interactive'] : null,
+                'dom_ms'       => isset($timing['dom_complete']) ? (int) $timing['dom_complete'] : null,
+                'ttfb_ms'      => isset($timing['waiting_time']) ? (int) $timing['waiting_time'] : null,
+                'has_og'       => $hasOg,
+                'has_twitter'  => $hasTwitter,
             ];
         }
         return $out;

@@ -706,7 +706,50 @@ final class ReportBuilder
         $md .= "_Technische Prüfung der " . count($audit) . " wichtigsten Seiten "
             . "(Quelle: DataForSEO OnPage)._\n\n";
         $md .= '- Geprüfte Seiten: ' . count($audit) . "\n";
-        $md .= '- Seiten mit Auffälligkeiten: ' . $pagesWithProblems . "\n\n";
+        $md .= '- Seiten mit Auffälligkeiten: ' . $pagesWithProblems . "\n";
+
+        // Durchschnittlicher OnPage-Score (0-100) über alle Seiten mit Wert.
+        $scores = array_values(array_filter(array_map(
+            static fn($p) => $p['onpage_score'] ?? null,
+            $audit
+        ), static fn($v) => $v !== null));
+        if ($scores) {
+            $avg = round(array_sum($scores) / count($scores), 1);
+            $md .= '- Ø OnPage-Score: ' . number_format($avg, 1, ',', '') . " / 100  \n  ";
+            $md .= $this->gray('Optimierungs-Kennzahl von DataForSEO je Seite (0 bis 100, höher ist '
+                . 'besser): fasst technische Fehler und Warnungen zu einer Zahl zusammen.') . "\n";
+        }
+
+        // Performance: mittlere Ladezeiten (nur Seiten mit Timing-Werten).
+        $tti = array_values(array_filter(array_map(static fn($p) => $p['tti_ms'] ?? null, $audit), static fn($v) => $v !== null));
+        $ttfb = array_values(array_filter(array_map(static fn($p) => $p['ttfb_ms'] ?? null, $audit), static fn($v) => $v !== null));
+        if ($tti || $ttfb) {
+            $parts = [];
+            if ($ttfb) {
+                $parts[] = 'Serverantwort (TTFB) Ø ' . (int) round(array_sum($ttfb) / count($ttfb)) . ' ms';
+            }
+            if ($tti) {
+                $parts[] = 'interaktiv nach Ø ' . (int) round(array_sum($tti) / count($tti)) . ' ms';
+            }
+            $md .= '- Ladezeiten: ' . implode(', ', $parts) . "\n";
+            $slow = count(array_filter($tti, static fn($v) => $v > 3000));
+            if ($slow > 0) {
+                $md .= $this->gray("  ({$slow} Seite(n) langsamer als 3 Sekunden bis interaktiv)") . "\n";
+            }
+        }
+
+        // Social-Sharing-Abdeckung (Open Graph / Twitter Card). Nur zeigen, wenn das Feld
+        // in den Daten existiert (ältere Erhebungen ohne dieses Feld nicht als «0» ausweisen).
+        $hasSocialData = array_filter($audit, static fn($p) => array_key_exists('has_og', $p)) !== [];
+        if ($hasSocialData) {
+            $ogCount = count(array_filter($audit, static fn($p) => !empty($p['has_og'])));
+            $twCount = count(array_filter($audit, static fn($p) => !empty($p['has_twitter'])));
+            $md .= '- Social-Sharing-Vorschau: ' . $ogCount . ' von ' . count($audit)
+                . ' Seiten mit Open-Graph-Tags, ' . $twCount . " mit Twitter-Card  \n  ";
+            $md .= $this->gray('Diese Tags bestimmen, wie eine Seite beim Teilen in Social Media und '
+                . 'Chat-Apps als Vorschau (Bild, Titel, Text) erscheint.') . "\n";
+        }
+        $md .= "\n";
 
         if ($problemCounts) {
             $md .= "**Häufigste technische Auffälligkeiten (mit Beispielseiten):**\n\n";
@@ -744,6 +787,24 @@ final class ReportBuilder
             $md .= $this->gray('Empfehlung: Seitentitel 30–60 Zeichen, Meta-Beschreibung 70–160 '
                 . 'Zeichen. Zu kurze, zu lange oder fehlende Angaben verschenken Klickpotenzial in '
                 . 'den Suchergebnissen.') . "\n\n";
+        }
+
+        // Was technisch gut ist: Checks, die auf allen/fast allen Seiten erfüllt sind
+        // (ausgewogenes Bild statt reiner Mängelliste).
+        $goodCounts = [];
+        foreach ($audit as $p) {
+            foreach ($p['good'] ?? [] as $g) {
+                $goodCounts[$g] = ($goodCounts[$g] ?? 0) + 1;
+            }
+        }
+        $total = count($audit);
+        $allGood = array_keys(array_filter($goodCounts, static fn($c) => $c === $total));
+        if ($allGood) {
+            $md .= "**Technisch gut gelöst (auf allen geprüften Seiten):**\n\n";
+            foreach ($allGood as $g) {
+                $md .= "- {$g}\n";
+            }
+            $md .= "\n";
         }
 
         return $md;
