@@ -25,6 +25,26 @@ bing:
   site_url: "https://www.openstream.ch/"
   verified: true
 
+# Offsite/Backlinks: eigene Kundenprojekte, die auf openstream zurückverlinken.
+# Im Report werden diese verweisenden Domains als "(Kundenprojekt)" markiert, damit
+# klar wird, was FREMDE Autorität ist und was der eigene Kundenstamm. Root-Domain
+# genügt (Subdomains matchen automatisch, z.B. shop.amnesty.ch → amnesty.ch). Pflegen.
+offsite:
+  own_projects:
+    - amnesty.ch
+    - bsv-bern.ch
+    - stepbystep.ch
+    - sr-kosmetik.ch
+    - ferienkolonieverein.ch
+    - pantomime-dantes.ch
+    - blindenhaus.ch
+    - gastrotechnik.ch
+    - stoffelag.ch
+    - tschumipartner.ch
+    - staefa.events
+    - e-peakgmbh.de
+    - nick.weisser.me
+
 # GEO-Kanäle (KI-Sichtbarkeit). Aktiv = werden bei `collect --geo` erhoben.
 # Kosten-bewusst: ChatGPT (wichtigster, 72 % CH) + Perplexity (citation-native, günstig).
 # gemini/claude sind bereit, aber deaktiviert (bei Bedarf auf true) — sie sind teurer.

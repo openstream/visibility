@@ -56,7 +56,7 @@ final class ReportBuilder
         $sections .= $this->marketContext($activeGeo);
         $sections .= $this->visibilityTrend($clientId, $period);
         $sections .= $this->searchRankings($clientId, $period, $prevPeriod, $gscTotals, $gscDist);
-        $sections .= $this->onsiteOffsite($clientId, $period);
+        $sections .= $this->onsiteOffsite($clientId, $period, $cfg);
         $sections .= $this->geoSection($clientId, $period, $name);
         $sections .= $this->socialSection($clientId, $period);
         $sections .= $this->newsletterSection($clientId, $period, $cfg);
@@ -171,6 +171,22 @@ final class ReportBuilder
             $label = $path;
         }
         return "[{$label}]({$url})";
+    }
+
+    /**
+     * Ist die verweisende (Sub-)Domain ein eigenes Kundenprojekt? Matcht die Root-Domain
+     * aus der Config gegen die volle Domain (z.B. own_projects=amnesty.ch trifft shop.amnesty.ch).
+     * @param array<int,string> $ownProjects Root-Domains (lowercase)
+     */
+    private function isOwnProject(string $domain, array $ownProjects): bool
+    {
+        $d = strtolower(preg_replace('#^www\.#', '', $domain));
+        foreach ($ownProjects as $root) {
+            if ($d === $root || str_ends_with($d, '.' . $root)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Host einer zitierten Quelle (ohne Schema/www/Tracking), verlinkt auf die volle URL. */
@@ -654,10 +670,11 @@ final class ReportBuilder
     }
 
     /** Onsite (technisches SEO) + Offsite (Backlinks) aus den erhobenen Daten. */
-    private function onsiteOffsite(int $clientId, string $period): string
+    /** @param array<string,mixed> $cfg */
+    private function onsiteOffsite(int $clientId, string $period, array $cfg = []): string
     {
         $md = $this->onsiteSection($clientId, $period);
-        $md .= $this->offsiteSection($clientId, $period);
+        $md .= $this->offsiteSection($clientId, $period, $cfg);
         return $md;
     }
 
@@ -732,7 +749,8 @@ final class ReportBuilder
         return $md;
     }
 
-    private function offsiteSection(int $clientId, string $period): string
+    /** @param array<string,mixed> $cfg */
+    private function offsiteSection(int $clientId, string $period, array $cfg = []): string
     {
         $b = $this->repo->backlinks($clientId, $period);
         $md = "## 3. Offsite / Backlinks\n\n";
@@ -756,21 +774,36 @@ final class ReportBuilder
         }
         $md .= "\n";
 
-        // Konkrete Beispiele: die stärksten verweisenden Domains (nach Domain-Rank).
+        // Stärkste verweisende Domains (nach Rang), mit echter (Sub-)Domain + dofollow.
+        // Eigene Kundenprojekte werden markiert, damit klar wird, was fremde Autorität ist.
         $top = $b['top_referring_domains'] ?? [];
         if ($top) {
+            $ownProjects = array_map('strtolower', (array) ($cfg['offsite']['own_projects'] ?? []));
+            $hasOwn = false;
+
             $md .= "**Stärkste verweisende Domains (Beispiele):**\n\n";
-            $md .= "| Domain | Rang | Backlinks |\n|---|---:|---:|\n";
+            $md .= "| Domain | Rang | Link-Typ |\n|---|---:|---|\n";
             foreach (array_slice($top, 0, 10) as $d) {
+                // www. ist technisch Subdomain, aber semantisch die Hauptdomain → für die
+                // Anzeige entfernen; echte Subdomains (shop., blog., …) bleiben erhalten.
+                $domain = preg_replace('#^www\.#', '', (string) $d['domain']);
                 $rank = $d['rank'] !== null ? (string) $d['rank'] : '—';
-                $bl = isset($d['backlinks']) && $d['backlinks'] !== null
-                    ? number_format((int) $d['backlinks'], 0, ',', '\'') : '—';
-                $md .= "| {$d['domain']} | {$rank} | {$bl} |\n";
+                $type = ($d['dofollow'] ?? null) === null ? '—'
+                    : ($d['dofollow'] ? 'dofollow' : 'nofollow');
+                $isOwn = $this->isOwnProject($domain, $ownProjects);
+                $marker = $isOwn ? ' ' . $this->gray('(Kundenprojekt)') : '';
+                $hasOwn = $hasOwn || $isOwn;
+                $md .= "| {$domain}{$marker} | {$rank} | {$type} |\n";
             }
             $md .= "\n";
-            $md .= $this->gray('Diese Domains verlinken auf die Website. Ein Link von einer Domain '
-                . 'mit hohem Rang (0 bis 1000, DataForSEO) wiegt schwerer als viele Links von '
-                . 'schwachen Seiten.') . "\n\n";
+            $note = 'Diese Domains verlinken auf die Website. Ein Link von einer Domain mit hohem '
+                . 'Rang (0 bis 1000, DataForSEO) wiegt schwerer als viele Links von schwachen Seiten. '
+                . '„dofollow" gibt Autorität weiter, „nofollow" nicht.';
+            if ($hasOwn) {
+                $note .= ' Als „(Kundenprojekt)" markierte Domains sind eigene Kundenseiten, die '
+                    . 'zurückverlinken; die übrigen sind fremde Verweise.';
+            }
+            $md .= $this->gray($note) . "\n\n";
         }
 
         return $md;

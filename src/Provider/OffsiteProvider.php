@@ -43,28 +43,32 @@ final class OffsiteProvider
      * Stärkste verweisende Domains (für konkrete Beispiel-Backlinks im Report).
      * Sortiert nach Domain-Rank absteigend. Quelle: DataForSEO backlinks/referring_domains.
      *
-     * @return array<int,array{domain:string,rank:?int,backlinks:?int}>
+     * @return array<int,array{domain:string,rank:?int,dofollow:?bool}>
      */
     public function topReferringDomains(int $limit = 10): array
     {
-        $res = $this->dfs->post('backlinks/referring_domains/live', [[
-            'target'             => $this->normalizeDomain($this->domain),
-            'limit'              => $limit,
-            'include_subdomains' => true,
-            'order_by'           => ['rank,desc'],
+        // backlinks/backlinks/live statt referring_domains/live: liefert die TATSÄCHLICHE
+        // verweisende (Sub-)Domain (z.B. shop.amnesty.ch statt aggregiert amnesty.ch) sowie
+        // das echte dofollow-Flag. mode=one_per_domain → eine Zeile je verweisender Domain.
+        $res = $this->dfs->post('backlinks/backlinks/live', [[
+            'target'                => $this->normalizeDomain($this->domain),
+            'mode'                  => 'one_per_domain',
+            'limit'                 => $limit,
+            'order_by'              => ['rank,desc'],
+            'backlinks_status_type' => 'live',
         ]]);
         $items = $res['tasks'][0]['result'][0]['items'] ?? [];
 
         $out = [];
         foreach ($items as $it) {
-            $domain = (string) ($it['domain'] ?? '');
+            $domain = ltrim((string) ($it['domain_from'] ?? ''), '.');
             if ($domain === '') {
                 continue;
             }
             $out[] = [
-                'domain'    => $domain,
-                'rank'      => isset($it['rank']) ? (int) $it['rank'] : null,
-                'backlinks' => isset($it['backlinks']) ? (int) $it['backlinks'] : null,
+                'domain'   => $domain,
+                'rank'     => isset($it['rank']) ? (int) $it['rank'] : null,
+                'dofollow' => isset($it['dofollow']) ? (bool) $it['dofollow'] : null,
             ];
         }
         return $out;
