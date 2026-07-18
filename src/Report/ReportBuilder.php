@@ -648,9 +648,19 @@ final class ReportBuilder
 
             $top = array_slice($s['rows'], 0, 10);
             if ($top) {
-                $md .= "| Keyword | Position | Impressionen | Klicks |\n|---|---:|---:|---:|\n";
+                // Suchvolumen-Spalte nur zeigen, wenn Volumen-Daten vorliegen (refresh-volume gelaufen).
+                $hasVolume = array_filter($s['rows'], static fn($r) => ($r['search_volume'] ?? null) !== null) !== [];
+                if ($hasVolume) {
+                    $md .= "| Keyword | Suchvol./Mt. | Position | Impressionen | Klicks |\n"
+                        . "|---|---:|---:|---:|---:|\n";
+                } else {
+                    $md .= "| Keyword | Position | Impressionen | Klicks |\n|---|---:|---:|---:|\n";
+                }
                 foreach ($top as $r) {
+                    $vol = ($r['search_volume'] ?? null) !== null
+                        ? number_format((int) $r['search_volume'], 0, ',', '\'') : '—';
                     $md .= '| ' . $this->cell((string) ($r['keyword'] ?? '—'))
+                        . ($hasVolume ? ' | ' . $vol : '')
                         . ' | ' . $this->fmtPos($r['position'] !== null ? (float) $r['position'] : null)
                         . ' | ' . (int) ($r['impressions'] ?? 0)
                         . ' | ' . (int) ($r['clicks'] ?? 0) . " |\n";
