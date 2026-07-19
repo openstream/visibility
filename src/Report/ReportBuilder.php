@@ -79,7 +79,8 @@ final class ReportBuilder
         $md .= "\n---\n";
         $md .= "_Automatisch erstellt vom Visibility Dashboard. Datenquellen: Google Search "
             . "Console, Bing Webmaster Tools, Bing AI Performance, DataForSEO (SERP, OnPage, "
-            . "Backlinks, AI Optimization), YouTube Data & Analytics API, Instagram Graph API, "
+            . "Backlinks, AI Optimization, Keywords Data, Labs), Google PageSpeed Insights, "
+            . "Mozilla Observatory, YouTube Data & Analytics API, Instagram Graph API, "
             . "TikTok Display API, Sendy._  \n";
         $md .= "_Quellcode: [github.com/openstream/visibility](https://github.com/openstream/visibility)._\n";
 
@@ -884,7 +885,33 @@ final class ReportBuilder
         }
 
         $md .= $this->pageSpeedBlock($clientId, $period);
+        $md .= $this->securityBlock($clientId, $period);
 
+        return $md;
+    }
+
+    /**
+     * Sicherheits-Header-Block (Mozilla Observatory): Note + Score der HTTP-Sicherheitsheader.
+     * Blendet sich ohne Daten aus (collect --security nötig).
+     */
+    private function securityBlock(int $clientId, string $period): string
+    {
+        $sec = $this->repo->observatory($clientId, $period);
+        if (!$sec || $sec['grade'] === null) {
+            return '';
+        }
+        $md = '**Sicherheit der HTTP-Header:** Note ' . $sec['grade'];
+        if ($sec['score'] !== null) {
+            $md .= ' (Score ' . (int) $sec['score'] . ')';
+        }
+        if ($sec['tests_passed'] !== null && $sec['tests_failed'] !== null) {
+            $md .= ', ' . (int) $sec['tests_passed'] . ' von '
+                . ((int) $sec['tests_passed'] + (int) $sec['tests_failed']) . ' Prüfungen bestanden';
+        }
+        $md .= "  \n  ";
+        $md .= $this->gray('Bewertung der HTTP-Sicherheitsheader (Mozilla Observatory): schützen '
+            . 'vor Angriffen wie Cross-Site-Scripting und Clickjacking. Note A ist optimal, F '
+            . 'bedeutet fehlende Schutzmassnahmen. Betrifft Vertrauen und indirekt das Ranking.') . "\n\n";
         return $md;
     }
 

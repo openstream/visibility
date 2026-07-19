@@ -37,6 +37,7 @@ final class CollectCommand extends Command
         $this->addOption('offsite', null, InputOption::VALUE_NONE, 'Offsite/Backlinks-Snapshot (DataForSEO)');
         $this->addOption('labs', null, InputOption::VALUE_NONE, 'Sichtbarkeitsbreite (DataForSEO Labs: alle Rankings, Top-Seiten, Difficulty)');
         $this->addOption('pagespeed', null, InputOption::VALUE_NONE, 'PageSpeed/Lighthouse für die key_pages (gratis, langsam ~15s/Seite)');
+        $this->addOption('security', null, InputOption::VALUE_NONE, 'Sicherheits-Header-Score via Mozilla Observatory (gratis)');
         $this->addOption('social', null, InputOption::VALUE_NONE, 'Social-Kennzahlen der eigenen Kanäle (YouTube + OAuth-Verbindungen)');
         $this->addOption('newsletter', null, InputOption::VALUE_NONE, 'Newsletter-Kennzahlen (Sendy/Mailchimp je Kunden-Config)');
         $this->addOption('date', null, InputOption::VALUE_REQUIRED, 'measured_at überschreiben (Y-m-d, Default heute)');
@@ -294,6 +295,24 @@ final class CollectCommand extends Command
                 }
             } catch (\Throwable $e) {
                 $io->warning('PageSpeed fehlgeschlagen: ' . $e->getMessage());
+            }
+        }
+
+        // --- Sicherheits-Header-Score (Mozilla Observatory, gratis, kein Key) ---
+        if ($input->getOption('security')) {
+            $io->section('Sicherheit / HTTP-Header (Mozilla Observatory)');
+            try {
+                $sec = (new \Openstream\Visibility\Provider\ObservatoryProvider())->scan($domain);
+                if ($sec !== null) {
+                    $repo->saveObservatory($clientId, $sec, $measuredAt);
+                    $io->success(sprintf('Sicherheit: Note %s (Score %s), %s Tests bestanden, %s nicht.',
+                        $sec['grade'] ?? '?', $sec['score'] ?? '?',
+                        $sec['tests_passed'] ?? '?', $sec['tests_failed'] ?? '?'));
+                } else {
+                    $io->warning('Observatory lieferte kein Ergebnis.');
+                }
+            } catch (\Throwable $e) {
+                $io->warning('Observatory fehlgeschlagen: ' . $e->getMessage());
             }
         }
 

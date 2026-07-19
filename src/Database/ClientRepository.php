@@ -847,6 +847,49 @@ final class ClientRepository
     }
 
     /**
+     * Speichert den Mozilla-Observatory-Sicherheitsscore (domain-weit, url=NULL,
+     * source=observatory). Grade/Score/Testzahlen im issues-JSON. Idempotent pro Tag.
+     * @param array{grade:?string,score:?int,tests_passed:?int,tests_failed:?int} $s
+     */
+    public function saveObservatory(int $clientId, array $s, string $measuredAt): void
+    {
+        $this->db->prepare('DELETE FROM onsite_audits WHERE client_id=? AND measured_at=? AND source=?')
+            ->execute([$clientId, $measuredAt, 'observatory']);
+        $this->db->prepare(
+            'INSERT INTO onsite_audits (client_id, url, issues, source, measured_at)
+             VALUES (:cid, NULL, :issues, :src, :mdate)'
+        )->execute([
+            'cid' => $clientId, 'issues' => $this->json($s), 'src' => 'observatory', 'mdate' => $measuredAt,
+        ]);
+    }
+
+    /**
+     * Mozilla-Observatory-Score für einen Monat (jüngster Stand). Für den Report.
+     * @return array{grade:?string,score:?int,tests_passed:?int,tests_failed:?int}|null
+     */
+    public function observatory(int $clientId, string $period): ?array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT issues FROM onsite_audits
+             WHERE client_id=? AND measured_at BETWEEN ? AND ? AND source='observatory'
+             ORDER BY measured_at DESC LIMIT 1"
+        );
+        $stmt->execute([$clientId, $start, $end]);
+        $r = $stmt->fetch();
+        if (!$r || !$r['issues']) {
+            return null;
+        }
+        $s = json_decode((string) $r['issues'], true) ?: [];
+        return [
+            'grade'        => $s['grade'] ?? null,
+            'score'        => $s['score'] ?? null,
+            'tests_passed' => $s['tests_passed'] ?? null,
+            'tests_failed' => $s['tests_failed'] ?? null,
+        ];
+    }
+
+    /**
      * PageSpeed/Lighthouse-Ergebnisse für einen Monat (jüngster Stand). Für den Report.
      * @return array<int,array<string,mixed>>
      */
