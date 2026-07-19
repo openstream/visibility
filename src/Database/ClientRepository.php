@@ -838,6 +838,7 @@ final class ClientRepository
                     'accessibility'  => $r['accessibility'] ?? null,
                     'best_practices' => $r['best_practices'] ?? null,
                     'seo'            => $r['seo'] ?? null,
+                    'findings'       => $r['findings'] ?? [],
                 ]),
                 'src' => 'pagespeed', 'mdate' => $measuredAt,
             ]);
@@ -916,6 +917,7 @@ final class ClientRepository
                 'lcp_ms'         => $r['lcp_ms'] !== null ? (int) $r['lcp_ms'] : null,
                 'tbt_ms'         => $r['inp_ms'] !== null ? (int) $r['inp_ms'] : null,
                 'cls'            => $r['cls'] !== null ? (float) $r['cls'] : null,
+                'findings'       => $scores['findings'] ?? [],
             ];
         }
         return $out;

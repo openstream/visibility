@@ -955,7 +955,71 @@ final class ReportBuilder
             . '„Barrierefreiheit" misst die Zugänglichkeit der Seite (Kontraste, Alt-Texte, '
             . 'Bedienbarkeit). LCP unter 2500 ms und CLS unter 0,1 gelten als gut.') . "\n\n";
 
+        $md .= $this->pageSpeedRecommendations($ps);
+
         return $md;
+    }
+
+    /**
+     * Konkrete Empfehlungen je Lighthouse-Kategorie, aggregiert über die geprüften Seiten:
+     * die häufigsten Verbesserungspunkte (mit Anzahl betroffener Seiten) + ein Hinweis, wo
+     * schon alles erfüllt ist. Deutsch, kundenverständlich.
+     * @param array<int,array<string,mixed>> $ps
+     */
+    private function pageSpeedRecommendations(array $ps): string
+    {
+        $labels = [
+            'performance'    => 'Performance (Ladeleistung)',
+            'accessibility'  => 'Barrierefreiheit',
+            'best-practices' => 'Best Practices',
+            'seo'            => 'SEO (Technik)',
+        ];
+        $pageCount = count($ps);
+
+        $md = "**Konkrete Empfehlungen je Bereich:**\n\n";
+        $any = false;
+        foreach ($labels as $catKey => $label) {
+            // Verbesserungspunkte über alle Seiten zählen; Seiten ohne offene Punkte in dieser
+            // Kategorie ⇒ dort schon alles gut.
+            $counts = [];
+            $cleanPages = 0;
+            $hasCat = false;
+            foreach ($ps as $r) {
+                $f = $r['findings'][$catKey] ?? null;
+                if ($f === null) {
+                    continue;
+                }
+                $hasCat = true;
+                $improve = $f['improve'] ?? [];
+                if (!$improve) {
+                    $cleanPages++;
+                }
+                foreach ($improve as $item) {
+                    $counts[$item] = ($counts[$item] ?? 0) + 1;
+                }
+            }
+            if (!$hasCat) {
+                continue;
+            }
+            $any = true;
+            arsort($counts);
+
+            $md .= "*{$label}:*  \n";
+            if ($counts) {
+                foreach (array_slice($counts, 0, 4, true) as $item => $cnt) {
+                    $scope = $pageCount > 1 ? " ({$cnt} von {$pageCount} Seiten)" : '';
+                    $md .= "- Verbessern: {$item}{$scope}\n";
+                }
+                if ($cleanPages > 0 && $pageCount > 1) {
+                    $md .= '- ' . $this->gray("Auf {$cleanPages} Seite(n) in diesem Bereich bereits alles erfüllt.") . "\n";
+                }
+            } else {
+                $md .= '- ' . $this->gray('Alle Prüfungen bestanden. Sehr gut.') . "\n";
+            }
+            $md .= "\n";
+        }
+
+        return $any ? $md : '';
     }
 
     /** Score-Zelle: Wert oder „—", ohne Farbcode (Markdown). */
