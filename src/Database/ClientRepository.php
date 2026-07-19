@@ -815,15 +815,81 @@ final class ClientRepository
         return $n;
     }
 
+    /**
+     * Speichert PageSpeed/Lighthouse-Ergebnisse je URL (source=pagespeed). CWV in die
+     * dedizierten Spalten, die vier Scores + URL im issues-JSON. Idempotent pro Tag.
+     * @param array<int,array<string,mixed>> $rows aus PageSpeedProvider::analyze()
+     */
+    public function savePageSpeed(int $clientId, array $rows, string $measuredAt): int
+    {
+        $this->db->prepare('DELETE FROM onsite_audits WHERE client_id=? AND measured_at=? AND source=?')
+            ->execute([$clientId, $measuredAt, 'pagespeed']);
+        $ins = $this->db->prepare(
+            'INSERT INTO onsite_audits (client_id, url, lcp_ms, inp_ms, cls, performance, issues, source, measured_at)
+             VALUES (:cid, :url, :lcp, :inp, :cls, :perf, :issues, :src, :mdate)'
+        );
+        $n = 0;
+        foreach ($rows as $r) {
+            $ins->execute([
+                'cid' => $clientId, 'url' => $r['url'] ?? null,
+                'lcp' => $r['lcp_ms'] ?? null, 'inp' => $r['tbt_ms'] ?? null, 'cls' => $r['cls'] ?? null,
+                'perf' => $r['performance'] ?? null,
+                'issues' => $this->json([
+                    'accessibility'  => $r['accessibility'] ?? null,
+                    'best_practices' => $r['best_practices'] ?? null,
+                    'seo'            => $r['seo'] ?? null,
+                ]),
+                'src' => 'pagespeed', 'mdate' => $measuredAt,
+            ]);
+            $n++;
+        }
+        return $n;
+    }
+
+    /**
+     * PageSpeed/Lighthouse-Ergebnisse für einen Monat (jüngster Stand). Für den Report.
+     * @return array<int,array<string,mixed>>
+     */
+    public function pageSpeed(int $clientId, string $period): array
+    {
+        [$start, $end] = $this->monthRange($period);
+        $stmt = $this->db->prepare(
+            "SELECT url, lcp_ms, inp_ms, cls, performance, issues FROM onsite_audits
+             WHERE client_id=? AND measured_at BETWEEN ? AND ? AND source='pagespeed'
+             AND measured_at=(SELECT MAX(measured_at) FROM onsite_audits o2
+                              WHERE o2.client_id=onsite_audits.client_id AND o2.source='pagespeed'
+                                AND o2.measured_at BETWEEN ? AND ?)"
+        );
+        $stmt->execute([$clientId, $start, $end, $start, $end]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $r) {
+            $scores = $r['issues'] ? (json_decode((string) $r['issues'], true) ?: []) : [];
+            $out[] = [
+                'url'            => $r['url'],
+                'performance'    => $r['performance'] !== null ? (int) $r['performance'] : null,
+                'accessibility'  => $scores['accessibility'] ?? null,
+                'best_practices' => $scores['best_practices'] ?? null,
+                'seo'            => $scores['seo'] ?? null,
+                'lcp_ms'         => $r['lcp_ms'] !== null ? (int) $r['lcp_ms'] : null,
+                'tbt_ms'         => $r['inp_ms'] !== null ? (int) $r['inp_ms'] : null,
+                'cls'            => $r['cls'] !== null ? (float) $r['cls'] : null,
+            ];
+        }
+        return $out;
+    }
+
     /** @return array<int,array<string,mixed>> Onsite-Audit für einen Monat */
     public function onsiteAudit(int $clientId, string $period): array
     {
         [$start, $end] = $this->monthRange($period);
+        // Subquery muss auf source='dataforseo_onpage' filtern, sonst wählt ein späterer
+        // PageSpeed-Lauf (andere source, gleiche Tabelle) den MAX-Tag und die Zeilen fehlen.
         $stmt = $this->db->prepare(
             "SELECT url, issues FROM onsite_audits
              WHERE client_id=? AND measured_at BETWEEN ? AND ? AND source='dataforseo_onpage'
              AND measured_at=(SELECT MAX(measured_at) FROM onsite_audits o2
-                              WHERE o2.client_id=onsite_audits.client_id AND o2.measured_at BETWEEN ? AND ?)"
+                              WHERE o2.client_id=onsite_audits.client_id AND o2.source='dataforseo_onpage'
+                                AND o2.measured_at BETWEEN ? AND ?)"
         );
         $stmt->execute([$clientId, $start, $end, $start, $end]);
         return array_map(static fn($r) => json_decode((string) $r['issues'], true) ?: ['url' => $r['url']], $stmt->fetchAll());

@@ -883,7 +883,58 @@ final class ReportBuilder
             $md .= "\n";
         }
 
+        $md .= $this->pageSpeedBlock($clientId, $period);
+
         return $md;
+    }
+
+    /**
+     * PageSpeed/Lighthouse-Block (Performance, Barrierefreiheit, Best Practices, SEO je Seite +
+     * Core Web Vitals). Blendet sich ohne PageSpeed-Daten aus (collect --pagespeed nötig).
+     */
+    private function pageSpeedBlock(int $clientId, string $period): string
+    {
+        $ps = $this->repo->pageSpeed($clientId, $period);
+        if (!$ps) {
+            return '';
+        }
+
+        $md = "**Ladeleistung & Qualität (Google Lighthouse, mobil):**\n\n";
+        $md .= "| Seite | Performance | Barrierefreiheit | Best Practices | SEO |\n"
+            . "|---|---:|---:|---:|---:|\n";
+        foreach ($ps as $r) {
+            $md .= '| ' . $this->shortUrl((string) ($r['url'] ?? ''))
+                . ' | ' . $this->scoreCell($r['performance'] ?? null)
+                . ' | ' . $this->scoreCell($r['accessibility'] ?? null)
+                . ' | ' . $this->scoreCell($r['best_practices'] ?? null)
+                . ' | ' . $this->scoreCell($r['seo'] ?? null) . " |\n";
+        }
+        $md .= "\n";
+
+        // Core Web Vitals (Lab): der schlechteste Wert je Metrik als Ampel für den Kunden.
+        $lcp = array_values(array_filter(array_map(static fn($r) => $r['lcp_ms'] ?? null, $ps), static fn($v) => $v !== null));
+        $cls = array_values(array_filter(array_map(static fn($r) => $r['cls'] ?? null, $ps), static fn($v) => $v !== null));
+        if ($lcp || $cls) {
+            $parts = [];
+            if ($lcp) {
+                $parts[] = 'Grösster Inhalt sichtbar (LCP) im Schnitt ' . (int) round(array_sum($lcp) / count($lcp)) . ' ms';
+            }
+            if ($cls) {
+                $parts[] = 'Layout-Stabilität (CLS) Ø ' . number_format(array_sum($cls) / count($cls), 3, ',', '');
+            }
+            $md .= '- Core Web Vitals: ' . implode(', ', $parts) . "\n";
+        }
+        $md .= $this->gray('Werte 0 bis 100, höher ist besser (Google Lighthouse, mobile Ansicht). '
+            . '„Barrierefreiheit" misst die Zugänglichkeit der Seite (Kontraste, Alt-Texte, '
+            . 'Bedienbarkeit). LCP unter 2500 ms und CLS unter 0,1 gelten als gut.') . "\n\n";
+
+        return $md;
+    }
+
+    /** Score-Zelle: Wert oder „—", ohne Farbcode (Markdown). */
+    private function scoreCell(?int $score): string
+    {
+        return $score === null ? '—' : (string) $score;
     }
 
     /** @param array<string,mixed> $cfg */

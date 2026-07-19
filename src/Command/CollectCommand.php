@@ -36,6 +36,7 @@ final class CollectCommand extends Command
         $this->addOption('onsite', null, InputOption::VALUE_NONE, 'Onsite-Audit der wichtigsten Seiten (DataForSEO OnPage)');
         $this->addOption('offsite', null, InputOption::VALUE_NONE, 'Offsite/Backlinks-Snapshot (DataForSEO)');
         $this->addOption('labs', null, InputOption::VALUE_NONE, 'Sichtbarkeitsbreite (DataForSEO Labs: alle Rankings, Top-Seiten, Difficulty)');
+        $this->addOption('pagespeed', null, InputOption::VALUE_NONE, 'PageSpeed/Lighthouse für die key_pages (gratis, langsam ~15s/Seite)');
         $this->addOption('social', null, InputOption::VALUE_NONE, 'Social-Kennzahlen der eigenen Kanäle (YouTube + OAuth-Verbindungen)');
         $this->addOption('newsletter', null, InputOption::VALUE_NONE, 'Newsletter-Kennzahlen (Sendy/Mailchimp je Kunden-Config)');
         $this->addOption('date', null, InputOption::VALUE_REQUIRED, 'measured_at überschreiben (Y-m-d, Default heute)');
@@ -266,6 +267,33 @@ final class CollectCommand extends Command
                 $io->note(sprintf('DataForSEO-Labs-Kosten: $%.4f', $dfsLabs->spent()));
             } catch (\Throwable $e) {
                 $io->warning('Labs fehlgeschlagen: ' . $e->getMessage());
+            }
+        }
+
+        // --- PageSpeed / Lighthouse (gratis, langsam) für die key_pages ---
+        if ($input->getOption('pagespeed')) {
+            $io->section('PageSpeed / Lighthouse');
+            $psUrls = array_values(array_filter((array) ($cfg['key_pages']
+                ?? ['https://' . ($cfg['domain'] ?? $slug) . '/'])));
+            $io->text(count($psUrls) . ' Seiten prüfen (je ~15 Sek) …');
+            try {
+                $ps = \Openstream\Visibility\Provider\PageSpeedProvider::fromEnv();
+                $rows = [];
+                foreach ($psUrls as $u) {
+                    $r = $ps->analyze($u);
+                    if ($r !== null) {
+                        $rows[] = $r;
+                    }
+                }
+                if ($rows) {
+                    $n = $repo->savePageSpeed($clientId, $rows, $measuredAt);
+                    $avgPerf = (int) round(array_sum(array_map(static fn($r) => (int) ($r['performance'] ?? 0), $rows)) / count($rows));
+                    $io->success("PageSpeed: {$n} Seiten geprüft, Ø Performance {$avgPerf}/100.");
+                } else {
+                    $io->warning('PageSpeed lieferte keine Ergebnisse.');
+                }
+            } catch (\Throwable $e) {
+                $io->warning('PageSpeed fehlgeschlagen: ' . $e->getMessage());
             }
         }
 
