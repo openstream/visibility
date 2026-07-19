@@ -433,7 +433,7 @@ Alles Schweizer Domains, deutschsprachig, lokaler Fokus. Konsequenzen:
 | Google SEO | ✅ | GSC API (verifizierte Properties) / DataForSEO SERP (CH+DE) |
 | Bing SEO | ✅ | Bing WMT API (verifizierte Properties) |
 | Bing AI (Copilot/Bing-Summaries) | ✅ Daten da, ⚠️ **nur UI** | Dashboard/UI-Scrape bis Bing-API 2026 kommt |
-| Onsite/technisch | ✅ | DataForSEO OnPage (API) + PageSpeed/CrUX/GSC (gratis); hreflang de/fr/it-CH kommt aus OnPage |
+| Onsite/technisch | ✅ | DataForSEO OnPage (API) + PageSpeed/Lighthouse + Mozilla Observatory (gratis); hreflang de/fr/it-CH aus OnPage. CrUX weggelassen (keine KMU-Felddaten) |
 | Offsite/Backlinks | ✅ | DataForSEO Backlinks (.ch normal abgedeckt) + gratis eigene Domains via GSC/Bing |
 | ChatGPT (GEO) | ✅ | **DataForSEO LLM Responses** (`chat_gpt`, web_search, deutsche Prompts) — umgeht das US/EN-Limit; alternativ OpenAI direkt |
 | Gemini (GEO) | ✅ | DataForSEO LLM Responses (`gemini`, web_search) |
@@ -641,12 +641,25 @@ Immer zwei Perspektiven pro Kennzahl: **Momentaufnahme** (aktueller Stand) und
 
 ## Phasenplan
 
-**Stand:** Phasen 0–3 sowie 2.5 + 2.6 sind ✅ **fertig** — Datenerhebung (SEO-Rankings,
-Onsite, Offsite, GEO inkl. Bing-AI/Copilot), Social via OAuth (YouTube/Instagram/TikTok live)
-und Newsletter (Sendy) sind angebunden, der ausführliche deutsche Report inkl. Charts +
-Executive Summary wird pro Kunde/Monat erzeugt (openstream Juni + Juli live). **Offen:**
-Phase 4 (Versand als Gmail-Draft), Phase 5 (Cron + Web-UI), Phase 6 (Produktion) — plus
-die weiteren CH-Kundendomains onboarden.
+**Stand:** Phasen 0–3 sowie 2.5 + 2.6 sind ✅ **fertig**. Angebunden ist die volle
+Datenerhebung: SEO-Rankings (GSC/Bing/DataForSEO), Sichtbarkeitsbreite + Suchvolumen +
+Keyword-Difficulty (DataForSEO Labs & Keywords Data), Onsite technisch (DataForSEO OnPage +
+PageSpeed/Lighthouse mit Empfehlungen + Mozilla Observatory Security), Offsite/Backlinks,
+GEO in ChatGPT/Perplexity/AI-Overview + Bing-AI/Copilot, Social via OAuth
+(YouTube/Instagram/TikTok live) und Newsletter (Sendy). Der ausführliche deutsche Report
+inkl. SVG-Charts + LLM-Executive-Summary wird pro Kunde/Monat erzeugt (openstream Juni + Juli
+live, alles unter ~1 CHF/Report).
+
+**Als Nächstes (Roadmap):**
+1. **Phase 4 — Versand:** `send` als Gmail-Draft (Executive Summary als Body, `.md` als Anhang)
+   zur manuellen Freigabe. Gmail-MCP verfügbar; SMTP als Fallback offen.
+2. **Weitere CH-Kundendomains onboarden** (`onboard --labs-ideas` + backfill), dann laufend
+   erheben.
+3. **Phase 5 — Automatisierung:** wöchentlicher Cron (`collect`), monatlicher Cron
+   (`report` → Draft) + minimale interne Web-UI.
+4. **Phase 6 — Produktion:** Deploy auf `visibility.openstream.ch`, Server-Cron, Backups.
+5. Optional: Handlungsempfehlungs-Abschnitt über alle Bereiche, Kosten-/Fehler-Logging,
+   quartalsweises Re-Onboarding.
 
 ### Phase 0 — Setup & Konzept ✅/🟡
 - [x] `CLAUDE.md` + `README.md` (Konzept/Recherche/Statusplan) + API-Recherche
@@ -754,15 +767,19 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       - **Grounding Queries zusätzlich als GEO-Prompt-Saatgut** ans Onboarding (`onboard --bing-ai`).
       - Sobald Microsoft die API liefert (angekündigt «im Laufe 2026»): auf API umstellen,
         Importer als Fallback behalten.
-- [x] 🟡 `OnsiteProvider` (**rein API-basiert, umgesetzt**) via DataForSEO OnPage
-      (`on_page/instant_pages`): technische Checks je Seite (Title/Description-Länge,
-      H1/H2, interne/externe Links, 17 Problem-Checks wie Title zu lang, fehlende
-      Alt-Texte, Broken/4xx/5xx, Duplicate Meta …) → `onsite_audits`. In `collect --onsite`
-      eingebunden, im Report als Abschnitt 2 aufbereitet. **Kein eigener Crawler.**
-      **Seitenauswahl (umgesetzt):** `key_pages` aus der Config + Top-Seiten aus GSC
-      (nach Klicks), dedupliziert auf max. 25 Seiten (`onsiteUrls()`).
-      **Offen (optional):** PageSpeed/CrUX (Core Web Vitals) + Mozilla Observatory
-      (Security-Header), beide gratis — als zusätzliche Signale.
+- [x] `OnsiteProvider` (**umgesetzt**) via DataForSEO OnPage (`on_page/instant_pages`):
+      technische Checks je Seite (Title/Description-Länge, H1/H2, Links, Problem-Checks wie
+      Title zu lang, fehlende Alt-Texte, Broken/4xx/5xx, Duplicate Meta …) + OnPage-Score,
+      Ladezeiten (page_timing), Social-Sharing-Tags, positive Checks → `onsite_audits`.
+      Seitenauswahl: `key_pages` + Top-GSC-Seiten, max. 25 (`onsiteUrls()`). **Kein Crawler.**
+- [x] **PageSpeed / Lighthouse (umgesetzt, gratis):** `collect --pagespeed` für die key_pages —
+      vier Scores (Performance, Barrierefreiheit/Usability, Best Practices, SEO) + Core Web
+      Vitals + **konkrete Empfehlungen je Bereich auf Deutsch** (was verbessern, was schon gut).
+      Ein `GOOGLE_API_KEY`.
+- [x] **Mozilla Observatory (umgesetzt, gratis, kein Key):** `collect --security` — Note +
+      Score der HTTP-Sicherheitsheader → im Onsite-Abschnitt.
+- ⏹️ **CrUX bewusst weggelassen** (kein Aufwand geplant): liefert für KMU-Domains (openstream)
+      keine Feld-Daten (zu wenig Chrome-Traffic); PageSpeed-Lab-Daten decken die Performance ab.
 - [x] `OffsiteProvider` (**umgesetzt**) via DataForSEO `backlinks/summary/live`:
       Domain Rank (0–1000), Backlinks gesamt, referring domains, broken/neu/verloren
       → `backlinks`. In `collect --offsite` eingebunden, im Report als Abschnitt 3.
@@ -793,7 +810,9 @@ Eigener Schritt **vor** der ersten Datenerhebung. Vollständig durchlaufen auf o
       Erwähnungs-Rate (Microsoft liefert nur Treffer = Stichprobe).
 - [x] `bin/console collect --client=<slug>` (läuft **wöchentlich**) schreibt
       normalisiert → DB **mit `measured_at`**, idempotent pro Tag/Quelle. Flags:
-      `--serp`/`--geo`/`--onsite`/`--offsite`/`--social`/`--newsletter`, `--date` zum Nachtragen.
+      `--serp`/`--geo`/`--onsite`/`--offsite`/`--labs`/`--pagespeed`/`--security`/`--social`/
+      `--newsletter`, `--date` zum Nachtragen. Suchvolumen separat via `refresh-volume`
+      (quartalsweise), Bing-AI via `import-bing-ai` (CSV).
       **Historischer Nachtrag (umgesetzt):** bei `--date` in einem abgeschlossenen Monat holt
       GSC die Keyword-Positionen für genau diesen Monat (Datumsbereich statt letzte 28 Tage);
       Bing WMT + DataForSEO-SERP werden dann übersprungen (liefern keinen historischen Monat).
